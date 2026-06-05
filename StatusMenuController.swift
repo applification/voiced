@@ -40,6 +40,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         settings.launchAtLogin = SMAppService.mainApp.status == .enabled
 
+        menu.addItem(statusItem(title: settings.pushToTalkHotkey.menuTitle,
+                                symbolName: "keyboard"))
         menu.addItem(statusItem(title: micAuthorized ? "Mic OK" : "Mic Needed",
                                 symbolName: micAuthorized ? "checkmark.circle" : "mic.slash"))
         menu.addItem(statusItem(title: accessibilityEnabled ? "Paste Permission OK" : "Enable Accessibility for Paste",
@@ -56,6 +58,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         let outputItem = NSMenuItem(title: "Output", action: nil, keyEquivalent: "")
         outputItem.submenu = outputMenu
         menu.addItem(outputItem)
+        addPushToTalkMenu()
         menu.addItem(actionItem(title: settings.modelDownloadsApproved ? "Model Downloads Approved" : "Approve Model Downloads",
                                 action: #selector(approveModelDownloads),
                                 state: settings.modelDownloadsApproved ? .on : .off))
@@ -151,6 +154,20 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.addItem(modelItem)
     }
 
+    private func addPushToTalkMenu() {
+        let hotkeyMenu = NSMenu()
+        for hotkey in PushToTalkHotkey.allCases {
+            hotkeyMenu.addItem(actionItem(title: hotkey.label,
+                                          action: #selector(setPushToTalkHotkey(_:)),
+                                          state: settings.pushToTalkHotkey == hotkey ? .on : .off,
+                                          representedObject: hotkey.rawValue))
+        }
+
+        let hotkeyItem = NSMenuItem(title: "Push-to-Talk Key", action: nil, keyEquivalent: "")
+        hotkeyItem.submenu = hotkeyMenu
+        menu.addItem(hotkeyItem)
+    }
+
     private func addSoundMenu() {
         let soundMenu = NSMenu()
 
@@ -187,6 +204,13 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     @objc private func setOutputCopy() {
         settings.outputMode = .copyOnly
+    }
+
+    @objc private func setPushToTalkHotkey(_ sender: NSMenuItem) {
+        guard let rawValue = sender.representedObject as? String,
+              let hotkey = PushToTalkHotkey(rawValue: rawValue) else { return }
+        settings.pushToTalkHotkey = hotkey
+        rebuildMenu()
     }
 
     @objc private func setActivationSound(_ sender: NSMenuItem) {
@@ -308,8 +332,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             let window = NSWindow(contentViewController: hostingController)
             window.title = "Voiced Settings"
             window.styleMask = [.titled, .closable, .miniaturizable]
-            window.setContentSize(NSSize(width: 520, height: 280))
-            window.minSize = NSSize(width: 520, height: 280)
+            window.setContentSize(NSSize(width: 520, height: 320))
+            window.minSize = NSSize(width: 520, height: 320)
             window.isReleasedWhenClosed = false
             window.center()
             settingsWindow = window

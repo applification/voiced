@@ -1,4 +1,5 @@
 import CoreML
+import CoreGraphics
 import Foundation
 import Observation
 import WhisperKit
@@ -47,6 +48,12 @@ final class SettingsStore {
         }
     }
 
+    var pushToTalkHotkey: PushToTalkHotkey {
+        didSet {
+            userDefaults.set(pushToTalkHotkey.rawValue, forKey: Keys.pushToTalkHotkey)
+        }
+    }
+
     private let userDefaults: UserDefaults
 
     init(userDefaults: UserDefaults = .standard) {
@@ -75,6 +82,50 @@ final class SettingsStore {
         let storedDeactivationSound = userDefaults.string(forKey: Keys.deactivationSound)
             .flatMap(SoundCue.init(rawValue:))
         deactivationSound = storedDeactivationSound ?? .tink
+
+        let storedPushToTalkHotkey = userDefaults.string(forKey: Keys.pushToTalkHotkey)
+            .flatMap(PushToTalkHotkey.init(rawValue:))
+        pushToTalkHotkey = storedPushToTalkHotkey ?? .rightCommand
+    }
+}
+
+enum PushToTalkHotkey: String, CaseIterable, Identifiable {
+    case rightCommand
+    case rightOption
+    case rightControl
+    case rightShift
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .rightCommand: "Right Command"
+        case .rightOption: "Right Option"
+        case .rightControl: "Right Control"
+        case .rightShift: "Right Shift"
+        }
+    }
+
+    var menuTitle: String {
+        "Hold \(label) to Record"
+    }
+
+    var keyCode: CGKeyCode {
+        switch self {
+        case .rightCommand: 54
+        case .rightOption: 61
+        case .rightControl: 62
+        case .rightShift: 60
+        }
+    }
+
+    var eventFlag: CGEventFlags {
+        switch self {
+        case .rightCommand: .maskCommand
+        case .rightOption: .maskAlternate
+        case .rightControl: .maskControl
+        case .rightShift: .maskShift
+        }
     }
 }
 
@@ -193,4 +244,5 @@ private enum Keys {
     static let launchAtLogin = "launchAtLogin"
     static let activationSound = "activationSound"
     static let deactivationSound = "deactivationSound"
+    static let pushToTalkHotkey = "pushToTalkHotkey"
 }

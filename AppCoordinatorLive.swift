@@ -22,7 +22,6 @@ final class AppCoordinator {
     private var modelApprovalObserver: NSObjectProtocol?
     private var modelProgressObserver: NSObjectProtocol?
     private var meteringTask: Task<Void, Never>?
-    private let rightCommandKeyCode: CGKeyCode = 54 // Right Command keycode on macOS
     private var isPTTDown = false
     private var isShowingModelProgress = false
 
@@ -67,8 +66,9 @@ final class AppCoordinator {
             switch type {
             case .flagsChanged:
                 AppCoordinator.logger.debug("flagsChanged keyCode=\(keyCode, privacy: .public) flags=\(UInt64(flags.rawValue), privacy: .public)")
-                guard keyCode == self.rightCommandKeyCode else { return }
-                let isDown = flags.contains(.maskCommand)
+                let hotkey = self.settings.pushToTalkHotkey
+                guard keyCode == hotkey.keyCode else { return }
+                let isDown = flags.contains(hotkey.eventFlag)
                 if isDown && !self.isPTTDown { self.isPTTDown = true; self.handleKeyDown() }
                 if !isDown && self.isPTTDown { self.isPTTDown = false; self.handleKeyUp() }
             default:

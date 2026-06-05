@@ -31,6 +31,17 @@ struct SettingsView: View {
                 }
 
                 GridRow {
+                    Text("Push-to-talk")
+                        .foregroundStyle(.secondary)
+                    Picker("Push-to-talk", selection: Bindable(settings).pushToTalkHotkey) {
+                        ForEach(PushToTalkHotkey.allCases) { hotkey in
+                            Text(hotkey.label).tag(hotkey)
+                        }
+                    }
+                    .labelsHidden()
+                }
+
+                GridRow {
                     Text("Last capture")
                         .foregroundStyle(.secondary)
                     Stepper(
@@ -78,7 +89,7 @@ struct SettingsView: View {
             Spacer(minLength: 0)
         }
         .padding(24)
-        .frame(width: 520, height: 280)
+        .frame(width: 520, height: 320)
         .onChange(of: settings.transcriptionModel) {
             NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
         }
