@@ -31,6 +31,11 @@ Outputs:
 - `dist/release/archive/Voiced.app`
 - `dist/release/Voiced-<version>.zip`
 - `dist/release/Voiced-<version>.dmg`
+- `dist/release/Voiced.dmg`
+
+Upload either DMG to the GitHub release. The website `/download` route asks the
+GitHub latest-release API for the first `.dmg` asset and redirects to it. If no
+DMG is attached yet, it falls back to the latest release page.
 
 ## Package and notarize
 

@@ -35,6 +35,7 @@ Outputs:
   dist/release/archive/Voiced.app
   dist/release/Voiced-<version>.zip
   dist/release/Voiced-<version>.dmg
+  dist/release/Voiced.dmg
 EOF
 }
 
@@ -183,18 +184,22 @@ verify_app
 version="$(app_version)"
 zip_path="$DIST_DIR/$APP_NAME-$version.zip"
 dmg_path="$DIST_DIR/$APP_NAME-$version.dmg"
+stable_dmg_path="$DIST_DIR/$APP_NAME.dmg"
 
 create_zip "$zip_path"
 create_dmg "$dmg_path"
+cp "$dmg_path" "$stable_dmg_path"
 
 if [[ "$NOTARIZE" == true ]]; then
   notarize_dmg "$dmg_path"
+  cp "$dmg_path" "$stable_dmg_path"
 fi
 
 echo "Release packaging complete:"
 echo "  App: $RELEASE_APP"
 echo "  Zip: $zip_path"
 echo "  DMG: $dmg_path"
+echo "  Latest DMG: $stable_dmg_path"
 if [[ "$NOTARIZE" != true ]]; then
   echo "Notarization skipped. Run with --notarize after setting VOICED_NOTARY_PROFILE."
 fi
