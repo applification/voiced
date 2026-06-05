@@ -4,7 +4,7 @@ import os
 
 @MainActor
 final class HotkeyManager {
-    private static let logger = Logger(subsystem: "com.voiced.app", category: "hotkeys")
+    private static let logger = Logger(subsystem: "net.applification.voiced", category: "hotkeys")
     private var promptedAX: Bool = false
 
     typealias KeyHandler = (_ type: CGEventType, _ keyCode: CGKeyCode, _ flags: CGEventFlags) -> Void

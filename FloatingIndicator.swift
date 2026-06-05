@@ -340,7 +340,9 @@ final class FloatingIndicator {
     }
 
     private static func detectNotchGeometry() -> NotchGeometry? {
-        let screen = NSApp.keyWindow?.screen ?? NSScreen.main
+        let screen = NSApp.keyWindow?.screen
+            ?? NSScreen.main
+            ?? NSScreen.screens.first { $0.safeAreaInsets.top > 0 }
         guard let screen, screen.safeAreaInsets.top > 0 else { return nil }
 
         let frame = screen.frame
@@ -350,10 +352,12 @@ final class FloatingIndicator {
         let width: CGFloat
 
         if let leftArea, let rightArea, !leftArea.isEmpty, !rightArea.isEmpty {
-            centerX = (leftArea.maxX + rightArea.minX) / 2 + 1
+            let rawCenterX = (leftArea.maxX + rightArea.minX) / 2
+            let isScreenLocalCoordinate = rawCenterX >= 0 && rawCenterX <= frame.width
+            centerX = isScreenLocalCoordinate ? frame.minX + rawCenterX : rawCenterX
             width = max(170, rightArea.minX - leftArea.maxX - 16)
         } else {
-            centerX = frame.midX + 1
+            centerX = frame.midX
             width = 170
         }
 

@@ -8,7 +8,7 @@ enum OutputBehavior {
 }
 
 final class OutputManager {
-    private static let logger = Logger(subsystem: "com.voiced.app", category: "output")
+    private static let logger = Logger(subsystem: "net.applification.voiced", category: "output")
 
     private struct SavedPasteboardItem {
         let dataByType: [(NSPasteboard.PasteboardType, Data)]

@@ -19,7 +19,7 @@ detect_signing_identity() {
   fi
 
   security find-identity -v -p codesigning 2>/dev/null \
-    | sed -n 's/.*"\(Apple Development: .*\)".*/\1/p' \
+    | sed -n 's/^[[:space:]]*[0-9]*)[[:space:]]*\([A-F0-9][A-F0-9]*\)[[:space:]]*"Apple Development: .*".*/\1/p' \
     | head -n 1
 }
 

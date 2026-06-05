@@ -2,9 +2,9 @@ import Foundation
 import os
 
 enum Log {
-    static let app = Logger(subsystem: "com.voiced.app", category: "app")
-    static let audio = Logger(subsystem: "com.voiced.app", category: "audio")
-    static let ml = Logger(subsystem: "com.voiced.app", category: "ml")
+    static let app = Logger(subsystem: "net.applification.voiced", category: "app")
+    static let audio = Logger(subsystem: "net.applification.voiced", category: "audio")
+    static let ml = Logger(subsystem: "net.applification.voiced", category: "ml")
 }
 
 @inline(__always)

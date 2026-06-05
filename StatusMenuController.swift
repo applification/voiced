@@ -11,7 +11,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private let lastCapture: LastCaptureStore
     private let output = OutputManager()
     private let permissions = PermissionManager()
-    private let logger = Logger(subsystem: "com.voiced.app", category: "status-menu")
+    private let logger = Logger(subsystem: "net.applification.voiced", category: "status-menu")
 
     private let statusItem: NSStatusItem
     private let menu = NSMenu()

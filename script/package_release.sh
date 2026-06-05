@@ -65,7 +65,7 @@ detect_developer_id_identity() {
   fi
 
   security find-identity -v -p codesigning 2>/dev/null \
-    | sed -n 's/.*"\(Developer ID Application: .*\)".*/\1/p' \
+    | sed -n 's/^[[:space:]]*[0-9]*)[[:space:]]*\([A-F0-9][A-F0-9]*\)[[:space:]]*"Developer ID Application: .*".*/\1/p' \
     | head -n 1
 }
 

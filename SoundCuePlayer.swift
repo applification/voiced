@@ -3,7 +3,7 @@ import os
 
 @MainActor
 final class SoundCuePlayer {
-    private static let logger = Logger(subsystem: "com.voiced.app", category: "sound")
+    private static let logger = Logger(subsystem: "net.applification.voiced", category: "sound")
 
     private let settings: SettingsStore
 

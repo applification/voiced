@@ -10,11 +10,12 @@ protocol TranscriptionService {
 
 @MainActor
 final class WhisperKitTranscriptionService: TranscriptionService {
-    private let logger = Logger(subsystem: "com.voiced.app", category: "transcription")
+    private let logger = Logger(subsystem: "net.applification.voiced", category: "transcription")
     private let settings: SettingsStore
     private var whisperKit: WhisperKit?
     private var loadedModel: TranscriptionModel?
     private var loadTask: Task<Void, Error>?
+    private let loadTimeoutNanoseconds: UInt64 = 120_000_000_000
 
     init(settings: SettingsStore) {
         self.settings = settings
@@ -49,13 +50,30 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         }
         loadTask = task
         do {
-            try await task.value
+            try await waitForLoadTask(task, selectedModel: selectedModel)
             loadTask = nil
         } catch {
             loadTask = nil
+            task.cancel()
             throw error
         }
         logger.info("WhisperKit model loaded: \(selectedModel.rawValue, privacy: .public)")
+    }
+
+    private func waitForLoadTask(_ task: Task<Void, Error>, selectedModel: TranscriptionModel) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await task.value
+            }
+            group.addTask { [loadTimeoutNanoseconds] in
+                try await Task.sleep(nanoseconds: loadTimeoutNanoseconds)
+                throw TranscriptionError.modelLoadTimedOut(selectedModel.label)
+            }
+
+            guard let result = try await group.next() else { return }
+            group.cancelAll()
+            return result
+        }
     }
 
     func transcribeFile(at url: URL) async throws -> String {
@@ -83,6 +101,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
 enum TranscriptionError: LocalizedError {
     case modelDownloadNotApproved(String)
     case modelNotLoaded
+    case modelLoadTimedOut(String)
     case noResult
 
     var errorDescription: String? {
@@ -91,6 +110,8 @@ enum TranscriptionError: LocalizedError {
             "WhisperKit model '\(model)' has not been approved for download/loading."
         case .modelNotLoaded:
             "WhisperKit model was not loaded."
+        case .modelLoadTimedOut(let model):
+            "WhisperKit model '\(model)' did not finish loading."
         case .noResult:
             "WhisperKit completed without returning a transcription result."
         }

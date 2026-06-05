@@ -14,7 +14,7 @@ final class AppCoordinator {
     private let permissions = PermissionManager()
     private let soundCues: SoundCuePlayer
     
-    private static let logger = Logger(subsystem: "com.voiced.app", category: "coordinator")
+    private static let logger = Logger(subsystem: "net.applification.voiced", category: "coordinator")
 
     private var isRecording = false
     private var isTranscribing = false
