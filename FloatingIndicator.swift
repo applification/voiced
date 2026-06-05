@@ -1,4 +1,5 @@
 import AppKit
+import os
 import SwiftUI
 
 enum IndicatorState {
@@ -67,6 +68,7 @@ struct IndicatorView: View {
 
 private struct NotchContentView: View {
     let state: IndicatorState
+    let metrics: NotchIndicatorMetrics
 
     private let waveformColor = Color(red: 0.48, green: 0.78, blue: 0.56)
 
@@ -86,15 +88,15 @@ private struct NotchContentView: View {
             }
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 14)
-        .padding(.top, 4)
-        .padding(.bottom, 6)
-        .frame(minWidth: 170, minHeight: 33)
+        .padding(.horizontal, metrics.horizontalPadding)
+        .padding(.top, 3)
+        .padding(.bottom, 4)
+        .frame(width: metrics.width, height: metrics.height)
         .background {
             UnevenRoundedRectangle(
                 topLeadingRadius: 0,
-                bottomLeadingRadius: 16,
-                bottomTrailingRadius: 16,
+                bottomLeadingRadius: metrics.cornerRadius,
+                bottomTrailingRadius: metrics.cornerRadius,
                 topTrailingRadius: 0
             )
             .fill(.black)
@@ -102,13 +104,12 @@ private struct NotchContentView: View {
         .overlay {
             UnevenRoundedRectangle(
                 topLeadingRadius: 0,
-                bottomLeadingRadius: 16,
-                bottomTrailingRadius: 16,
+                bottomLeadingRadius: metrics.cornerRadius,
+                bottomTrailingRadius: metrics.cornerRadius,
                 topTrailingRadius: 0
             )
             .strokeBorder(.white.opacity(0.08))
         }
-        .fixedSize()
     }
 
     @ViewBuilder
@@ -116,10 +117,10 @@ private struct NotchContentView: View {
         switch state {
         case .recording(let level):
                 WaveformView(level: level, color: waveformColor)
-                    .frame(width: 104, height: 20)
+                    .frame(width: metrics.waveformWidth, height: metrics.waveformHeight)
                 Circle()
                     .fill(waveformColor)
-                    .frame(width: 5, height: 5)
+                    .frame(width: metrics.dotSize, height: metrics.dotSize)
         case .loadingModel(let model):
                 NotchSpinnerView(color: waveformColor)
                 VStack(alignment: .leading, spacing: 1) {
@@ -136,6 +137,31 @@ private struct NotchContentView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.yellow)
         }
+    }
+}
+
+private struct NotchIndicatorMetrics {
+    let width: CGFloat
+    let height: CGFloat
+
+    var horizontalPadding: CGFloat {
+        max(9, min(14, width * 0.075))
+    }
+
+    var cornerRadius: CGFloat {
+        max(11, min(15, height * 0.48))
+    }
+
+    var waveformWidth: CGFloat {
+        max(78, width - horizontalPadding * 2 - 26)
+    }
+
+    var waveformHeight: CGFloat {
+        max(15, height - 12)
+    }
+
+    var dotSize: CGFloat {
+        max(4, min(5, height * 0.15))
     }
 }
 
@@ -217,6 +243,8 @@ private struct WaveformView: View {
 
 @MainActor
 final class FloatingIndicator {
+    private static let logger = Logger(subsystem: "net.applification.voiced", category: "indicator")
+
     private var panel: NSPanel?
     private var notchGeometry: NotchGeometry?
     private var isVisible = false
@@ -226,7 +254,7 @@ final class FloatingIndicator {
         notchGeometry = Self.detectNotchGeometry()
         let isNotched = notchGeometry != nil
         let rootView = isNotched
-            ? AnyView(NotchContentView(state: state))
+            ? AnyView(NotchContentView(state: state, metrics: notchGeometry?.metrics ?? .fallback))
             : AnyView(IndicatorView(state: state))
         let hostingView = TransparentHostingView(rootView: rootView)
         hostingView.wantsLayer = true
@@ -298,9 +326,8 @@ final class FloatingIndicator {
     }
 
     private func positionNotch(_ panel: NSPanel, geometry: NotchGeometry, visible: Bool) {
-        let size = panel.contentView?.fittingSize ?? NSSize(width: geometry.width, height: 46)
-        let width = max(size.width, geometry.width)
-        let height = size.height
+        let width = geometry.metrics.width
+        let height = geometry.metrics.height
         panel.setContentSize(NSSize(width: width, height: height))
 
         let visibleY = geometry.visibleOriginY(forHeight: height)
@@ -310,6 +337,7 @@ final class FloatingIndicator {
             y: visible ? visibleY : hiddenY
         )
         panel.setFrameOrigin(origin)
+        Self.logger.info("Notch indicator frame origin=(\(origin.x, privacy: .public), \(origin.y, privacy: .public)) size=(\(width, privacy: .public), \(height, privacy: .public)) centerX=\(geometry.centerX, privacy: .public) screen=\(String(describing: geometry.screenFrame), privacy: .public)")
     }
 
     private func animateNotch(_ panel: NSPanel, visible: Bool, completion: (@MainActor @Sendable () -> Void)? = nil) {
@@ -340,40 +368,51 @@ final class FloatingIndicator {
     }
 
     private static func detectNotchGeometry() -> NotchGeometry? {
-        let screen = NSApp.keyWindow?.screen
+        let screen = NSScreen.screens.first { $0.safeAreaInsets.top > 0 }
+            ?? NSApp.keyWindow?.screen
             ?? NSScreen.main
-            ?? NSScreen.screens.first { $0.safeAreaInsets.top > 0 }
         guard let screen, screen.safeAreaInsets.top > 0 else { return nil }
 
         let frame = screen.frame
         let leftArea = screen.auxiliaryTopLeftArea
         let rightArea = screen.auxiliaryTopRightArea
-        let centerX: CGFloat
-        let width: CGFloat
+        let centerX = frame.midX
+        let metrics: NotchIndicatorMetrics
 
         if let leftArea, let rightArea, !leftArea.isEmpty, !rightArea.isEmpty {
-            let rawCenterX = (leftArea.maxX + rightArea.minX) / 2
-            let isScreenLocalCoordinate = rawCenterX >= 0 && rawCenterX <= frame.width
-            centerX = isScreenLocalCoordinate ? frame.minX + rawCenterX : rawCenterX
-            width = max(170, rightArea.minX - leftArea.maxX - 16)
+            let notchGap = max(0, rightArea.minX - leftArea.maxX)
+            metrics = NotchIndicatorMetrics.from(notchGap: notchGap, topInset: screen.safeAreaInsets.top)
         } else {
-            centerX = frame.midX
-            width = 170
+            metrics = .fallback
         }
+
+        logger.info("Detected notch screen frame=\(String(describing: frame), privacy: .public) visible=\(String(describing: screen.visibleFrame), privacy: .public) safeTop=\(screen.safeAreaInsets.top, privacy: .public) left=\(String(describing: leftArea), privacy: .public) right=\(String(describing: rightArea), privacy: .public) centerX=\(centerX, privacy: .public) width=\(metrics.width, privacy: .public) height=\(metrics.height, privacy: .public)")
 
         return NotchGeometry(
             screenFrame: frame,
             centerX: centerX,
-            width: width,
+            metrics: metrics,
             topInset: screen.safeAreaInsets.top
         )
+    }
+}
+
+private extension NotchIndicatorMetrics {
+    static let fallback = NotchIndicatorMetrics(width: 154, height: 28)
+
+    static func from(notchGap: CGFloat, topInset: CGFloat) -> NotchIndicatorMetrics {
+        let gapFittedWidth = notchGap * 0.86
+        let width = max(118, min(166, gapFittedWidth))
+        let insetFittedHeight = topInset * 0.86
+        let height = max(24, min(30, insetFittedHeight))
+        return NotchIndicatorMetrics(width: width, height: height)
     }
 }
 
 private struct NotchGeometry {
     let screenFrame: NSRect
     let centerX: CGFloat
-    let width: CGFloat
+    let metrics: NotchIndicatorMetrics
     let topInset: CGFloat
 
     var hiddenOriginY: CGFloat {
