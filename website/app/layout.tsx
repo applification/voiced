@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,15 @@ export const metadata: Metadata = {
   title: "Voiced",
   description:
     "A privacy-first, open-source dictation companion for macOS.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Voiced",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#000808",
 };
 
 export default function RootLayout({
