@@ -58,8 +58,8 @@ Input Monitoring may be needed on some systems for event taps. Voiced falls back
 If macOS appears to trust the wrong copy of the app:
 
 ```sh
-tccutil reset Accessibility com.applification.voiced
-tccutil reset Microphone com.applification.voiced
+tccutil reset Accessibility net.applification.voiced
+tccutil reset Microphone net.applification.voiced
 ```
 
 Then rerun `./script/build_and_run.sh install-run` and grant permissions again.

@@ -1,6 +1,6 @@
 name: Voiced
 options:
-  bundleIdPrefix: com.applification
+  bundleIdPrefix: net.applification
   deploymentTarget:
     macOS: "14.0"
 settings:
@@ -28,7 +28,7 @@ targets:
         product: WhisperKit
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.applification.voiced
+        PRODUCT_BUNDLE_IDENTIFIER: net.applification.voiced
         PRODUCT_NAME: Voiced
         INFOPLIST_FILE: Config/Info.plist
         CODE_SIGN_ENTITLEMENTS: Config/Voiced.entitlements

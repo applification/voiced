@@ -290,7 +290,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.applification.voiced;
+				PRODUCT_BUNDLE_IDENTIFIER = net.applification.voiced;
 				PRODUCT_NAME = Voiced;
 				SDKROOT = macosx;
 			};
@@ -368,7 +368,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.applification.voiced;
+				PRODUCT_BUNDLE_IDENTIFIER = net.applification.voiced;
 				PRODUCT_NAME = Voiced;
 				SDKROOT = macosx;
 			};
