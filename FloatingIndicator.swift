@@ -123,13 +123,12 @@ private struct NotchContentView: View {
                     .frame(width: metrics.dotSize, height: metrics.dotSize)
         case .loadingModel(let model):
                 NotchSpinnerView(color: waveformColor)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Loading model")
-                        .font(.caption)
-                    Text(model)
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.62))
-                }
+                Text(model)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+                    .frame(maxWidth: .infinity, alignment: .leading)
         case .transcribing:
             EmptyView()
         case .error:

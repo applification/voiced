@@ -21,18 +21,37 @@ struct ModelStore {
             .appendingPathComponent(model.cacheFolderName, isDirectory: true)
     }
 
-    var isDownloaded: Bool {
+    var existsOnDisk: Bool {
         FileManager.default.fileExists(atPath: localModelURL.path)
+    }
+
+    var isDownloaded: Bool {
+        isPlausiblyComplete
+    }
+
+    var hasRequiredModelFiles: Bool {
+        containsModel(named: "MelSpectrogram")
+            && containsModel(named: "AudioEncoder")
+            && containsModel(named: "TextDecoder")
+    }
+
+    var isPlausiblyComplete: Bool {
+        hasRequiredModelFiles
+            && downloadedBytes >= UInt64(Double(model.expectedDownloadBytes) * 0.95)
     }
 
     var formattedSize: String {
         guard isDownloaded else { return "Not downloaded" }
-        let bytes = directorySize(at: localModelURL)
+        let bytes = downloadedBytes
         return ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
     }
 
+    var downloadedBytes: UInt64 {
+        directorySize(at: localModelURL)
+    }
+
     func deleteDownloadedModel() throws {
-        guard isDownloaded else { return }
+        guard existsOnDisk else { return }
         try FileManager.default.removeItem(at: localModelURL)
     }
 
@@ -57,5 +76,25 @@ struct ModelStore {
             total += UInt64(fileSize)
         }
         return total
+    }
+
+    private func containsModel(named modelName: String) -> Bool {
+        guard let enumerator = FileManager.default.enumerator(
+            at: localModelURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return false
+        }
+
+        for case let fileURL as URL in enumerator {
+            let name = fileURL.deletingPathExtension().lastPathComponent
+            guard name == modelName else { continue }
+            let ext = fileURL.pathExtension
+            if ext == "mlmodelc" || ext == "mlpackage" {
+                return true
+            }
+        }
+        return false
     }
 }

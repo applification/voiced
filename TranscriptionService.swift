@@ -1,3 +1,4 @@
+import CoreML
 import Foundation
 import os
 import WhisperKit
@@ -15,7 +16,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
     private var whisperKit: WhisperKit?
     private var loadedModel: TranscriptionModel?
     private var loadTask: Task<Void, Error>?
-    private let loadTimeoutNanoseconds: UInt64 = 120_000_000_000
+    private var lastProgressByModel: [TranscriptionModel: Double] = [:]
+    private let preparationTimeoutNanoseconds: UInt64 = 60_000_000_000
 
     init(settings: SettingsStore) {
         self.settings = settings
@@ -44,13 +46,30 @@ final class WhisperKitTranscriptionService: TranscriptionService {
 
         logger.info("Loading WhisperKit model: \(selectedModel.rawValue, privacy: .public)")
         let task = Task { @MainActor [selectedModel] in
-            let config = WhisperKitConfig(model: selectedModel.rawValue, prewarm: true)
-            self.whisperKit = try await WhisperKit(config)
+            let modelFolder = try await self.resolveModelFolder(for: selectedModel)
+            self.postModelProgress(model: selectedModel, phase: "Preparing", fractionCompleted: 1)
+            let config = WhisperKitConfig(
+                model: selectedModel.rawValue,
+                modelFolder: modelFolder.path,
+                computeOptions: selectedModel.modelComputeOptions,
+                prewarm: false,
+                load: false,
+                download: false
+            )
+            let whisperKit = try await WhisperKit(config)
+            whisperKit.modelStateCallback = { [weak self, selectedModel] _, newState in
+                Task { @MainActor in
+                    self?.logger.info("WhisperKit model state: \(newState.description, privacy: .public)")
+                    self?.postModelProgress(model: selectedModel, phase: newState.description, fractionCompleted: 1)
+                }
+            }
+            try await whisperKit.loadModels()
+            self.whisperKit = whisperKit
             self.loadedModel = selectedModel
         }
         loadTask = task
         do {
-            try await waitForLoadTask(task, selectedModel: selectedModel)
+            try await waitForPreparationTask(task, selectedModel: selectedModel)
             loadTask = nil
         } catch {
             loadTask = nil
@@ -60,20 +79,128 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         logger.info("WhisperKit model loaded: \(selectedModel.rawValue, privacy: .public)")
     }
 
-    private func waitForLoadTask(_ task: Task<Void, Error>, selectedModel: TranscriptionModel) async throws {
+    private func waitForPreparationTask(_ task: Task<Void, Error>, selectedModel: TranscriptionModel) async throws {
         try await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask {
                 try await task.value
             }
-            group.addTask { [loadTimeoutNanoseconds] in
-                try await Task.sleep(nanoseconds: loadTimeoutNanoseconds)
-                throw TranscriptionError.modelLoadTimedOut(selectedModel.label)
+            group.addTask { [preparationTimeoutNanoseconds] in
+                try await Task.sleep(nanoseconds: preparationTimeoutNanoseconds)
+                throw TranscriptionError.modelPreparationTimedOut(selectedModel.label)
             }
 
             guard let result = try await group.next() else { return }
             group.cancelAll()
             return result
         }
+    }
+
+    private func resolveModelFolder(for selectedModel: TranscriptionModel) async throws -> URL {
+        let store = ModelStore(model: selectedModel)
+        if store.isPlausiblyComplete {
+            postModelProgress(model: selectedModel, phase: "Downloaded", fractionCompleted: 1)
+            return store.localModelURL
+        }
+
+        logger.info("Downloading WhisperKit model: \(selectedModel.rawValue, privacy: .public)")
+        lastProgressByModel[selectedModel] = 0
+        postModelProgress(model: selectedModel, phase: "Downloading", fractionCompleted: 0)
+        let progressPollingTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                self?.postModelProgressFromCacheSize(model: selectedModel, store: store)
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+        }
+        let localCompletionTask = Task { @MainActor in
+            while !Task.isCancelled {
+                if store.isPlausiblyComplete {
+                    return store.localModelURL
+                }
+                try? await Task.sleep(nanoseconds: 750_000_000)
+            }
+            return store.localModelURL
+        }
+        let remoteDownloadTask = Task {
+            try await WhisperKit.download(
+                variant: selectedModel.rawValue,
+                from: store.modelRepo
+            ) { [weak self] progress in
+                Task { @MainActor in
+                    self?.postModelProgress(
+                        model: selectedModel,
+                        phase: "Downloading",
+                        fractionCompleted: progress.fractionCompleted
+                    )
+                }
+            }
+        }
+        defer {
+            progressPollingTask.cancel()
+            localCompletionTask.cancel()
+            remoteDownloadTask.cancel()
+        }
+        let folder = try await firstCompletedModelFolder(
+            localCompletionTask: localCompletionTask,
+            remoteDownloadTask: remoteDownloadTask
+        )
+        logger.info("WhisperKit model downloaded: \(folder.path, privacy: .public)")
+        postModelProgress(model: selectedModel, phase: "Downloaded", fractionCompleted: 1)
+        return folder
+    }
+
+    private func firstCompletedModelFolder(
+        localCompletionTask: Task<URL, Never>,
+        remoteDownloadTask: Task<URL, Error>
+    ) async throws -> URL {
+        try await withThrowingTaskGroup(of: URL.self) { group in
+            group.addTask {
+                await localCompletionTask.value
+            }
+            group.addTask {
+                try await remoteDownloadTask.value
+            }
+
+            guard let url = try await group.next() else {
+                throw TranscriptionError.modelNotLoaded
+            }
+            group.cancelAll()
+            return url
+        }
+    }
+
+    private func postModelProgressFromCacheSize(model: TranscriptionModel, store: ModelStore) {
+        let expectedBytes = model.expectedDownloadBytes
+        guard expectedBytes > 0 else { return }
+        let bytes = store.downloadedBytes
+        guard bytes > 0 else { return }
+        let fraction = Double(min(bytes, expectedBytes)) / Double(expectedBytes)
+        postModelProgress(model: model, phase: "Downloading", fractionCompleted: fraction)
+    }
+
+    private func postModelProgress(model: TranscriptionModel, phase: String, fractionCompleted: Double) {
+        let clampedFraction = max(0, min(1, fractionCompleted))
+        let displayedFraction: Double
+        if phase == "Downloading" {
+            let previous = lastProgressByModel[model] ?? 0
+            displayedFraction = max(previous, clampedFraction)
+            lastProgressByModel[model] = displayedFraction
+        } else {
+            displayedFraction = clampedFraction
+            if phase == "Downloaded" || phase == "Preparing" {
+                lastProgressByModel[model] = 1
+            }
+        }
+
+        NotificationCenter.default.post(
+            name: .voicedModelLoadProgressChanged,
+            object: nil,
+            userInfo: [
+                ModelLoadProgressInfoKey.modelRawValue: model.rawValue,
+                ModelLoadProgressInfoKey.modelLabel: model.label,
+                ModelLoadProgressInfoKey.phase: phase,
+                ModelLoadProgressInfoKey.fractionCompleted: displayedFraction
+            ]
+        )
     }
 
     func transcribeFile(at url: URL) async throws -> String {
@@ -101,7 +228,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
 enum TranscriptionError: LocalizedError {
     case modelDownloadNotApproved(String)
     case modelNotLoaded
-    case modelLoadTimedOut(String)
+    case modelPreparationTimedOut(String)
     case noResult
 
     var errorDescription: String? {
@@ -110,8 +237,8 @@ enum TranscriptionError: LocalizedError {
             "WhisperKit model '\(model)' has not been approved for download/loading."
         case .modelNotLoaded:
             "WhisperKit model was not loaded."
-        case .modelLoadTimedOut(let model):
-            "WhisperKit model '\(model)' did not finish loading."
+        case .modelPreparationTimedOut(let model):
+            "WhisperKit model '\(model)' did not finish preparing."
         case .noResult:
             "WhisperKit completed without returning a transcription result."
         }

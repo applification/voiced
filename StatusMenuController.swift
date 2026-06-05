@@ -143,7 +143,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         modelMenu.addItem(warmUpItem)
 
         let deleteItem = actionItem(title: "Delete Downloaded Model", action: #selector(deleteDownloadedModel))
-        deleteItem.isEnabled = modelStore.isDownloaded
+        deleteItem.isEnabled = modelStore.existsOnDisk
         modelMenu.addItem(deleteItem)
 
         let modelItem = NSMenuItem(title: "Model", action: nil, keyEquivalent: "")

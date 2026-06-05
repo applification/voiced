@@ -1,5 +1,7 @@
+import CoreML
 import Foundation
 import Observation
+import WhisperKit
 
 @Observable
 final class SettingsStore {
@@ -108,6 +110,28 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
 
     var cacheFolderName: String {
         "openai_whisper-\(rawValue)"
+    }
+
+    var expectedDownloadBytes: UInt64 {
+        switch self {
+        case .tiny: 73 * 1_024 * 1_024
+        case .base: 143 * 1_024 * 1_024
+        case .small: 479 * 1_024 * 1_024
+        case .largeAccuracy: 626 * 1_024 * 1_024
+        }
+    }
+
+    var modelComputeOptions: ModelComputeOptions {
+        switch self {
+        case .tiny:
+            ModelComputeOptions()
+        case .base, .small, .largeAccuracy:
+            ModelComputeOptions(
+                melCompute: .cpuAndGPU,
+                audioEncoderCompute: .cpuAndGPU,
+                textDecoderCompute: .cpuAndGPU
+            )
+        }
     }
 }
 

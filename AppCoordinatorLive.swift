@@ -20,6 +20,7 @@ final class AppCoordinator {
     private var isTranscribing = false
     private var targetApplication: NSRunningApplication?
     private var modelApprovalObserver: NSObjectProtocol?
+    private var modelProgressObserver: NSObjectProtocol?
     private var meteringTask: Task<Void, Never>?
     private let rightCommandKeyCode: CGKeyCode = 54 // Right Command keycode on macOS
     private var isPTTDown = false
@@ -42,6 +43,22 @@ final class AppCoordinator {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.warmUpTranscriptionService(reason: "model approval")
+            }
+        }
+        modelProgressObserver = NotificationCenter.default.addObserver(
+            forName: .voicedModelLoadProgressChanged,
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            let rawValue = notification.userInfo?[ModelLoadProgressInfoKey.modelRawValue] as? String
+            let phase = notification.userInfo?[ModelLoadProgressInfoKey.phase] as? String
+            let fractionCompleted = notification.userInfo?[ModelLoadProgressInfoKey.fractionCompleted] as? Double
+            Task { @MainActor in
+                self?.handleModelProgress(
+                    rawValue: rawValue,
+                    phase: phase,
+                    fractionCompleted: fractionCompleted
+                )
             }
         }
         warmUpTranscriptionService(reason: "app start")
@@ -83,6 +100,40 @@ final class AppCoordinator {
                 self.indicator.hide()
             }
         }
+    }
+
+    private func handleModelProgress(rawValue: String?, phase: String?, fractionCompleted: Double?) {
+        guard
+            let rawValue,
+            rawValue == settings.transcriptionModel.rawValue,
+            let phase,
+            let fractionCompleted
+        else {
+            return
+        }
+
+        let percent = Int((fractionCompleted * 100).rounded())
+        let label: String
+        switch phase {
+        case "Downloading":
+            label = "\(settings.transcriptionModel.label) \(percent)%"
+        case "Downloaded":
+            label = "\(settings.transcriptionModel.label) Ready"
+        case "Preparing":
+            label = "\(settings.transcriptionModel.label) Preparing"
+        case "Loading":
+            label = "\(settings.transcriptionModel.label) Loading"
+        case "Loaded":
+            label = "\(settings.transcriptionModel.label) Loaded"
+        case "Specializing":
+            label = "\(settings.transcriptionModel.label) Specializing"
+        case "Specialized":
+            label = "\(settings.transcriptionModel.label) Specialized"
+        default:
+            label = "\(settings.transcriptionModel.label) \(phase)"
+        }
+        AppCoordinator.logger.info("Model progress phase=\(phase, privacy: .public) percent=\(percent, privacy: .public)")
+        indicator.show(state: .loadingModel(label))
     }
 
     private func handleKeyDown() {
