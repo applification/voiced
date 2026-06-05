@@ -12,8 +12,13 @@ Voiced ships as a signed macOS app packaged into a zip and DMG.
 Create a notary profile once:
 
 ```sh
-xcrun notarytool store-credentials voiced-notary
+xcrun notarytool store-credentials voiced-notary \
+  --key /path/to/AuthKey_XXXXXXXXXX.p8 \
+  --key-id XXXXXXXXXX \
+  --issuer xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
+
+Use a Team API key from App Store Connect. The Key ID, Issuer ID, and `.p8` private key file are shown when generating the key under Users and Access > Integrations > App Store Connect API.
 
 ## Package without notarization
 
