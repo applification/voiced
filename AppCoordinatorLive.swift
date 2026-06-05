@@ -24,6 +24,7 @@ final class AppCoordinator {
     private var meteringTask: Task<Void, Never>?
     private let rightCommandKeyCode: CGKeyCode = 54 // Right Command keycode on macOS
     private var isPTTDown = false
+    private var isShowingModelProgress = false
 
     init(settings: SettingsStore, lastCapture: LastCaptureStore) {
         self.settings = settings
@@ -61,7 +62,6 @@ final class AppCoordinator {
                 )
             }
         }
-        warmUpTranscriptionService(reason: "app start")
         hotkeys.startListening { [weak self] (type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) in
             guard let self else { return }
             switch type {
@@ -83,6 +83,7 @@ final class AppCoordinator {
             guard let self else { return }
             let shouldShowLoader = reason != "app start" && !self.transcriber.isSelectedModelLoaded
             if shouldShowLoader {
+                self.isShowingModelProgress = true
                 self.indicator.show(state: .loadingModel(self.settings.transcriptionModel.label))
             }
             do {
@@ -96,6 +97,7 @@ final class AppCoordinator {
                 }
             }
             if shouldShowLoader {
+                self.isShowingModelProgress = false
                 try? await Task.sleep(nanoseconds: 650_000_000)
                 self.indicator.hide()
             }
@@ -109,6 +111,18 @@ final class AppCoordinator {
             let phase,
             let fractionCompleted
         else {
+            return
+        }
+
+        guard isShowingModelProgress else {
+            AppCoordinator.logger.debug("Ignoring hidden model progress phase=\(phase, privacy: .public)")
+            return
+        }
+
+        if phase == "Loaded" {
+            AppCoordinator.logger.info("Model progress loaded; hiding indicator")
+            isShowingModelProgress = false
+            indicator.hide()
             return
         }
 
@@ -169,6 +183,7 @@ final class AppCoordinator {
         if transcriber.isSelectedModelLoaded {
             indicator.show(state: .transcribing)
         } else {
+            isShowingModelProgress = true
             indicator.show(state: .loadingModel(settings.transcriptionModel.label))
         }
         let url = recorder.stop()
@@ -189,6 +204,7 @@ final class AppCoordinator {
             do {
                 AppCoordinator.logger.info("Loading transcription service")
                 try await self.transcriber.loadModelIfNeeded()
+                self.isShowingModelProgress = false
                 self.indicator.show(state: .transcribing)
                 AppCoordinator.logger.info("Starting transcription for \(url.lastPathComponent, privacy: .public)")
                 let text = try await self.transcriber.transcribeFile(at: url)
