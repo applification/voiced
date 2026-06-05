@@ -18,5 +18,9 @@ final class LastCaptureStore {
         }
     }
 
-    func clear() { last = nil }
+    func clear() {
+        autoClearTask?.cancel()
+        autoClearTask = nil
+        last = nil
+    }
 }

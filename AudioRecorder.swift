@@ -1,33 +1,53 @@
 import AVFoundation
 
 final class AudioRecorder {
-    private let engine = AVAudioEngine()
-    private var file: AVAudioFile?
+    private var recorder: AVAudioRecorder?
     private var tempURL: URL?
 
     func start() throws {
-        let input = engine.inputNode
-        let format = input.outputFormat(forBus: 0)
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("caf")
-        file = try AVAudioFile(forWriting: tmp, settings: format.settings)
-        tempURL = tmp
+            .appendingPathExtension("m4a")
+        let settings: [String: Any] = [
+            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+            AVSampleRateKey: 44_100,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+        ]
 
-        input.removeTap(onBus: 0)
-        input.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak self] buffer, _ in
-            guard let self, let file = self.file else { return }
-            do { try file.write(from: buffer) } catch { Log.audio.error("Failed to write buffer: \(String(describing: error), privacy: .public)") }
+        let recorder = try AVAudioRecorder(url: tmp, settings: settings)
+        recorder.isMeteringEnabled = true
+        recorder.prepareToRecord()
+        guard recorder.record() else {
+            throw AudioRecorderError.failedToStart
         }
-        try engine.start()
+
+        self.recorder = recorder
+        self.tempURL = tmp
     }
 
     func stop() -> URL? {
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
+        recorder?.stop()
         let url = tempURL
-        file = nil
+        recorder = nil
         tempURL = nil
         return url
+    }
+
+    func currentLevel() -> Double {
+        guard let recorder, recorder.isRecording else { return 0 }
+        recorder.updateMeters()
+        let power = recorder.averagePower(forChannel: 0)
+        guard power.isFinite else { return 0 }
+        let normalized = max(0, min(1, (Double(power) + 55) / 55))
+        return pow(normalized, 1.6)
+    }
+}
+
+enum AudioRecorderError: LocalizedError {
+    case failedToStart
+
+    var errorDescription: String? {
+        "Audio recording could not be started."
     }
 }
