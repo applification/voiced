@@ -26,6 +26,10 @@
 	<string>Voiced records only while push-to-talk is active so it can transcribe your speech locally.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>PostHogHost</key>
+	<string>$(POSTHOG_HOST)</string>
+	<key>PostHogProjectToken</key>
+	<string>$(POSTHOG_PROJECT_TOKEN)</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Voiced uses speech recognition to turn your push-to-talk recordings into text.</string>
 </dict>

@@ -5,6 +5,7 @@ import SwiftUI
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
     case models
+    case privacy
 
     var id: Self { self }
 
@@ -12,6 +13,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: "General"
         case .models: "Models"
+        case .privacy: "Privacy"
         }
     }
 }
@@ -51,14 +53,18 @@ struct SettingsView: View {
                     centeredSettingsContent {
                         modelSettings
                     }
+                case .privacy:
+                    centeredSettingsContent {
+                        privacySettings
+                    }
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 250, maxHeight: 250, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 340, maxHeight: 340, alignment: .topLeading)
 
             settingsFooter
         }
         .padding(24)
-        .frame(width: 560, height: 430)
+        .frame(width: 560, height: 520)
         .onChange(of: settings.transcriptionModel) { modelStatusRevision += 1 }
         .onReceive(NotificationCenter.default.publisher(for: .voicedModelStatusChanged)) { notification in
             if let downloadingModel,
@@ -274,6 +280,49 @@ struct SettingsView: View {
         .padding(.top, 10)
     }
 
+    private var privacySettings: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Toggle("Share basic usage and crash diagnostics", isOn: diagnosticsBinding)
+
+            Text("Helps us understand whether Voiced is working. Never sends audio, transcripts, clipboard contents, screen recordings, file paths, or the apps you dictate into.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Included")
+                    .font(.callout.weight(.semibold))
+                Text("App opens, app version, macOS version, anonymous install activity, recording starts and cancellations, transcription success or failure, selected model, output mode, coarse duration buckets, and broad error categories.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .font(.callout)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Not included")
+                    .font(.callout.weight(.semibold))
+                Text("Audio, transcript text, clipboard contents, screenshots, session replay, file names, file paths, window titles, and target application names.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .font(.callout)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 10)
+    }
+
+    private var diagnosticsBinding: Binding<Bool> {
+        Binding {
+            settings.basicDiagnosticsEnabled
+        } set: { enabled in
+            settings.basicDiagnosticsEnabled = enabled
+            AppServices.telemetry.setBasicDiagnosticsEnabled(enabled)
+        }
+    }
+
     private var launchAtLoginBinding: Binding<Bool> {
         Binding {
             settings.launchAtLogin
@@ -408,7 +457,7 @@ private struct SettingsSegmentedControl: View {
             }
         }
         .padding(1)
-        .frame(width: 240, height: 34)
+        .frame(width: 300, height: 34)
         .background(Color(nsColor: .textBackgroundColor).opacity(0.62))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {

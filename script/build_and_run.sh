@@ -29,6 +29,8 @@ build_app() {
     -scheme "$APP_NAME" \
     -configuration Debug \
     -derivedDataPath "$BUILD_DIR" \
+    POSTHOG_PROJECT_TOKEN="${POSTHOG_PROJECT_TOKEN:-}" \
+    POSTHOG_HOST="${POSTHOG_HOST:-https://eu.i.posthog.com}" \
     build
 }
 

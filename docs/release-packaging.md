@@ -26,6 +26,19 @@ Use a Team API key from App Store Connect. The Key ID, Issuer ID, and `.p8` priv
 ./script/package_release.sh
 ```
 
+To include basic diagnostics in a release build, provide the public PostHog
+project token at build time:
+
+```sh
+POSTHOG_PROJECT_TOKEN="phc_..." ./script/package_release.sh
+```
+
+The PostHog project token is embedded in the app and is not a secret. If
+`POSTHOG_PROJECT_TOKEN` is omitted, the app builds normally and diagnostics stay
+disabled because there is no destination project. Keep personal API keys, CI
+credentials, and App Store Connect `.p8` keys out of the app bundle and
+repository.
+
 Outputs:
 
 - `dist/release/archive/Voiced.app`
@@ -39,7 +52,7 @@ no DMG is attached yet, it falls back to the latest release page.
 ## Package and notarize
 
 ```sh
-VOICED_NOTARY_PROFILE=voiced-notary ./script/package_release.sh --notarize
+POSTHOG_PROJECT_TOKEN="phc_..." VOICED_NOTARY_PROFILE=voiced-notary ./script/package_release.sh --notarize
 ```
 
 The script submits the DMG, waits for notarization, staples the ticket, and validates the staple.

@@ -16,6 +16,15 @@ Build and launch the debug product:
 ./script/build_and_run.sh run
 ```
 
+To test analytics locally, pass the public PostHog project token at build time:
+
+```sh
+POSTHOG_PROJECT_TOKEN="phc_..." ./script/build_and_run.sh run
+```
+
+The token is embedded in the built app and is not a secret. Do not use PostHog
+personal API keys or any other secret key here.
+
 Install the built app to `dist/Voiced.app` and launch it from that stable path:
 
 ```sh

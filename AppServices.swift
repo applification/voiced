@@ -5,6 +5,7 @@ enum AppServices {
     static let settings = SettingsStore()
     static let lastCapture = LastCaptureStore()
     static let settingsNavigation = SettingsNavigation()
+    static let telemetry = TelemetryService()
 }
 
 @MainActor
@@ -15,8 +16,10 @@ final class VoicedAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let settings = AppServices.settings
         let lastCapture = AppServices.lastCapture
+        let telemetry = AppServices.telemetry
+        telemetry.configure(settings: settings)
         statusMenu = StatusMenuController(settings: settings, lastCapture: lastCapture)
-        coordinator = AppCoordinator(settings: settings, lastCapture: lastCapture)
+        coordinator = AppCoordinator(settings: settings, lastCapture: lastCapture, telemetry: telemetry)
         coordinator?.start()
     }
 }

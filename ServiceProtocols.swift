@@ -61,6 +61,14 @@ protocol SoundCuePlaying: AnyObject {
     func playDeactivation()
 }
 
+@MainActor
+protocol TelemetryReporting: AnyObject {
+    func configure(settings: SettingsStore)
+    func setBasicDiagnosticsEnabled(_ enabled: Bool)
+    func capture(_ event: TelemetryEvent, properties: [String: Any])
+    func captureError(_ category: TelemetryErrorCategory, properties: [String: Any])
+}
+
 extension HotkeyManager: HotkeyListening {}
 extension AudioRecorder: AudioRecording {}
 extension WhisperKitTranscriptionService: AppTranscribing {}
@@ -69,3 +77,4 @@ extension FloatingIndicator: IndicatorPresenting {}
 extension CursorMicroIndicator: CursorIndicatorPresenting {}
 extension PermissionManager: PermissionManaging {}
 extension SoundCuePlayer: SoundCuePlaying {}
+extension TelemetryService: TelemetryReporting {}

@@ -51,6 +51,12 @@ final class SettingsStore {
         }
     }
 
+    var basicDiagnosticsEnabled: Bool {
+        didSet {
+            userDefaults.set(basicDiagnosticsEnabled, forKey: Keys.basicDiagnosticsEnabled)
+        }
+    }
+
     private let userDefaults: UserDefaults
 
     init(userDefaults: UserDefaults = .standard) {
@@ -83,6 +89,12 @@ final class SettingsStore {
         let storedPushToTalkHotkey = userDefaults.string(forKey: Keys.pushToTalkHotkey)
             .flatMap(PushToTalkHotkey.init(rawValue:))
         pushToTalkHotkey = storedPushToTalkHotkey ?? .rightCommand
+
+        if userDefaults.object(forKey: Keys.basicDiagnosticsEnabled) == nil {
+            basicDiagnosticsEnabled = true
+        } else {
+            basicDiagnosticsEnabled = userDefaults.bool(forKey: Keys.basicDiagnosticsEnabled)
+        }
     }
 
     private static func clampedLastCaptureMinutes(_ minutes: Int) -> Int {
@@ -100,4 +112,5 @@ private enum Keys {
     static let activationSound = "activationSound"
     static let deactivationSound = "deactivationSound"
     static let pushToTalkHotkey = "pushToTalkHotkey"
+    static let basicDiagnosticsEnabled = "basicDiagnosticsEnabled"
 }

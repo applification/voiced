@@ -84,6 +84,8 @@ build_release() {
     -derivedDataPath "$BUILD_DIR" \
     CODE_SIGN_STYLE=Manual \
     CODE_SIGN_IDENTITY="-" \
+    POSTHOG_PROJECT_TOKEN="${POSTHOG_PROJECT_TOKEN:-}" \
+    POSTHOG_HOST="${POSTHOG_HOST:-https://eu.i.posthog.com}" \
     build
 }
 
