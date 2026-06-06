@@ -13,6 +13,7 @@
 		2A29F4835AA24D7A8DD20102 /* CaptureState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A29F4825AA24D7A8DD20102 /* CaptureState.swift */; };
 		477E80663C6A7CD15FCB195F /* AppCoordinatorLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = E943A1C511EF814709C6A054 /* AppCoordinatorLive.swift */; };
 		4C105C49B6A74B4B9A1CC101 /* IndicatorState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C105C48B6A74B4B9A1CC101 /* IndicatorState.swift */; };
+		4FB4B9734E6445B0A7C31001 /* CursorMicroIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FB4B9724E6445B0A7C31001 /* CursorMicroIndicator.swift */; };
 		6310C5B3F64C41B99EEA0FDB /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12734B85878009F6700AA1D4 /* SettingsStore.swift */; };
 		6DEF00CC37EEB2A9BD9C3467 /* LastCaptureStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC158ADF077FC4EC48D2663 /* LastCaptureStore.swift */; };
 		6F2D85B7A3CB2361D9378358 /* OutputManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B691AC8FB176A9F0B6A7AA9D /* OutputManager.swift */; };
@@ -45,6 +46,7 @@
 		1A8AACD2D38D57B649F4C714 /* VoicedApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicedApp.swift; sourceTree = "<group>"; };
 		2A29F4825AA24D7A8DD20102 /* CaptureState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureState.swift; sourceTree = "<group>"; };
 		4C105C48B6A74B4B9A1CC101 /* IndicatorState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndicatorState.swift; sourceTree = "<group>"; };
+		4FB4B9724E6445B0A7C31001 /* CursorMicroIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorMicroIndicator.swift; sourceTree = "<group>"; };
 		501A72D278D9770906A59EA4 /* FloatingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingIndicator.swift; sourceTree = "<group>"; };
 		537AE869AF197A7F8BFF7933 /* Voiced.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Voiced.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5539AC2DF900DD105B80EC78 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 				A676B383C4FCA6E61D67511A /* AppServices.swift */,
 				F560EE924E4D2D293AEC447D /* AudioRecorder.swift */,
 				2A29F4825AA24D7A8DD20102 /* CaptureState.swift */,
+				4FB4B9724E6445B0A7C31001 /* CursorMicroIndicator.swift */,
 				501A72D278D9770906A59EA4 /* FloatingIndicator.swift */,
 				B2295C18FEEAF23F3DF55AA4 /* HotkeyManager.swift */,
 				4C105C48B6A74B4B9A1CC101 /* IndicatorState.swift */,
@@ -232,6 +235,7 @@
 				04D65F247CD14A718F2F7AEA /* FloatingIndicator.swift in Sources */,
 				B191CDB0C87DC82DB68368EF /* HotkeyManager.swift in Sources */,
 				4C105C49B6A74B4B9A1CC101 /* IndicatorState.swift in Sources */,
+				4FB4B9734E6445B0A7C31001 /* CursorMicroIndicator.swift in Sources */,
 				C820E12FE98D49AB8DD20101 /* IndicatorViews.swift in Sources */,
 				6DEF00CC37EEB2A9BD9C3467 /* LastCaptureStore.swift in Sources */,
 				72E4ACDFD2214D3D8DD20103 /* ModelLoadProgress.swift in Sources */,

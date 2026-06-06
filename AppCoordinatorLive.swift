@@ -11,6 +11,7 @@ final class AppCoordinator {
     private let output: any OutputPerforming
     private let lastCapture: LastCaptureStore
     private let indicator: any IndicatorPresenting
+    private let cursorIndicator: any CursorIndicatorPresenting
     private let permissions: any PermissionManaging
     private let soundCues: any SoundCuePlaying
     
@@ -30,6 +31,7 @@ final class AppCoordinator {
         transcriber: any AppTranscribing,
         output: any OutputPerforming = OutputManager(),
         indicator: any IndicatorPresenting = FloatingIndicator(),
+        cursorIndicator: any CursorIndicatorPresenting = CursorMicroIndicator(),
         permissions: any PermissionManaging = PermissionManager(),
         soundCues: any SoundCuePlaying
     ) {
@@ -40,6 +42,7 @@ final class AppCoordinator {
         self.transcriber = transcriber
         self.output = output
         self.indicator = indicator
+        self.cursorIndicator = cursorIndicator
         self.permissions = permissions
         self.soundCues = soundCues
     }
@@ -184,6 +187,7 @@ final class AppCoordinator {
         guard captureState.isRecording else { return }
         soundCues.playDeactivation()
         stopMeteringIndicator()
+        cursorIndicator.showTranscribingAtCursor()
         if transcriber.isSelectedModelLoaded {
             captureState = .transcribing
             indicator.show(state: .transcribing)
@@ -197,6 +201,7 @@ final class AppCoordinator {
         AppCoordinator.logger.debug("Recorder stopped; url present=\(url != nil, privacy: .public)")
         guard let url else {
             captureState = .idle
+            cursorIndicator.hide()
             indicator.hide()
             return
         }
@@ -204,6 +209,7 @@ final class AppCoordinator {
             guard let self else { return }
             defer {
                 self.captureState = .idle
+                self.cursorIndicator.hide()
                 try? FileManager.default.removeItem(at: url)
             }
             do {

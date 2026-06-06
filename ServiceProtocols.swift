@@ -38,6 +38,12 @@ protocol IndicatorPresenting: AnyObject {
 }
 
 @MainActor
+protocol CursorIndicatorPresenting: AnyObject {
+    func showTranscribingAtCursor()
+    func hide()
+}
+
+@MainActor
 protocol PermissionManaging: AnyObject {
     var micAuthorized: Bool { get }
     var accessibilityEnabled: Bool { get }
@@ -59,5 +65,6 @@ extension AudioRecorder: AudioRecording {}
 extension WhisperKitTranscriptionService: AppTranscribing {}
 extension OutputManager: OutputPerforming {}
 extension FloatingIndicator: IndicatorPresenting {}
+extension CursorMicroIndicator: CursorIndicatorPresenting {}
 extension PermissionManager: PermissionManaging {}
 extension SoundCuePlayer: SoundCuePlaying {}
