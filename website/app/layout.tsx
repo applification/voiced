@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Overpass, Overpass_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -9,6 +9,16 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+const overpass = Overpass({
+  variable: "--font-overpass",
+  subsets: ["latin"],
+});
+
+const overpassMono = Overpass_Mono({
+  variable: "--font-overpass-mono",
   subsets: ["latin"],
 });
 
@@ -88,7 +98,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full bg-[#000808] antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${overpass.variable} ${overpassMono.variable} h-full bg-[#000808] antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#000808]">{children}</body>
     </html>
