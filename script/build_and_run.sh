@@ -32,10 +32,6 @@ build_app() {
     build
 }
 
-pkill -x "$APP_NAME" >/dev/null 2>&1 || true
-
-build_app
-
 install_app() {
   local identity
   identity="$(detect_signing_identity)"
@@ -56,46 +52,67 @@ install_app() {
 }
 
 open_app() {
-  /usr/bin/open -n "$APP_BUNDLE"
+  /usr/bin/open "$APP_BUNDLE"
 }
 
 open_installed_app() {
-  /usr/bin/open -n "$DIST_APP"
+  /usr/bin/open "$DIST_APP"
+}
+
+stop_app() {
+  pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+}
+
+build_and_install() {
+  stop_app
+  build_app
+  install_app
 }
 
 case "$MODE" in
   run)
-    install_app
+    build_and_install
     open_installed_app
     ;;
   install)
-    install_app
+    build_and_install
     ;;
   install-run|--install-run)
-    install_app
+    build_and_install
     open_installed_app
     ;;
+  launch|--launch)
+    open_installed_app
+    ;;
+  stop|--stop)
+    stop_app
+    ;;
   --debug|debug)
+    stop_app
+    build_app
     lldb -- "$APP_BINARY"
     ;;
   --logs|logs)
-    install_app
+    build_and_install
     open_installed_app
     /usr/bin/log stream --info --style compact --predicate "process == \"$APP_NAME\""
     ;;
   --telemetry|telemetry)
-    install_app
+    build_and_install
     open_installed_app
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
+  telemetry-live|--telemetry-live)
+    /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
+    ;;
   --verify|verify)
-    install_app
+    build_and_install
     open_installed_app
     sleep 1
     pgrep -x "$APP_NAME" >/dev/null
     ;;
   *)
-    echo "usage: $0 [run|install|install-run|--debug|--logs|--telemetry|--verify]" >&2
+    echo "usage: $0 [run|install|install-run|launch|stop|--debug|--logs|--telemetry|telemetry-live|--verify]" >&2
     exit 2
     ;;
 esac

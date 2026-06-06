@@ -6,6 +6,31 @@ name = "Voiced"
 script = ""
 
 [[actions]]
-name = "Run"
+name = "Build & Run"
 icon = "run"
 command = "./script/build_and_run.sh"
+
+[[actions]]
+name = "Install Stable App"
+icon = "tool"
+command = "./script/build_and_run.sh install"
+
+[[actions]]
+name = "Launch Stable App"
+icon = "run"
+command = "./script/build_and_run.sh launch"
+
+[[actions]]
+name = "Telemetry Live"
+icon = "tool"
+command = "./script/build_and_run.sh telemetry-live"
+
+[[actions]]
+name = "Run With Telemetry"
+icon = "tool"
+command = "./script/build_and_run.sh --telemetry"
+
+[[actions]]
+name = "Stop App"
+icon = "tool"
+command = "./script/build_and_run.sh stop"

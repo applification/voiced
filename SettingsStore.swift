@@ -1,8 +1,5 @@
-import CoreML
-import CoreGraphics
 import Foundation
 import Observation
-import WhisperKit
 
 @Observable
 final class SettingsStore {
@@ -64,7 +61,7 @@ final class SettingsStore {
         outputMode = storedOutputMode ?? .clipboardPaste
 
         let storedClearMinutes = userDefaults.integer(forKey: Keys.copyLastTranscriptClearsAfterMinutes)
-        copyLastTranscriptClearsAfterMinutes = storedClearMinutes == 0 ? 20 : storedClearMinutes
+        copyLastTranscriptClearsAfterMinutes = Self.clampedLastCaptureMinutes(storedClearMinutes == 0 ? 3 : storedClearMinutes)
 
         modelDownloadsApproved = userDefaults.bool(forKey: Keys.modelDownloadsApproved)
             || userDefaults.bool(forKey: Keys.whisperTinyModelApproved)
@@ -87,151 +84,9 @@ final class SettingsStore {
             .flatMap(PushToTalkHotkey.init(rawValue:))
         pushToTalkHotkey = storedPushToTalkHotkey ?? .rightCommand
     }
-}
 
-enum PushToTalkHotkey: String, CaseIterable, Identifiable {
-    case rightCommand
-    case rightOption
-    case rightControl
-    case rightShift
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .rightCommand: "Right Command"
-        case .rightOption: "Right Option"
-        case .rightControl: "Right Control"
-        case .rightShift: "Right Shift"
-        }
-    }
-
-    var menuTitle: String {
-        "Hold \(label) to Record"
-    }
-
-    var keyCode: CGKeyCode {
-        switch self {
-        case .rightCommand: 54
-        case .rightOption: 61
-        case .rightControl: 62
-        case .rightShift: 60
-        }
-    }
-
-    var eventFlag: CGEventFlags {
-        switch self {
-        case .rightCommand: .maskCommand
-        case .rightOption: .maskAlternate
-        case .rightControl: .maskControl
-        case .rightShift: .maskShift
-        }
-    }
-}
-
-enum TranscriptionModel: String, CaseIterable, Identifiable {
-    case tiny
-    case base
-    case small
-    case largeAccuracy = "large-v3-v20240930_626MB"
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .tiny: "Tiny"
-        case .base: "Base"
-        case .small: "Small"
-        case .largeAccuracy: "Large v3"
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .tiny: "Fastest"
-        case .base: "Fast"
-        case .small: "Balanced"
-        case .largeAccuracy: "Most accurate"
-        }
-    }
-
-    var menuTitle: String {
-        "\(label) (\(detail))"
-    }
-
-    var cacheFolderName: String {
-        "openai_whisper-\(rawValue)"
-    }
-
-    var expectedDownloadBytes: UInt64 {
-        switch self {
-        case .tiny: 73 * 1_024 * 1_024
-        case .base: 143 * 1_024 * 1_024
-        case .small: 479 * 1_024 * 1_024
-        case .largeAccuracy: 626 * 1_024 * 1_024
-        }
-    }
-
-    var modelComputeOptions: ModelComputeOptions {
-        switch self {
-        case .tiny:
-            ModelComputeOptions()
-        case .base, .small, .largeAccuracy:
-            ModelComputeOptions(
-                melCompute: .cpuAndGPU,
-                audioEncoderCompute: .cpuAndGPU,
-                textDecoderCompute: .cpuAndGPU
-            )
-        }
-    }
-}
-
-enum OutputMode: String, CaseIterable, Identifiable {
-    case clipboardPaste
-    case copyOnly
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .clipboardPaste:
-            "Paste"
-        case .copyOnly:
-            "Copy"
-        }
-    }
-}
-
-enum SoundCue: String, CaseIterable, Identifiable {
-    case none
-    case basso = "Basso"
-    case blow = "Blow"
-    case bottle = "Bottle"
-    case funk = "Funk"
-    case glass = "Glass"
-    case hero = "Hero"
-    case morse = "Morse"
-    case ping = "Ping"
-    case pop = "Pop"
-    case purr = "Purr"
-    case sosumi = "Sosumi"
-    case submarine = "Submarine"
-    case tink = "Tink"
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .none: "None"
-        default: rawValue
-        }
-    }
-
-    var soundName: String? {
-        switch self {
-        case .none: nil
-        default: rawValue
-        }
+    private static func clampedLastCaptureMinutes(_ minutes: Int) -> Int {
+        min(max(minutes, 1), 5)
     }
 }
 

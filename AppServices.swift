@@ -4,6 +4,7 @@ import AppKit
 enum AppServices {
     static let settings = SettingsStore()
     static let lastCapture = LastCaptureStore()
+    static let settingsNavigation = SettingsNavigation()
 }
 
 @MainActor

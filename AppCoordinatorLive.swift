@@ -5,31 +5,52 @@ import os
 @MainActor
 final class AppCoordinator {
     private let settings: SettingsStore
-    private let hotkeys = HotkeyManager()
-    private let recorder = AudioRecorder()
-    private let transcriber: WhisperKitTranscriptionService
-    private let output = OutputManager()
+    private let hotkeys: any HotkeyListening
+    private let recorder: any AudioRecording
+    private var transcriber: any AppTranscribing
+    private let output: any OutputPerforming
     private let lastCapture: LastCaptureStore
-    private let indicator = FloatingIndicator()
-    private let permissions = PermissionManager()
-    private let soundCues: SoundCuePlayer
+    private let indicator: any IndicatorPresenting
+    private let permissions: any PermissionManaging
+    private let soundCues: any SoundCuePlaying
     
     private static let logger = Logger(subsystem: "net.applification.voiced", category: "coordinator")
 
-    private var isRecording = false
-    private var isTranscribing = false
+    private var captureState: CaptureState = .idle
     private var targetApplication: NSRunningApplication?
     private var modelApprovalObserver: NSObjectProtocol?
-    private var modelProgressObserver: NSObjectProtocol?
     private var meteringTask: Task<Void, Never>?
     private var isPTTDown = false
-    private var isShowingModelProgress = false
 
-    init(settings: SettingsStore, lastCapture: LastCaptureStore) {
+    init(
+        settings: SettingsStore,
+        lastCapture: LastCaptureStore,
+        hotkeys: any HotkeyListening = HotkeyManager(),
+        recorder: any AudioRecording = AudioRecorder(),
+        transcriber: any AppTranscribing,
+        output: any OutputPerforming = OutputManager(),
+        indicator: any IndicatorPresenting = FloatingIndicator(),
+        permissions: any PermissionManaging = PermissionManager(),
+        soundCues: any SoundCuePlaying
+    ) {
         self.settings = settings
         self.lastCapture = lastCapture
-        self.transcriber = WhisperKitTranscriptionService(settings: settings)
-        self.soundCues = SoundCuePlayer(settings: settings)
+        self.hotkeys = hotkeys
+        self.recorder = recorder
+        self.transcriber = transcriber
+        self.output = output
+        self.indicator = indicator
+        self.permissions = permissions
+        self.soundCues = soundCues
+    }
+
+    convenience init(settings: SettingsStore, lastCapture: LastCaptureStore) {
+        self.init(
+            settings: settings,
+            lastCapture: lastCapture,
+            transcriber: WhisperKitTranscriptionService(settings: settings),
+            soundCues: SoundCuePlayer(settings: settings)
+        )
     }
 
     func start() {
@@ -45,21 +66,8 @@ final class AppCoordinator {
                 self?.warmUpTranscriptionService(reason: "model approval")
             }
         }
-        modelProgressObserver = NotificationCenter.default.addObserver(
-            forName: .voicedModelLoadProgressChanged,
-            object: nil,
-            queue: nil
-        ) { [weak self] notification in
-            let rawValue = notification.userInfo?[ModelLoadProgressInfoKey.modelRawValue] as? String
-            let phase = notification.userInfo?[ModelLoadProgressInfoKey.phase] as? String
-            let fractionCompleted = notification.userInfo?[ModelLoadProgressInfoKey.fractionCompleted] as? Double
-            Task { @MainActor in
-                self?.handleModelProgress(
-                    rawValue: rawValue,
-                    phase: phase,
-                    fractionCompleted: fractionCompleted
-                )
-            }
+        transcriber.onModelProgress = { [weak self] progress in
+            self?.handleModelProgress(progress)
         }
         hotkeys.startListening { [weak self] (type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) in
             guard let self else { return }
@@ -83,7 +91,7 @@ final class AppCoordinator {
             guard let self else { return }
             let shouldShowLoader = reason != "app start" && !self.transcriber.isSelectedModelLoaded
             if shouldShowLoader {
-                self.isShowingModelProgress = true
+                self.captureState = .loadingModel
                 self.indicator.show(state: .loadingModel(self.settings.transcriptionModel.label))
             }
             do {
@@ -93,42 +101,38 @@ final class AppCoordinator {
             } catch {
                 AppCoordinator.logger.error("Transcription warm-up failed: \(String(describing: error), privacy: .public)")
                 if shouldShowLoader {
+                    self.captureState = .showingError
                     self.indicator.show(state: .error("Model load failed"))
                 }
             }
             if shouldShowLoader {
-                self.isShowingModelProgress = false
+                self.captureState = .idle
                 try? await Task.sleep(nanoseconds: 650_000_000)
                 self.indicator.hide()
             }
         }
     }
 
-    private func handleModelProgress(rawValue: String?, phase: String?, fractionCompleted: Double?) {
-        guard
-            let rawValue,
-            rawValue == settings.transcriptionModel.rawValue,
-            let phase,
-            let fractionCompleted
-        else {
+    private func handleModelProgress(_ progress: ModelLoadProgress) {
+        guard progress.model == settings.transcriptionModel else {
             return
         }
 
-        guard isShowingModelProgress else {
-            AppCoordinator.logger.debug("Ignoring hidden model progress phase=\(phase, privacy: .public)")
+        guard captureState.isShowingModelProgress else {
+            AppCoordinator.logger.debug("Ignoring hidden model progress phase=\(progress.phase, privacy: .public)")
             return
         }
 
-        if phase == "Loaded" {
+        if progress.phase == "Loaded" {
             AppCoordinator.logger.info("Model progress loaded; hiding indicator")
-            isShowingModelProgress = false
+            captureState = .idle
             indicator.hide()
             return
         }
 
-        let percent = Int((fractionCompleted * 100).rounded())
+        let percent = Int((progress.fractionCompleted * 100).rounded())
         let label: String
-        switch phase {
+        switch progress.phase {
         case "Downloading":
             label = "\(settings.transcriptionModel.label) \(percent)%"
         case "Downloaded":
@@ -144,15 +148,15 @@ final class AppCoordinator {
         case "Specialized":
             label = "\(settings.transcriptionModel.label) Specialized"
         default:
-            label = "\(settings.transcriptionModel.label) \(phase)"
+            label = "\(settings.transcriptionModel.label) \(progress.phase)"
         }
-        AppCoordinator.logger.info("Model progress phase=\(phase, privacy: .public) percent=\(percent, privacy: .public)")
+        AppCoordinator.logger.info("Model progress phase=\(progress.phase, privacy: .public) percent=\(percent, privacy: .public)")
         indicator.show(state: .loadingModel(label))
     }
 
     private func handleKeyDown() {
-        AppCoordinator.logger.debug("handleKeyDown() invoked; isRecording=\(self.isRecording, privacy: .public) isTranscribing=\(self.isTranscribing, privacy: .public)")
-        guard !isRecording, !isTranscribing else { return }
+        AppCoordinator.logger.debug("handleKeyDown() invoked; state=\(String(describing: self.captureState), privacy: .public)")
+        guard !captureState.isBusy else { return }
         guard permissions.micAuthorized else {
             AppCoordinator.logger.warning("Mic not authorized; requesting permission")
             permissions.requestMicrophone { [weak self] _ in
@@ -166,7 +170,8 @@ final class AppCoordinator {
             targetApplication = NSWorkspace.shared.frontmostApplication
             try recorder.start()
             AppCoordinator.logger.info("Recording started")
-            isRecording = true
+            lastCapture.clear()
+            captureState = .recording
             soundCues.playActivation()
             startMeteringIndicator()
         } catch {
@@ -176,14 +181,14 @@ final class AppCoordinator {
 
     private func handleKeyUp() {
         AppCoordinator.logger.debug("handleKeyUp() invoked; isRecording was true")
-        guard isRecording else { return }
-        isRecording = false
+        guard captureState.isRecording else { return }
         soundCues.playDeactivation()
         stopMeteringIndicator()
         if transcriber.isSelectedModelLoaded {
+            captureState = .transcribing
             indicator.show(state: .transcribing)
         } else {
-            isShowingModelProgress = true
+            captureState = .loadingModel
             indicator.show(state: .loadingModel(settings.transcriptionModel.label))
         }
         let url = recorder.stop()
@@ -191,26 +196,27 @@ final class AppCoordinator {
         self.targetApplication = nil
         AppCoordinator.logger.debug("Recorder stopped; url present=\(url != nil, privacy: .public)")
         guard let url else {
+            captureState = .idle
             indicator.hide()
             return
         }
-        isTranscribing = true
         Task { @MainActor [weak self] in
             guard let self else { return }
             defer {
-                self.isTranscribing = false
+                self.captureState = .idle
                 try? FileManager.default.removeItem(at: url)
             }
             do {
                 AppCoordinator.logger.info("Loading transcription service")
                 try await self.transcriber.loadModelIfNeeded()
-                self.isShowingModelProgress = false
+                self.captureState = .transcribing
                 self.indicator.show(state: .transcribing)
                 AppCoordinator.logger.info("Starting transcription for \(url.lastPathComponent, privacy: .public)")
                 let text = try await self.transcriber.transcribeFile(at: url)
                 AppCoordinator.logger.info("Transcription completed; characters=\(text.count, privacy: .public)")
                 guard !text.isEmpty else {
                     AppCoordinator.logger.warning("Transcription returned empty text")
+                    self.captureState = .showingError
                     self.indicator.show(state: .error("No speech detected"))
                     try? await Task.sleep(nanoseconds: 1_000_000_000)
                     self.indicator.hide()
@@ -218,13 +224,23 @@ final class AppCoordinator {
                 }
                 self.lastCapture.set(text, autoClearAfter: TimeInterval(self.settings.copyLastTranscriptClearsAfterMinutes * 60))
                 if self.settings.outputMode == .clipboardPaste {
-                    self.output.pastePreservingClipboard(text, targetApplication: targetApplication)
+                    self.permissions.refreshStatuses()
+                    if self.permissions.accessibilityEnabled {
+                        self.output.pastePreservingClipboard(text, targetApplication: targetApplication)
+                    } else {
+                        self.permissions.openAccessibilityPrefs()
+                        self.output.copyToClipboard(text)
+                        self.captureState = .showingError
+                        self.indicator.show(state: .error("Paste permission needed"))
+                        try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    }
                 } else {
                     self.output.copyToClipboard(text)
                 }
                 _ = text.count // avoid logging sensitive content
             } catch {
                 AppCoordinator.logger.error("Transcription error: \(String(describing: error), privacy: .public)")
+                self.captureState = .showingError
                 self.indicator.show(state: .error("Transcription failed"))
             }
             AppCoordinator.logger.info("Indicator hide; transcription flow complete")
@@ -238,9 +254,9 @@ final class AppCoordinator {
         indicator.show(state: .recording(level: recorder.currentLevel()))
         meteringTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                guard let self, self.isRecording else { break }
+                guard let self, self.captureState.isRecording else { break }
                 self.indicator.show(state: .recording(level: self.recorder.currentLevel()))
-                try? await Task.sleep(nanoseconds: 50_000_000)
+                try? await Task.sleep(nanoseconds: 100_000_000)
             }
         }
     }

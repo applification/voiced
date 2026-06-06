@@ -1,11 +1,59 @@
+import AppKit
 import ServiceManagement
 import SwiftUI
 
+enum SettingsSection: String, CaseIterable, Identifiable {
+    case general
+    case models
+
+    var id: Self { self }
+
+    var label: String {
+        switch self {
+        case .general: "General"
+        case .models: "Models"
+        }
+    }
+}
+
+@Observable
+final class SettingsNavigation {
+    var selectedSection: SettingsSection = .general
+}
+
 struct SettingsView: View {
     var settings: SettingsStore
+    var navigation: SettingsNavigation
     @State private var launchAtLoginError: String?
+    @State private var modelManagementError: String?
+
+    init(settings: SettingsStore, navigation: SettingsNavigation = SettingsNavigation()) {
+        self.settings = settings
+        self.navigation = navigation
+    }
 
     var body: some View {
+        TabView(selection: Bindable(navigation).selectedSection) {
+            generalSettings
+                .tabItem {
+                    Label("General", systemImage: "gearshape")
+                }
+                .tag(SettingsSection.general)
+
+            modelSettings
+                .tabItem {
+                    Label("Models", systemImage: "brain.head.profile")
+                }
+                .tag(SettingsSection.models)
+        }
+        .padding(24)
+        .frame(width: 560, height: 360)
+        .onChange(of: settings.transcriptionModel) {
+            NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
+        }
+    }
+
+    private var generalSettings: some View {
         VStack(alignment: .leading, spacing: 18) {
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 14) {
                 GridRow {
@@ -14,17 +62,6 @@ struct SettingsView: View {
                     Picker("Output mode", selection: Bindable(settings).outputMode) {
                         ForEach(OutputMode.allCases) { mode in
                             Text(mode.label).tag(mode)
-                        }
-                    }
-                    .labelsHidden()
-                }
-
-                GridRow {
-                    Text("Transcription model")
-                        .foregroundStyle(.secondary)
-                    Picker("Transcription model", selection: Bindable(settings).transcriptionModel) {
-                        ForEach(TranscriptionModel.allCases) { model in
-                            Text(model.menuTitle).tag(model)
                         }
                     }
                     .labelsHidden()
@@ -45,10 +82,10 @@ struct SettingsView: View {
                     Text("Last capture")
                         .foregroundStyle(.secondary)
                     Stepper(
-                        "Clear after \(settings.copyLastTranscriptClearsAfterMinutes) minutes",
+                        "Clear after \(settings.copyLastTranscriptClearsAfterMinutes) minute\(settings.copyLastTranscriptClearsAfterMinutes == 1 ? "" : "s")",
                         value: Bindable(settings).copyLastTranscriptClearsAfterMinutes,
-                        in: 10...30,
-                        step: 10
+                        in: 1...5,
+                        step: 1
                     )
                 }
 
@@ -88,11 +125,64 @@ struct SettingsView: View {
 
             Spacer(minLength: 0)
         }
-        .padding(24)
-        .frame(width: 520, height: 320)
-        .onChange(of: settings.transcriptionModel) {
-            NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
+        .padding(.top, 10)
+    }
+
+    private var modelSettings: some View {
+        let modelStore = ModelStore(model: settings.transcriptionModel)
+
+        return VStack(alignment: .leading, spacing: 18) {
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 14) {
+                GridRow {
+                    Text("Transcription model")
+                        .foregroundStyle(.secondary)
+                    Picker("Transcription model", selection: Bindable(settings).transcriptionModel) {
+                        ForEach(TranscriptionModel.allCases) { model in
+                            Text(model.menuTitle).tag(model)
+                        }
+                    }
+                    .labelsHidden()
+                }
+
+                GridRow {
+                    Text("Download")
+                        .foregroundStyle(.secondary)
+                    Text(modelStore.formattedSize)
+                }
+
+                GridRow {
+                    Text("Status")
+                        .foregroundStyle(.secondary)
+                    Text(modelStore.existsOnDisk ? "Downloaded" : "Not downloaded")
+                }
+            }
+
+            HStack(spacing: 12) {
+                Button("Approve downloads") {
+                    settings.modelDownloadsApproved = true
+                    NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
+                }
+                .disabled(settings.modelDownloadsApproved)
+
+                Button("Show in Finder") {
+                    showModelFolder()
+                }
+                .disabled(!modelStore.isDownloaded)
+
+                Button("Delete downloaded model", role: .destructive) {
+                    deleteDownloadedModel()
+                }
+                .disabled(!modelStore.existsOnDisk)
+            }
+
+            if let modelManagementError {
+                Text(modelManagementError)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
         }
+        .padding(.top, 10)
     }
 
     private var launchAtLoginBinding: Binding<Bool> {
@@ -110,6 +200,29 @@ struct SettingsView: View {
             } catch {
                 launchAtLoginError = error.localizedDescription
             }
+        }
+    }
+
+    private func showModelFolder() {
+        let modelStore = ModelStore(model: settings.transcriptionModel)
+        guard modelStore.isDownloaded else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([modelStore.localModelURL])
+    }
+
+    private func deleteDownloadedModel() {
+        let alert = NSAlert()
+        alert.messageText = "Delete downloaded Whisper model?"
+        alert.informativeText = "Voiced will ask for approval before downloading the model again."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        do {
+            try ModelStore(model: settings.transcriptionModel).deleteDownloadedModel()
+            modelManagementError = nil
+        } catch {
+            modelManagementError = error.localizedDescription
         }
     }
 }

@@ -6,7 +6,7 @@ struct VoicedApp: App {
 
     var body: some Scene {
         Settings {
-            SettingsView(settings: AppServices.settings)
+            SettingsView(settings: AppServices.settings, navigation: AppServices.settingsNavigation)
         }
     }
 }

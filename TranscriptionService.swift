@@ -18,6 +18,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
     private var loadTask: Task<Void, Error>?
     private var lastProgressByModel: [TranscriptionModel: Double] = [:]
     private let preparationTimeoutNanoseconds: UInt64 = 60_000_000_000
+    var onModelProgress: ((ModelLoadProgress) -> Void)?
 
     init(settings: SettingsStore) {
         self.settings = settings
@@ -191,15 +192,12 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             }
         }
 
-        NotificationCenter.default.post(
-            name: .voicedModelLoadProgressChanged,
-            object: nil,
-            userInfo: [
-                ModelLoadProgressInfoKey.modelRawValue: model.rawValue,
-                ModelLoadProgressInfoKey.modelLabel: model.label,
-                ModelLoadProgressInfoKey.phase: phase,
-                ModelLoadProgressInfoKey.fractionCompleted: displayedFraction
-            ]
+        onModelProgress?(
+            ModelLoadProgress(
+                model: model,
+                phase: phase,
+                fractionCompleted: displayedFraction
+            )
         )
     }
 

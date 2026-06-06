@@ -5,7 +5,6 @@ import os
 @MainActor
 final class HotkeyManager {
     private static let logger = Logger(subsystem: "net.applification.voiced", category: "hotkeys")
-    private var promptedAX: Bool = false
 
     typealias KeyHandler = (_ type: CGEventType, _ keyCode: CGKeyCode, _ flags: CGEventFlags) -> Void
 
@@ -21,11 +20,7 @@ final class HotkeyManager {
         let accessibilityTrusted = AXIsProcessTrustedWithOptions(nil)
         HotkeyManager.logger.info("Accessibility trusted: \(accessibilityTrusted, privacy: .public)")
 
-        let mask: CGEventMask = (
-            (CGEventMask(1) << CGEventMask(CGEventType.keyDown.rawValue)) |
-            (CGEventMask(1) << CGEventMask(CGEventType.keyUp.rawValue)) |
-            (CGEventMask(1) << CGEventMask(CGEventType.flagsChanged.rawValue))
-        )
+        let mask = CGEventMask(1) << CGEventMask(CGEventType.flagsChanged.rawValue)
 
         func makeTap(_ location: CGEventTapLocation) -> CFMachPort? {
             return CGEvent.tapCreate(tap: location,
@@ -58,35 +53,23 @@ final class HotkeyManager {
         } else {
             HotkeyManager.logger.warning("Failed to create CGEvent tap at both locations. Falling back to NSEvent monitors.")
             // Fallback: Use NSEvent global and local monitors as a best-effort capture.
-            let masks: NSEvent.EventTypeMask = [.keyDown, .keyUp, .flagsChanged]
+            let masks: NSEvent.EventTypeMask = [.flagsChanged]
             self.globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: masks) { [weak self] event in
                 guard let self else { return }
-                let type: CGEventType
-                switch event.type {
-                case .keyDown: type = .keyDown
-                case .keyUp: type = .keyUp
-                case .flagsChanged: type = .flagsChanged
-                default: return
-                }
+                guard event.type == .flagsChanged else { return }
                 let keyCode = CGKeyCode(event.keyCode)
                 let flags = CGEventFlags(rawValue: UInt64(event.modifierFlags.rawValue))
-                HotkeyManager.logger.debug("NSEvent monitor type: \(type.rawValue, privacy: .public), keyCode: \(keyCode, privacy: .public), flags: \(UInt64(flags.rawValue), privacy: .public)")
-                self.handler?(type, keyCode, flags)
+                HotkeyManager.logger.debug("NSEvent monitor keyCode: \(keyCode, privacy: .public), flags: \(UInt64(flags.rawValue), privacy: .public)")
+                self.handler?(.flagsChanged, keyCode, flags)
             }
             // Local monitor to also catch events when the app is key.
             self.localMonitor = NSEvent.addLocalMonitorForEvents(matching: masks) { [weak self] event in
                 guard let self else { return event }
-                let type: CGEventType
-                switch event.type {
-                case .keyDown: type = .keyDown
-                case .keyUp: type = .keyUp
-                case .flagsChanged: type = .flagsChanged
-                default: return event
-                }
+                guard event.type == .flagsChanged else { return event }
                 let keyCode = CGKeyCode(event.keyCode)
                 let flags = CGEventFlags(rawValue: UInt64(event.modifierFlags.rawValue))
-                HotkeyManager.logger.debug("NSEvent local monitor type: \(type.rawValue, privacy: .public), keyCode: \(keyCode, privacy: .public), flags: \(UInt64(flags.rawValue), privacy: .public)")
-                self.handler?(type, keyCode, flags)
+                HotkeyManager.logger.debug("NSEvent local monitor keyCode: \(keyCode, privacy: .public), flags: \(UInt64(flags.rawValue), privacy: .public)")
+                self.handler?(.flagsChanged, keyCode, flags)
                 return event
             }
         }
