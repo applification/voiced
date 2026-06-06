@@ -41,6 +41,7 @@ protocol IndicatorPresenting: AnyObject {
 protocol CursorIndicatorPresenting: AnyObject {
     func showTranscribingAtCursor()
     func hide()
+    func hideImmediately()
 }
 
 @MainActor

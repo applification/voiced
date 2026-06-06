@@ -229,6 +229,7 @@ final class AppCoordinator {
                     return
                 }
                 self.lastCapture.set(text, autoClearAfter: TimeInterval(self.settings.copyLastTranscriptClearsAfterMinutes * 60))
+                self.cursorIndicator.hideImmediately()
                 if self.settings.outputMode == .clipboardPaste {
                     self.permissions.refreshStatuses()
                     if self.permissions.accessibilityEnabled {

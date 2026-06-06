@@ -38,6 +38,15 @@ final class CursorMicroIndicator {
         }
     }
 
+    func hideImmediately() {
+        followTask?.cancel()
+        followTask = nil
+        guard let panel else { return }
+        panel.alphaValue = 0
+        panel.orderOut(nil)
+        panel.contentView = nil
+    }
+
     private func startFollowingCursor(_ panel: NSPanel) {
         followTask?.cancel()
         followTask = Task { @MainActor [weak self, weak panel] in

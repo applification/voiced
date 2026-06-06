@@ -34,3 +34,11 @@ command = "./script/build_and_run.sh --telemetry"
 name = "Stop App"
 icon = "tool"
 command = "./script/build_and_run.sh stop"
+
+[[actions]]
+name = "Run Website"
+icon = "run"
+command = '''
+cd website
+bun dev
+'''
