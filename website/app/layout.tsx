@@ -13,9 +13,58 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Voiced",
+  metadataBase: new URL("https://voiced.applification.net"),
+  title: {
+    default: "Voiced - Private Dictation for macOS",
+    template: "%s - Voiced",
+  },
   description:
-    "A privacy-first, open-source dictation companion for macOS.",
+    "Voiced is a focused, open-source Mac dictation app that turns push-to-talk recordings into clean text with local transcription.",
+  applicationName: "Voiced",
+  authors: [{ name: "Applification" }],
+  creator: "Applification",
+  publisher: "Applification",
+  keywords: [
+    "Voiced",
+    "macOS dictation",
+    "private transcription",
+    "local transcription",
+    "push to talk",
+    "open source Mac app",
+  ],
+  category: "productivity",
+  icons: {
+    icon: [
+      { url: "/voiced-icon.png", type: "image/png", sizes: "1024x1024" },
+      { url: "/icon.png", type: "image/png", sizes: "1024x1024" },
+    ],
+    apple: [{ url: "/voiced-icon.png", type: "image/png", sizes: "1024x1024" }],
+    shortcut: [{ url: "/voiced-icon.png", type: "image/png" }],
+  },
+  openGraph: {
+    title: "Voiced - Private Dictation for macOS",
+    description:
+      "A focused Mac dictation app for turning speech into clean text with local transcription.",
+    url: "/",
+    siteName: "Voiced",
+    images: [
+      {
+        url: "/voiced-icon.png",
+        width: 1024,
+        height: 1024,
+        alt: "Voiced app icon",
+      },
+    ],
+    locale: "en_GB",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Voiced - Private Dictation for macOS",
+    description:
+      "Open-source push-to-talk dictation for Mac, with local transcription after model download.",
+    images: ["/voiced-icon.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
