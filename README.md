@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Config/Assets.xcassets/VoicedHeaderIcon.imageset/voiced-icon.png" alt="Voiced logo" width="128">
+</p>
+
 # Voiced
 
 Voiced is a quiet, native macOS dictation companion for fast capture and clean transcription. It runs as a local menu bar app, records only while push-to-talk is held, transcribes speech locally with WhisperKit, and outputs the result either by copying it to the clipboard or pasting it into the focused app.
@@ -16,7 +20,14 @@ The project also includes a small Next.js website for the public product/downloa
 
 ## Repository Layout
 
-- `*.swift` - the macOS app source.
+- `Voiced/` - the macOS app source, with `VoicedApp.swift` as the app entry point.
+- `Voiced/App/` - app coordination, services, settings, and shared state.
+- `Voiced/Audio/` - recording, transcription models, and WhisperKit transcription.
+- `Voiced/Models/` - local model storage, progress, and integrity verification.
+- `Voiced/Output/` - clipboard, paste, and last-capture output behavior.
+- `Voiced/Permissions/` - microphone, Accessibility, hotkey, and event monitoring support.
+- `Voiced/UI/` - settings, status menu, indicators, and supporting view code.
+- `Voiced/Support/` - notifications, telemetry, and sound cues.
 - `Config/` - app entitlements, Info.plist, and asset catalogs.
 - `Voiced.xcodeproj/` - generated Xcode project.
 - `project.yml` - XcodeGen project definition.
