@@ -126,6 +126,11 @@ struct SettingsView: View {
                 }
             }
 
+            Text(outputModeSecurityNote)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             if let launchAtLoginError {
                 Text(launchAtLoginError)
                     .foregroundStyle(.secondary)
@@ -209,6 +214,15 @@ struct SettingsView: View {
             } catch {
                 launchAtLoginError = error.localizedDescription
             }
+        }
+    }
+
+    private var outputModeSecurityNote: String {
+        switch settings.outputMode {
+        case .clipboardPaste:
+            "Paste mode uses Accessibility permission to send Cmd+V to the focused app. Copy-only avoids synthetic keystrokes."
+        case .copyOnly:
+            "Copy-only leaves the transcript on the clipboard and does not send keystrokes to other apps."
         }
     }
 

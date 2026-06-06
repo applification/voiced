@@ -13,19 +13,19 @@ Voiced is intentionally local-only after the approved model download.
 
 ## Model Download
 
-Voiced uses WhisperKit with the `tiny` model.
+Voiced uses WhisperKit with explicitly selected local models.
 
-The first approved model load may contact Hugging Face through WhisperKit. WhisperKit caches downloaded model files under:
+The first explicit model download may contact Hugging Face through WhisperKit. WhisperKit caches downloaded model files under:
 
 ```text
 ~/Documents/huggingface/models/argmaxinc/whisperkit-coreml
 ```
 
-The Voiced menu shows the model name, local cache size, and lets you reveal or delete that model folder.
+The Voiced menu shows the model name, local cache size, and lets you reveal or delete that model folder. Downloaded model files are verified against pinned SHA-256 manifests before WhisperKit loads them.
 
 After the model is downloaded, WhisperKit should resolve from the local cache before attempting a download. To test offline behavior:
 
-1. Approve and load the model once while online.
+1. Download the selected model once while online.
 2. Quit Voiced.
 3. Disable network access.
 4. Relaunch Voiced.
@@ -37,7 +37,7 @@ Expected result: transcription works without new model download traffic.
 
 Expected:
 
-- Hugging Face model download only after explicit approval.
+- Hugging Face model download only after explicit download action.
 
 Not expected:
 
