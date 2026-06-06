@@ -47,7 +47,12 @@ extension StatusMenuController {
     }
 
     @objc func warmUpModel() {
-        NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
+        if !settings.modelDownloadsApproved {
+            settings.modelDownloadsApproved = true
+            NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
+            rebuildMenu()
+        }
+        NotificationCenter.default.post(name: .voicedModelDownloadRequested, object: settings.transcriptionModel)
     }
 
     @objc func copyLastTranscript() {

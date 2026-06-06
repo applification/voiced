@@ -19,8 +19,11 @@ final class AppCoordinator {
 
     private var captureState: CaptureState = .idle
     private var targetApplication: NSRunningApplication?
-    private var modelApprovalObserver: NSObjectProtocol?
+    private var modelDownloadObserver: NSObjectProtocol?
     private var meteringTask: Task<Void, Never>?
+    private var transcriptionTask: Task<Void, Never>?
+    private var activeRecordingURL: URL?
+    private var shouldCancelCurrentCapture = false
     private var isPTTDown = false
 
     init(
@@ -60,13 +63,13 @@ final class AppCoordinator {
         AppCoordinator.logger.info("AppCoordinator start() called")
         permissions.refreshStatuses()
         AppCoordinator.logger.info("Permissions — mic: \(self.permissions.micAuthorized, privacy: .public)")
-        modelApprovalObserver = NotificationCenter.default.addObserver(
-            forName: .voicedModelApprovalChanged,
+        modelDownloadObserver = NotificationCenter.default.addObserver(
+            forName: .voicedModelDownloadRequested,
             object: nil,
             queue: nil
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.warmUpTranscriptionService(reason: "model approval")
+                self?.warmUpTranscriptionService(reason: "download request")
             }
         }
         transcriber.onModelProgress = { [weak self] progress in
@@ -75,6 +78,10 @@ final class AppCoordinator {
         hotkeys.startListening { [weak self] (type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) in
             guard let self else { return }
             switch type {
+            case .keyDown:
+                let escapeKey: CGKeyCode = 53
+                guard keyCode == escapeKey else { return }
+                self.cancelCurrentCapture()
             case .flagsChanged:
                 AppCoordinator.logger.debug("flagsChanged keyCode=\(keyCode, privacy: .public) flags=\(UInt64(flags.rawValue), privacy: .public)")
                 let hotkey = self.settings.pushToTalkHotkey
@@ -103,6 +110,7 @@ final class AppCoordinator {
                 AppCoordinator.logger.info("Transcription service warm")
             } catch {
                 AppCoordinator.logger.error("Transcription warm-up failed: \(String(describing: error), privacy: .public)")
+                NotificationCenter.default.post(name: .voicedModelStatusChanged, object: self.settings.transcriptionModel)
                 if shouldShowLoader {
                     self.captureState = .showingError
                     self.indicator.show(state: .error("Model load failed"))
@@ -173,6 +181,7 @@ final class AppCoordinator {
             targetApplication = NSWorkspace.shared.frontmostApplication
             try recorder.start()
             AppCoordinator.logger.info("Recording started")
+            shouldCancelCurrentCapture = false
             lastCapture.clear()
             captureState = .recording
             soundCues.playActivation()
@@ -196,6 +205,7 @@ final class AppCoordinator {
             indicator.show(state: .loadingModel(settings.transcriptionModel.label))
         }
         let url = recorder.stop()
+        activeRecordingURL = url
         let targetApplication = targetApplication
         self.targetApplication = nil
         AppCoordinator.logger.debug("Recorder stopped; url present=\(url != nil, privacy: .public)")
@@ -205,20 +215,28 @@ final class AppCoordinator {
             indicator.hide()
             return
         }
-        Task { @MainActor [weak self] in
+        transcriptionTask?.cancel()
+        transcriptionTask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer {
                 self.captureState = .idle
+                self.transcriptionTask = nil
+                self.activeRecordingURL = nil
+                self.shouldCancelCurrentCapture = false
                 self.cursorIndicator.hide()
                 try? FileManager.default.removeItem(at: url)
             }
             do {
                 AppCoordinator.logger.info("Loading transcription service")
                 try await self.transcriber.loadModelIfNeeded()
+                try Task.checkCancellation()
+                guard !self.shouldCancelCurrentCapture else { throw CancellationError() }
                 self.captureState = .transcribing
                 self.indicator.show(state: .transcribing)
                 AppCoordinator.logger.info("Starting transcription for \(url.lastPathComponent, privacy: .public)")
                 let text = try await self.transcriber.transcribeFile(at: url)
+                try Task.checkCancellation()
+                guard !self.shouldCancelCurrentCapture else { throw CancellationError() }
                 AppCoordinator.logger.info("Transcription completed; characters=\(text.count, privacy: .public)")
                 guard !text.isEmpty else {
                     AppCoordinator.logger.warning("Transcription returned empty text")
@@ -245,6 +263,10 @@ final class AppCoordinator {
                     self.output.copyToClipboard(text)
                 }
                 _ = text.count // avoid logging sensitive content
+            } catch is CancellationError {
+                AppCoordinator.logger.info("Transcription flow cancelled")
+                self.indicator.show(state: .error("Cancelled"))
+                try? await Task.sleep(nanoseconds: 450_000_000)
             } catch {
                 AppCoordinator.logger.error("Transcription error: \(String(describing: error), privacy: .public)")
                 self.captureState = .showingError
@@ -254,6 +276,38 @@ final class AppCoordinator {
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             self.indicator.hide()
         }
+    }
+
+    private func cancelCurrentCapture() {
+        guard captureState.isRecording || transcriptionTask != nil else { return }
+
+        AppCoordinator.logger.info("Cancelling current capture")
+        shouldCancelCurrentCapture = true
+        stopMeteringIndicator()
+
+        if captureState.isRecording {
+            let url = recorder.stop()
+            if let url {
+                try? FileManager.default.removeItem(at: url)
+            }
+            isPTTDown = false
+            targetApplication = nil
+            captureState = .idle
+            cursorIndicator.hide()
+            indicator.show(state: .error("Cancelled"))
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 450_000_000)
+                self?.indicator.hide()
+            }
+            return
+        }
+
+        transcriptionTask?.cancel()
+        if let activeRecordingURL {
+            try? FileManager.default.removeItem(at: activeRecordingURL)
+        }
+        cursorIndicator.hide()
+        indicator.show(state: .error("Cancelled"))
     }
 
     private func startMeteringIndicator() {

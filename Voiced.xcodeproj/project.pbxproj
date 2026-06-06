@@ -20,6 +20,7 @@
 		72E4ACDFD2214D3D8DD20103 /* ModelLoadProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72E4ACDED2214D3D8DD20103 /* ModelLoadProgress.swift */; };
 		7EC4EF1AA5B7CD74755792B5 /* SoundCuePlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77C9B309436FFF0A6DCB4790 /* SoundCuePlayer.swift */; };
 		88E4767DC01E4BFD8DD20105 /* OutputMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88E4767CC01E4BFD8DD20105 /* OutputMode.swift */; };
+		8D9A8C0197C24BF19554E6A1 /* ModelIntegrity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9A8C0097C24BF19554E6A1 /* ModelIntegrity.swift */; };
 		8E309A9ECF9FDF6DE72362A4 /* StatusMenuController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 746AC336B5D4AFA4FEBB655F /* StatusMenuController.swift */; };
 		916275D17FBE433F8DD20106 /* StatusMenuController+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 916275D07FBE433F8DD20106 /* StatusMenuController+Actions.swift */; };
 		924253CE1CE1FECE21F79B66 /* VoicedApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A8AACD2D38D57B649F4C714 /* VoicedApp.swift */; };
@@ -56,6 +57,7 @@
 		72E4ACDED2214D3D8DD20103 /* ModelLoadProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadProgress.swift; sourceTree = "<group>"; };
 		746AC336B5D4AFA4FEBB655F /* StatusMenuController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMenuController.swift; sourceTree = "<group>"; };
 		77C9B309436FFF0A6DCB4790 /* SoundCuePlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundCuePlayer.swift; sourceTree = "<group>"; };
+		8D9A8C0097C24BF19554E6A1 /* ModelIntegrity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelIntegrity.swift; sourceTree = "<group>"; };
 		88E4767CC01E4BFD8DD20105 /* OutputMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMode.swift; sourceTree = "<group>"; };
 		916275D07FBE433F8DD20106 /* StatusMenuController+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StatusMenuController+Actions.swift"; sourceTree = "<group>"; };
 		96DEAF38E0D817E231F52EA9 /* ModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelStore.swift; sourceTree = "<group>"; };
@@ -102,6 +104,7 @@
 				4C105C48B6A74B4B9A1CC101 /* IndicatorState.swift */,
 				C820E12EE98D49AB8DD20101 /* IndicatorViews.swift */,
 				5BC158ADF077FC4EC48D2663 /* LastCaptureStore.swift */,
+				8D9A8C0097C24BF19554E6A1 /* ModelIntegrity.swift */,
 				72E4ACDED2214D3D8DD20103 /* ModelLoadProgress.swift */,
 				96DEAF38E0D817E231F52EA9 /* ModelStore.swift */,
 				B1E02D9E52F64B1C8DD20101 /* NotchGeometry.swift */,
@@ -238,6 +241,7 @@
 				4FB4B9734E6445B0A7C31001 /* CursorMicroIndicator.swift in Sources */,
 				C820E12FE98D49AB8DD20101 /* IndicatorViews.swift in Sources */,
 				6DEF00CC37EEB2A9BD9C3467 /* LastCaptureStore.swift in Sources */,
+				8D9A8C0197C24BF19554E6A1 /* ModelIntegrity.swift in Sources */,
 				72E4ACDFD2214D3D8DD20103 /* ModelLoadProgress.swift in Sources */,
 				B25AF7D3C45663FD95EC546C /* ModelStore.swift in Sources */,
 				B1E02D9F52F64B1C8DD20101 /* NotchGeometry.swift in Sources */,
@@ -298,7 +302,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -318,7 +322,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -383,7 +387,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -397,7 +401,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

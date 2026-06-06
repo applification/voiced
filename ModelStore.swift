@@ -26,7 +26,7 @@ struct ModelStore {
     }
 
     var isDownloaded: Bool {
-        isPlausiblyComplete
+        hasRequiredModelFiles
     }
 
     var hasRequiredModelFiles: Bool {
@@ -37,7 +37,6 @@ struct ModelStore {
 
     var isPlausiblyComplete: Bool {
         hasRequiredModelFiles
-            && downloadedBytes >= UInt64(Double(model.expectedDownloadBytes) * 0.95)
     }
 
     var formattedSize: String {

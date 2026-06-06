@@ -27,4 +27,5 @@ enum CaptureState {
         }
         return false
     }
+
 }

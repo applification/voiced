@@ -99,6 +99,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
     private func resolveModelFolder(for selectedModel: TranscriptionModel) async throws -> URL {
         let store = ModelStore(model: selectedModel)
         if store.isPlausiblyComplete {
+            try verifyDownloadedModel(store, selectedModel: selectedModel)
             postModelProgress(model: selectedModel, phase: "Downloaded", fractionCompleted: 1)
             return store.localModelURL
         }
@@ -111,15 +112,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
                 self?.postModelProgressFromCacheSize(model: selectedModel, store: store)
                 try? await Task.sleep(nanoseconds: 500_000_000)
             }
-        }
-        let localCompletionTask = Task { @MainActor in
-            while !Task.isCancelled {
-                if store.isPlausiblyComplete {
-                    return store.localModelURL
-                }
-                try? await Task.sleep(nanoseconds: 750_000_000)
-            }
-            return store.localModelURL
         }
         let remoteDownloadTask = Task {
             try await WhisperKit.download(
@@ -137,35 +129,22 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         }
         defer {
             progressPollingTask.cancel()
-            localCompletionTask.cancel()
-            remoteDownloadTask.cancel()
         }
-        let folder = try await firstCompletedModelFolder(
-            localCompletionTask: localCompletionTask,
-            remoteDownloadTask: remoteDownloadTask
-        )
+        let folder = try await remoteDownloadTask.value
+        try verifyDownloadedModel(store, selectedModel: selectedModel)
         logger.info("WhisperKit model downloaded: \(folder.path, privacy: .public)")
         postModelProgress(model: selectedModel, phase: "Downloaded", fractionCompleted: 1)
         return folder
     }
 
-    private func firstCompletedModelFolder(
-        localCompletionTask: Task<URL, Never>,
-        remoteDownloadTask: Task<URL, Error>
-    ) async throws -> URL {
-        try await withThrowingTaskGroup(of: URL.self) { group in
-            group.addTask {
-                await localCompletionTask.value
-            }
-            group.addTask {
-                try await remoteDownloadTask.value
-            }
-
-            guard let url = try await group.next() else {
-                throw TranscriptionError.modelNotLoaded
-            }
-            group.cancelAll()
-            return url
+    private func verifyDownloadedModel(_ store: ModelStore, selectedModel: TranscriptionModel) throws {
+        do {
+            try ModelIntegrity.verify(model: selectedModel, at: store.localModelURL)
+            logger.info("Verified WhisperKit model integrity: \(selectedModel.rawValue, privacy: .public)")
+        } catch {
+            logger.error("WhisperKit model integrity verification failed: \(String(describing: error), privacy: .public)")
+            try? store.deleteDownloadedModel()
+            throw TranscriptionError.modelIntegrityVerificationFailed(selectedModel.label)
         }
     }
 
@@ -199,6 +178,9 @@ final class WhisperKitTranscriptionService: TranscriptionService {
                 fractionCompleted: displayedFraction
             )
         )
+        if phase == "Downloaded" || phase == "Loaded" {
+            NotificationCenter.default.post(name: .voicedModelStatusChanged, object: model)
+        }
     }
 
     func transcribeFile(at url: URL) async throws -> String {
@@ -225,6 +207,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
 
 enum TranscriptionError: LocalizedError {
     case modelDownloadNotApproved(String)
+    case modelIntegrityVerificationFailed(String)
     case modelNotLoaded
     case modelPreparationTimedOut(String)
     case noResult
@@ -233,6 +216,8 @@ enum TranscriptionError: LocalizedError {
         switch self {
         case .modelDownloadNotApproved(let model):
             "WhisperKit model '\(model)' has not been approved for download/loading."
+        case .modelIntegrityVerificationFailed(let model):
+            "WhisperKit model '\(model)' failed integrity verification and was removed."
         case .modelNotLoaded:
             "WhisperKit model was not loaded."
         case .modelPreparationTimedOut(let model):

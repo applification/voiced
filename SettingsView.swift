@@ -26,6 +26,8 @@ struct SettingsView: View {
     var navigation: SettingsNavigation
     @State private var launchAtLoginError: String?
     @State private var modelManagementError: String?
+    @State private var modelStatusRevision = 0
+    @State private var downloadingModel: TranscriptionModel?
 
     init(settings: SettingsStore, navigation: SettingsNavigation = SettingsNavigation()) {
         self.settings = settings
@@ -48,8 +50,14 @@ struct SettingsView: View {
         }
         .padding(24)
         .frame(width: 560, height: 360)
-        .onChange(of: settings.transcriptionModel) {
-            NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
+        .onChange(of: settings.transcriptionModel) { modelStatusRevision += 1 }
+        .onReceive(NotificationCenter.default.publisher(for: .voicedModelStatusChanged)) { notification in
+            if let downloadingModel,
+               let changedModel = notification.object as? TranscriptionModel,
+               changedModel == downloadingModel {
+                self.downloadingModel = nil
+            }
+            modelStatusRevision += 1
         }
     }
 
@@ -130,6 +138,7 @@ struct SettingsView: View {
 
     private var modelSettings: some View {
         let modelStore = ModelStore(model: settings.transcriptionModel)
+        let isDownloadingSelectedModel = downloadingModel == settings.transcriptionModel
 
         return VStack(alignment: .leading, spacing: 18) {
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 14) {
@@ -147,22 +156,21 @@ struct SettingsView: View {
                 GridRow {
                     Text("Download")
                         .foregroundStyle(.secondary)
-                    Text(modelStore.formattedSize)
+                    Text(modelDownloadDetail(modelStore: modelStore, isDownloading: isDownloadingSelectedModel))
                 }
 
                 GridRow {
                     Text("Status")
                         .foregroundStyle(.secondary)
-                    Text(modelStore.existsOnDisk ? "Downloaded" : "Not downloaded")
+                    Text(modelStatusText(modelStore: modelStore, isDownloading: isDownloadingSelectedModel))
                 }
             }
 
             HStack(spacing: 12) {
-                Button("Approve downloads") {
-                    settings.modelDownloadsApproved = true
-                    NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
+                Button(modelDownloadButtonTitle(modelStore: modelStore, isDownloading: isDownloadingSelectedModel)) {
+                    downloadSelectedModel()
                 }
-                .disabled(settings.modelDownloadsApproved)
+                .disabled(modelStore.isDownloaded || isDownloadingSelectedModel)
 
                 Button("Show in Finder") {
                     showModelFolder()
@@ -182,6 +190,7 @@ struct SettingsView: View {
 
             Spacer(minLength: 0)
         }
+        .id(modelStatusRevision)
         .padding(.top, 10)
     }
 
@@ -209,6 +218,42 @@ struct SettingsView: View {
         NSWorkspace.shared.activateFileViewerSelecting([modelStore.localModelURL])
     }
 
+    private func downloadSelectedModel() {
+        downloadingModel = settings.transcriptionModel
+        if !settings.modelDownloadsApproved {
+            settings.modelDownloadsApproved = true
+            NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
+        }
+        NotificationCenter.default.post(name: .voicedModelDownloadRequested, object: settings.transcriptionModel)
+    }
+
+    private func modelDownloadButtonTitle(modelStore: ModelStore, isDownloading: Bool) -> String {
+        if modelStore.isDownloaded {
+            return "Downloaded"
+        }
+        if isDownloading {
+            return "Downloading..."
+        }
+        return "Download now"
+    }
+
+    private func modelDownloadDetail(modelStore: ModelStore, isDownloading: Bool) -> String {
+        if isDownloading {
+            return "Downloading..."
+        }
+        return modelStore.formattedSize
+    }
+
+    private func modelStatusText(modelStore: ModelStore, isDownloading: Bool) -> String {
+        if modelStore.isDownloaded {
+            return "Downloaded"
+        }
+        if isDownloading {
+            return "Downloading..."
+        }
+        return "Not downloaded"
+    }
+
     private func deleteDownloadedModel() {
         let alert = NSAlert()
         alert.messageText = "Delete downloaded Whisper model?"
@@ -221,6 +266,7 @@ struct SettingsView: View {
         do {
             try ModelStore(model: settings.transcriptionModel).deleteDownloadedModel()
             modelManagementError = nil
+            NotificationCenter.default.post(name: .voicedModelStatusChanged, object: settings.transcriptionModel)
         } catch {
             modelManagementError = error.localizedDescription
         }
