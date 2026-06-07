@@ -68,6 +68,6 @@ If you already have a fresh archive:
 ./script/upload_testflight.sh --skip-archive
 ```
 
-The upload requires an Apple Developer account in Xcode or App Store Connect API authentication, an App Store Connect app record for `net.applification.voiced`, and App Store distribution signing for team `L5H3AZQD66`.
+The upload requires an Apple Developer account in Xcode or App Store Connect API authentication, an App Store Connect app record for `net.applification.voiced`, and App Store distribution signing for Apple Developer team `GY6Q9L4423`.
 
 After upload, Apple processes the build before it appears under App Store Connect > Voiced > TestFlight.
