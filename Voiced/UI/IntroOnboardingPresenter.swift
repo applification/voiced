@@ -7,23 +7,27 @@ import SwiftUI
 enum IntroOnboardingPresenter {
     static func presentIfNeeded(settings: SettingsStore, onFinish: @escaping () -> Void) -> NSWindow? {
         guard !settings.hasSeenIntroOnboarding else { return nil }
-        return present(settings: settings) {
+        return present(settings: settings, mode: .firstRun) {
             settings.hasSeenIntroOnboarding = true
             onFinish()
         }
     }
 
-    static func present(settings: SettingsStore, onFinish: @escaping () -> Void = {}) -> NSWindow {
+    static func presentSetupGuide(settings: SettingsStore, onFinish: @escaping () -> Void = {}) -> NSWindow {
+        present(settings: settings, mode: .setupGuide, onFinish: onFinish)
+    }
+
+    private static func present(settings: SettingsStore, mode: IntroOnboardingMode, onFinish: @escaping () -> Void = {}) -> NSWindow {
         let hostingController = NSHostingController(
-            rootView: IntroOnboardingView(settings: settings, onFinish: onFinish)
+            rootView: IntroOnboardingView(settings: settings, mode: mode, onFinish: onFinish)
         )
         let window = NSWindow(contentViewController: hostingController)
-        window.title = "Welcome to Voiced"
+        window.title = mode.windowTitle
         window.styleMask = [.titled, .closable]
-        window.setContentSize(NSSize(width: 640, height: 610))
-        window.minSize = NSSize(width: 640, height: 610)
+        window.setContentSize(NSSize(width: 700, height: 660))
+        window.minSize = NSSize(width: 700, height: 660)
         window.isReleasedWhenClosed = false
-        hostingController.rootView = IntroOnboardingView(settings: settings, window: window, onFinish: onFinish)
+        hostingController.rootView = IntroOnboardingView(settings: settings, mode: mode, window: window, onFinish: onFinish)
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -31,8 +35,35 @@ enum IntroOnboardingPresenter {
     }
 }
 
+private enum IntroOnboardingMode {
+    case firstRun
+    case setupGuide
+
+    var windowTitle: String {
+        switch self {
+        case .firstRun: "Welcome to Voiced"
+        case .setupGuide: "Voiced Setup Guide"
+        }
+    }
+
+    var heading: String {
+        switch self {
+        case .firstRun: "Set up Voiced"
+        case .setupGuide: "Review setup"
+        }
+    }
+
+    var finishButtonTitle: String {
+        switch self {
+        case .firstRun: "Start Using Voiced"
+        case .setupGuide: "Done"
+        }
+    }
+}
+
 private struct IntroOnboardingView: View {
     var settings: SettingsStore
+    var mode: IntroOnboardingMode
     weak var window: NSWindow?
     var onFinish: () -> Void
 
@@ -41,29 +72,34 @@ private struct IntroOnboardingView: View {
     @State private var showingAutoPasteHelp = false
     @State private var showingClipboardHelp = false
     @State private var modelProgress: ModelLoadProgress?
-    @State private var modelDownloadStarted = false
+    @State private var downloadingModel: TranscriptionModel?
+    @State private var selectedModel = TranscriptionModel.tiny
 
     private var canStart: Bool {
-        isTinyModelReady && microphoneStatus == .authorized && (settings.outputMode == .copyOnly || accessibilityTrusted)
+        isSelectedModelReady && microphoneStatus == .authorized && (settings.outputMode == .copyOnly || accessibilityTrusted)
     }
 
-    private var isTinyModelReady: Bool {
-        ModelStore(model: .tiny).isDownloaded
+    private var canFinish: Bool {
+        mode == .setupGuide || canStart
+    }
+
+    private var isSelectedModelReady: Bool {
+        ModelStore(model: selectedModel).isDownloaded
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
             header
 
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 12) {
                 setupRow(
                     symbolName: "brain.head.profile",
                     title: "Speech model",
                     status: modelStatusText,
-                    statusColor: isTinyModelReady ? .green : .orange,
-                    detail: "Voiced uses the Tiny model for the fastest first run."
+                    statusColor: isSelectedModelReady ? .green : .orange,
+                    detail: "Choose a local model. Bigger models take longer to download but can improve accuracy."
                 ) {
-                    modelProgressView
+                    modelChoiceSection
                 }
 
                 Divider()
@@ -80,34 +116,49 @@ private struct IntroOnboardingView: View {
 
                 Divider()
 
-                outputChoiceSection
+                setupRow(
+                    symbolName: "text.bubble.fill",
+                    title: "Transcripts",
+                    status: transcriptStatusText,
+                    statusColor: transcriptStatusColor,
+                    detail: "Choose how Voiced delivers each transcript."
+                ) {
+                    outputChoiceSection
+                }
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 4)
 
             HStack {
                 Spacer()
 
-                Button("Start Using Voiced") {
+                Button(mode.finishButtonTitle) {
                     onFinish()
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(!canStart)
+                .disabled(!canFinish)
             }
         }
         .padding(24)
-        .frame(width: 640, height: 610, alignment: .topLeading)
+        .frame(width: 700, height: 660, alignment: .topLeading)
         .onAppear {
             refreshStatuses()
-            startTinyModelDownloadIfNeeded()
+            selectedModel = settings.transcriptionModel
         }
         .onReceive(NotificationCenter.default.publisher(for: .voicedModelProgressChanged)) { notification in
             guard let progress = notification.object as? ModelLoadProgress,
-                  progress.model == .tiny else { return }
+                  progress.model == downloadingModel else { return }
             modelProgress = progress
         }
         .onReceive(NotificationCenter.default.publisher(for: .voicedModelStatusChanged)) { notification in
-            guard notification.object as? TranscriptionModel == .tiny else { return }
+            let changedModel = notification.object as? TranscriptionModel
+            if let changedModel,
+               changedModel == downloadingModel,
+               ModelStore(model: changedModel).isDownloaded {
+                downloadingModel = nil
+                modelProgress = nil
+            }
+            guard changedModel == selectedModel else { return }
             refreshStatuses()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -131,7 +182,7 @@ private struct IntroOnboardingView: View {
                 .frame(width: 42, height: 42)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("Set up Voiced")
+                Text(mode.heading)
                     .font(.title3.weight(.semibold))
                 Text("Hold \(settings.pushToTalkHotkey.onboardingLabel) to record, then release to transcribe.")
                     .font(.callout)
@@ -177,9 +228,6 @@ private struct IntroOnboardingView: View {
 
     private var outputChoiceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Choose how transcripts appear")
-                .font(.callout.weight(.semibold))
-
             HStack(alignment: .top, spacing: 12) {
                 outputChoiceCard(
                     title: "Auto Paste",
@@ -198,32 +246,26 @@ private struct IntroOnboardingView: View {
                 } actions: {
                     if settings.outputMode == .clipboardPaste && !accessibilityTrusted {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Add Voiced in Accessibility:")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-
-                            VStack(alignment: .leading, spacing: 5) {
+                            VStack(alignment: .leading, spacing: 6) {
                                 instructionStep("1") {
                                     Button("Open Accessibility Settings") {
                                         requestAccessibilityPrompt()
                                         openPrivacyPane("Privacy_Accessibility")
                                     }
                                 }
-                                instructionStep("2", "Click +")
-                                instructionStep("3", "Open the Applications folder")
-                                instructionStep("4") {
+                                instructionStep("2", "Click +, then open the Applications folder")
+                                instructionStep("3") {
                                     HStack(alignment: .center, spacing: 4) {
                                         Text("Select")
                                         Image("VoicedHeaderIcon")
                                             .resizable()
                                             .interpolation(.high)
                                             .frame(width: 14, height: 14)
-                                        Text("Voiced, then enable it in the list")
+                                        Text("Voiced, enable it, then return here")
                                     }
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                 }
-                                instructionStep("5", "Return here to proceed")
                             }
                         }
                     }
@@ -247,24 +289,105 @@ private struct IntroOnboardingView: View {
                     EmptyView()
                 }
             }
-            .frame(height: 232)
+            .padding(.top, 10)
+            .frame(height: 162)
         }
     }
 
-    private var modelProgressView: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if isTinyModelReady {
-                EmptyView()
-            } else {
-                ProgressView(value: modelProgress?.fractionCompleted ?? 0)
-                    .progressViewStyle(.linear)
-                Text(modelProgressDetailText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+    private var modelChoiceSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10)
+                ],
+                spacing: 8
+            ) {
+                ForEach(TranscriptionModel.allCases) { model in
+                    modelChoiceCard(model)
+                }
             }
-            Text("You can switch to larger, more accurate models later in Settings.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+
+        }
+    }
+
+    private func modelChoiceCard(_ model: TranscriptionModel) -> some View {
+        let isSelected = selectedModel == model
+        let isDownloaded = ModelStore(model: model).isDownloaded
+        let tint = model.tintColor
+        return VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: model.symbolName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 20, height: 20)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.label)
+                        .font(.callout.weight(.semibold))
+                    Text(model.onboardingDetail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+
+                Spacer(minLength: 4)
+
+                if isDownloaded {
+                    Label("Ready", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.green)
+                        .labelStyle(.titleAndIcon)
+                } else if isSelected && downloadingModel == nil {
+                    Button("Download (\(model.downloadSizeText))") {
+                        startSelectedModelDownloadIfNeeded()
+                    }
+                    .font(.caption.weight(.medium))
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                } else if downloadingModel == model {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .controlSize(.small)
+                            .scaleEffect(0.65)
+                        Text(modelInlineProgressText)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                    }
+                } else if isSelected && downloadingModel != nil {
+                    Text("Waiting")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                } else if isSelected {
+                    Image(systemName: "circle.fill")
+                        .font(.system(size: 8))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 16, height: 16)
+                }
+            }
+        }
+        .padding(9)
+        .frame(maxWidth: .infinity, minHeight: 54, alignment: .topLeading)
+        .background(isSelected ? Color.accentColor.opacity(0.10) : Color(nsColor: .controlBackgroundColor).opacity(0.45))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(isSelected ? Color.accentColor : Color(nsColor: .separatorColor), lineWidth: isSelected ? 1.5 : 1)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onTapGesture {
+            guard downloadingModel == nil || downloadingModel == model else {
+                selectedModel = model
+                return
+            }
+            selectedModel = model
+            settings.transcriptionModel = model
+            if downloadingModel == nil {
+                modelProgress = nil
+            }
         }
     }
 
@@ -320,7 +443,7 @@ private struct IntroOnboardingView: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 162, maxHeight: .infinity, alignment: .topLeading)
         .background(isSelected ? selectedColor : Color(nsColor: .controlBackgroundColor).opacity(0.45))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
@@ -388,11 +511,11 @@ private struct IntroOnboardingView: View {
     }
 
     private var modelStatusText: String {
-        if isTinyModelReady {
+        if isSelectedModelReady {
             return "Ready"
         }
         guard let modelProgress else {
-            return modelDownloadStarted ? "Starting" : "Needed"
+            return downloadingModel != nil ? "Starting" : "Needed"
         }
         if modelProgress.phase == "Downloading" {
             return "\(Int((modelProgress.fractionCompleted * 100).rounded()))%"
@@ -400,14 +523,30 @@ private struct IntroOnboardingView: View {
         return modelProgress.phase
     }
 
-    private var modelProgressDetailText: String {
-        guard let modelProgress else {
-            return "Downloading Tiny, about 73 MB."
+    private var transcriptStatusText: String {
+        switch settings.outputMode {
+        case .clipboardPaste:
+            accessibilityTrusted ? "Ready" : "Optional permission"
+        case .copyOnly:
+            "Ready"
         }
+    }
+
+    private var transcriptStatusColor: Color {
+        switch settings.outputMode {
+        case .clipboardPaste:
+            accessibilityTrusted ? .green : .orange
+        case .copyOnly:
+            .green
+        }
+    }
+
+    private var modelInlineProgressText: String {
+        guard let modelProgress else { return "Starting" }
         if modelProgress.phase == "Downloading" {
-            return "Downloading Tiny: \(Int((modelProgress.fractionCompleted * 100).rounded()))%"
+            return "\(Int((modelProgress.fractionCompleted * 100).rounded()))%"
         }
-        return "\(modelProgress.phase) Tiny."
+        return modelProgress.phase
     }
 
     private func refreshStatuses() {
@@ -415,16 +554,21 @@ private struct IntroOnboardingView: View {
         accessibilityTrusted = AXIsProcessTrustedWithOptions(nil)
     }
 
-    private func startTinyModelDownloadIfNeeded() {
-        settings.transcriptionModel = .tiny
-        guard !isTinyModelReady else { return }
-        guard !modelDownloadStarted else { return }
-        modelDownloadStarted = true
+    private func startSelectedModelDownloadIfNeeded() {
+        settings.transcriptionModel = selectedModel
+        guard !isSelectedModelReady else { return }
+        guard downloadingModel == nil else { return }
+        downloadingModel = selectedModel
+        modelProgress = nil
         if !settings.modelDownloadsApproved {
             settings.modelDownloadsApproved = true
             NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
         }
-        NotificationCenter.default.post(name: .voicedModelDownloadRequested, object: TranscriptionModel.tiny)
+        NotificationCenter.default.post(
+            name: .voicedModelDownloadRequested,
+            object: selectedModel,
+            userInfo: ["source": "onboarding"]
+        )
     }
 
     private func bringOnboardingForward(after delay: TimeInterval = 0) {

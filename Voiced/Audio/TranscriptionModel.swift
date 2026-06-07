@@ -1,4 +1,5 @@
 import CoreML
+import SwiftUI
 import WhisperKit
 
 enum TranscriptionModel: String, CaseIterable, Identifiable {
@@ -24,6 +25,46 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
         case .base: "Fast"
         case .small: "Balanced"
         case .largeAccuracy: "Most accurate"
+        }
+    }
+
+    var onboardingSubtitle: String {
+        switch self {
+        case .tiny: "Quick first run"
+        case .base: "Still light, clearer"
+        case .small: "Better everyday accuracy"
+        case .largeAccuracy: "Best quality option"
+        }
+    }
+
+    var onboardingDetail: String {
+        switch self {
+        case .tiny: "Fastest first run"
+        case .base: "Fast and clearer"
+        case .small: "Balanced accuracy"
+        case .largeAccuracy: "Most accurate"
+        }
+    }
+
+    var downloadSizeText: String {
+        ByteCountFormatter.string(fromByteCount: Int64(expectedDownloadBytes), countStyle: .file)
+    }
+
+    var symbolName: String {
+        switch self {
+        case .tiny: "hare.fill"
+        case .base: "bolt.fill"
+        case .small: "scale.3d"
+        case .largeAccuracy: "sparkles"
+        }
+    }
+
+    var tintColor: Color {
+        switch self {
+        case .tiny: .green
+        case .base: .blue
+        case .small: .indigo
+        case .largeAccuracy: .purple
         }
     }
 

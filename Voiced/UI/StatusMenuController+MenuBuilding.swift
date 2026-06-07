@@ -252,14 +252,20 @@ extension StatusMenuController {
     }
 
     private func addAppMenuItems() {
-        menu.addItem(actionItem(title: "Getting Started...",
-                                action: #selector(showGettingStarted),
-                                symbolName: "questionmark.circle",
-                                color: .secondaryLabelColor))
-        menu.addItem(actionItem(title: "Settings...",
-                                action: #selector(openSettings),
-                                symbolName: "gearshape.fill",
-                                color: .secondaryLabelColor))
+        let settingsItem = actionItem(title: "Settings...",
+                                      action: #selector(openSettings),
+                                      symbolName: "gearshape.fill",
+                                      color: .secondaryLabelColor)
+        settingsItem.isEnabled = settings.hasSeenIntroOnboarding
+        menu.addItem(settingsItem)
+
+        let setupGuideItem = actionItem(title: "Setup Guide...",
+                                        action: #selector(showSetupGuide),
+                                        symbolName: "checklist",
+                                        color: .secondaryLabelColor)
+        setupGuideItem.isEnabled = settings.hasSeenIntroOnboarding
+        menu.addItem(setupGuideItem)
+
         menu.addItem(actionItem(title: "Quit Voiced",
                                 action: #selector(quit),
                                 keyEquivalent: "q",

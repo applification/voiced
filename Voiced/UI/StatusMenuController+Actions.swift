@@ -96,11 +96,15 @@ extension StatusMenuController {
         _ = permissions.explainPasteAccessibilityAndChoose()
     }
 
-    @objc func showGettingStarted() {
+    @objc func showSetupGuide() {
+        guard settings.hasSeenIntroOnboarding else {
+            rebuildMenu()
+            return
+        }
         if let onboardingWindow {
             onboardingWindow.makeKeyAndOrderFront(nil)
         } else {
-            onboardingWindow = IntroOnboardingPresenter.present(settings: settings) { [weak self] in
+            onboardingWindow = IntroOnboardingPresenter.presentSetupGuide(settings: settings) { [weak self] in
                 self?.onboardingWindow?.close()
                 self?.onboardingWindow = nil
             }
@@ -108,10 +112,18 @@ extension StatusMenuController {
     }
 
     @objc func openSettings() {
+        guard settings.hasSeenIntroOnboarding else {
+            rebuildMenu()
+            return
+        }
         presentSettings(section: .general)
     }
 
     @objc func openModelSettings() {
+        guard settings.hasSeenIntroOnboarding else {
+            rebuildMenu()
+            return
+        }
         presentSettings(section: .models)
     }
 

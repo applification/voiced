@@ -72,9 +72,11 @@ final class AppCoordinator {
             forName: .voicedModelDownloadRequested,
             object: nil,
             queue: nil
-        ) { [weak self] _ in
+        ) { [weak self] notification in
+            let source = notification.userInfo?["source"] as? String
             Task { @MainActor in
-                self?.warmUpTranscriptionService(reason: "download request")
+                let reason = source == "onboarding" ? "onboarding download" : "download request"
+                self?.warmUpTranscriptionService(reason: reason)
             }
         }
         transcriber.onModelProgress = { [weak self] progress in
@@ -110,7 +112,9 @@ final class AppCoordinator {
         guard settings.modelDownloadsApproved else { return }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let shouldShowLoader = reason != "app start" && !self.transcriber.isSelectedModelLoaded
+            let shouldShowLoader = reason != "app start"
+                && reason != "onboarding download"
+                && !self.transcriber.isSelectedModelLoaded
             if shouldShowLoader {
                 self.captureState = .loadingModel
                 self.indicator.show(state: .loadingModel(self.settings.transcriptionModel.label))
@@ -191,6 +195,10 @@ final class AppCoordinator {
 
     private func handleKeyDown() {
         AppCoordinator.logger.debug("handleKeyDown() invoked; state=\(String(describing: self.captureState), privacy: .public)")
+        guard settings.hasSeenIntroOnboarding else {
+            AppCoordinator.logger.info("Ignoring push-to-talk before first-run setup is complete")
+            return
+        }
         guard !captureState.isBusy else { return }
         permissions.refreshStatuses()
         guard permissions.micAuthorized else {
