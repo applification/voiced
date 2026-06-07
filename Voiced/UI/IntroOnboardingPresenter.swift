@@ -24,6 +24,9 @@ enum IntroOnboardingPresenter {
         let window = NSWindow(contentViewController: hostingController)
         window.title = mode.windowTitle
         window.styleMask = [.titled, .closable]
+        if mode == .firstRun {
+            window.styleMask.remove(.closable)
+        }
         window.setContentSize(NSSize(width: 700, height: 660))
         window.minSize = NSSize(width: 700, height: 660)
         window.isReleasedWhenClosed = false
