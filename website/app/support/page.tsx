@@ -67,9 +67,9 @@ export default function SupportPage() {
             Send support requests to{" "}
             <a
               className="text-[#88d0a0] transition hover:text-[#e8ece8]"
-              href="mailto:support@applification.net?subject=Voiced%20Support"
+              href="mailto:voiced@applification.net?subject=Voiced%20Support"
             >
-              support@applification.net
+              voiced@applification.net
             </a>
             . Include your macOS version, Voiced version, output mode, and
             whether the issue happens before or after model download.
