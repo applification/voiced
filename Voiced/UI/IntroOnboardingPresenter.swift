@@ -20,8 +20,8 @@ enum IntroOnboardingPresenter {
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Welcome to Voiced"
         window.styleMask = [.titled, .closable]
-        window.setContentSize(NSSize(width: 640, height: 540))
-        window.minSize = NSSize(width: 640, height: 540)
+        window.setContentSize(NSSize(width: 640, height: 610))
+        window.minSize = NSSize(width: 640, height: 610)
         window.isReleasedWhenClosed = false
         hostingController.rootView = IntroOnboardingView(settings: settings, window: window, onFinish: onFinish)
         window.center()
@@ -40,9 +40,15 @@ private struct IntroOnboardingView: View {
     @State private var accessibilityTrusted = AXIsProcessTrustedWithOptions(nil)
     @State private var showingAutoPasteHelp = false
     @State private var showingClipboardHelp = false
+    @State private var modelProgress: ModelLoadProgress?
+    @State private var modelDownloadStarted = false
 
     private var canStart: Bool {
-        microphoneStatus == .authorized && (settings.outputMode == .copyOnly || accessibilityTrusted)
+        isTinyModelReady && microphoneStatus == .authorized && (settings.outputMode == .copyOnly || accessibilityTrusted)
+    }
+
+    private var isTinyModelReady: Bool {
+        ModelStore(model: .tiny).isDownloaded
     }
 
     var body: some View {
@@ -50,6 +56,18 @@ private struct IntroOnboardingView: View {
             header
 
             VStack(alignment: .leading, spacing: 14) {
+                setupRow(
+                    symbolName: "brain.head.profile",
+                    title: "Speech model",
+                    status: modelStatusText,
+                    statusColor: isTinyModelReady ? .green : .orange,
+                    detail: "Voiced uses the Tiny model for the fastest first run."
+                ) {
+                    modelProgressView
+                }
+
+                Divider()
+
                 setupRow(
                     symbolName: "mic.fill",
                     title: "Microphone",
@@ -78,8 +96,20 @@ private struct IntroOnboardingView: View {
             }
         }
         .padding(24)
-        .frame(width: 640, height: 540, alignment: .topLeading)
-        .onAppear { refreshStatuses() }
+        .frame(width: 640, height: 610, alignment: .topLeading)
+        .onAppear {
+            refreshStatuses()
+            startTinyModelDownloadIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .voicedModelProgressChanged)) { notification in
+            guard let progress = notification.object as? ModelLoadProgress,
+                  progress.model == .tiny else { return }
+            modelProgress = progress
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .voicedModelStatusChanged)) { notification in
+            guard notification.object as? TranscriptionModel == .tiny else { return }
+            refreshStatuses()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshStatuses()
         }
@@ -221,6 +251,20 @@ private struct IntroOnboardingView: View {
         }
     }
 
+    private var modelProgressView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if isTinyModelReady {
+                EmptyView()
+            } else {
+                ProgressView(value: modelProgress?.fractionCompleted ?? 0)
+                    .progressViewStyle(.linear)
+                Text(modelProgressDetailText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private func outputChoiceCard<Actions: View>(
         title: String,
         symbolName: String,
@@ -340,9 +384,44 @@ private struct IntroOnboardingView: View {
         }
     }
 
+    private var modelStatusText: String {
+        if isTinyModelReady {
+            return "Ready"
+        }
+        guard let modelProgress else {
+            return modelDownloadStarted ? "Starting" : "Needed"
+        }
+        if modelProgress.phase == "Downloading" {
+            return "\(Int((modelProgress.fractionCompleted * 100).rounded()))%"
+        }
+        return modelProgress.phase
+    }
+
+    private var modelProgressDetailText: String {
+        guard let modelProgress else {
+            return "Downloading Tiny, about 73 MB."
+        }
+        if modelProgress.phase == "Downloading" {
+            return "Downloading Tiny: \(Int((modelProgress.fractionCompleted * 100).rounded()))%"
+        }
+        return "\(modelProgress.phase) Tiny."
+    }
+
     private func refreshStatuses() {
         microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
         accessibilityTrusted = AXIsProcessTrustedWithOptions(nil)
+    }
+
+    private func startTinyModelDownloadIfNeeded() {
+        settings.transcriptionModel = .tiny
+        guard !isTinyModelReady else { return }
+        guard !modelDownloadStarted else { return }
+        modelDownloadStarted = true
+        if !settings.modelDownloadsApproved {
+            settings.modelDownloadsApproved = true
+            NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
+        }
+        NotificationCenter.default.post(name: .voicedModelDownloadRequested, object: TranscriptionModel.tiny)
     }
 
     private func bringOnboardingForward(after delay: TimeInterval = 0) {

@@ -148,6 +148,7 @@ final class AppCoordinator {
     }
 
     private func handleModelProgress(_ progress: ModelLoadProgress) {
+        NotificationCenter.default.post(name: .voicedModelProgressChanged, object: progress)
         guard progress.model == settings.transcriptionModel else {
             return
         }

@@ -5,10 +5,14 @@ APP_NAME="Voiced"
 BUNDLE_ID="net.applification.voiced"
 INTRO_ONBOARDING_KEY="hasSeenIntroOnboarding"
 OUTPUT_MODE_KEY="outputMode"
+TRANSCRIPTION_MODEL_KEY="transcriptionModel"
+MODEL_DOWNLOADS_APPROVED_KEY="modelDownloadsApproved"
+LEGACY_TINY_MODEL_APPROVED_KEY="whisperTinyModelApproved"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/build-appstore"
 APP_BUNDLE="$BUILD_DIR/Build/Products/AppStore/$APP_NAME.app"
 CONTAINER_PREFS="$HOME/Library/Containers/$BUNDLE_ID/Data/Library/Preferences/$BUNDLE_ID.plist"
+CONTAINER_DOCUMENTS="$HOME/Library/Containers/$BUNDLE_ID/Data/Documents"
 
 usage() {
   cat >&2 <<EOF
@@ -73,6 +77,10 @@ reset_app_state() {
   echo "Resetting local app state for $BUNDLE_ID"
   delete_default "$INTRO_ONBOARDING_KEY"
   delete_default "$OUTPUT_MODE_KEY"
+  delete_default "$TRANSCRIPTION_MODEL_KEY"
+  delete_default "$MODEL_DOWNLOADS_APPROVED_KEY"
+  delete_default "$LEGACY_TINY_MODEL_APPROVED_KEY"
+  rm -rf "$CONTAINER_DOCUMENTS/huggingface"
   killall cfprefsd >/dev/null 2>&1 || true
 }
 
