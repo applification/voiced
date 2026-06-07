@@ -46,15 +46,6 @@ extension StatusMenuController {
         rebuildMenu()
     }
 
-    @objc func warmUpModel() {
-        if !settings.modelDownloadsApproved {
-            settings.modelDownloadsApproved = true
-            NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
-            rebuildMenu()
-        }
-        NotificationCenter.default.post(name: .voicedModelDownloadRequested, object: settings.transcriptionModel)
-    }
-
     @objc func copyLastTranscript() {
         guard let transcript = lastCapture.last else {
             logger.warning("Copy Last Transcript selected without stored transcript")
@@ -83,20 +74,6 @@ extension StatusMenuController {
         }
 
         output.pastePreservingClipboard(transcript, targetApplication: nil)
-    }
-
-    @objc func testPastePermission() {
-        let testText = "Voiced paste test"
-        permissions.refreshStatuses()
-        logger.info("Test Paste Permission selected; accessibilityEnabled=\(self.permissions.accessibilityEnabled, privacy: .public)")
-
-        guard permissions.accessibilityEnabled else {
-            output.copyToClipboard(testText)
-            _ = permissions.explainPasteAccessibilityAndChoose()
-            return
-        }
-
-        output.pastePreservingClipboard(testText, targetApplication: nil)
     }
 
     @objc func handleMicrophone() {

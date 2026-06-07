@@ -21,10 +21,14 @@ extension StatusMenuController {
                                 color: accessibilityEnabled ? .systemGreen : .systemOrange))
         menu.addItem(.separator())
 
+        addPermissionMenuItems()
+        if !micAuthorized || !accessibilityEnabled {
+            menu.addItem(.separator())
+        }
+
         addTranscriptMenuItems()
         addOutputMenu()
         addModelMenu()
-        addPermissionMenuItems()
         menu.addItem(.separator())
         addAppMenuItems()
     }
@@ -177,10 +181,6 @@ extension StatusMenuController {
                                      symbolName: "gearshape",
                                      color: .secondaryLabelColor))
 
-        let warmUpItem = actionItem(title: "Warm Up Model", action: #selector(warmUpModel))
-        warmUpItem.isEnabled = settings.modelDownloadsApproved
-        modelMenu.addItem(warmUpItem)
-
         let modelItem = NSMenuItem(title: "Model", action: nil, keyEquivalent: "")
         modelItem.image = menuIcon("brain.head.profile", color: .secondaryLabelColor)
         modelItem.submenu = modelMenu
@@ -232,18 +232,11 @@ extension StatusMenuController {
                                    color: .controlAccentColor)
         pasteLast.isEnabled = hasLastCapture
         menu.addItem(pasteLast)
-
-        let testPaste = actionItem(title: "Test Paste Permission",
-                                   action: #selector(testPastePermission),
-                                   symbolName: "checkmark.shield",
-                                   color: .secondaryLabelColor)
-        menu.addItem(testPaste)
     }
 
     private func addPermissionMenuItems() {
         guard !micAuthorized || !accessibilityEnabled else { return }
 
-        menu.addItem(.separator())
         if !micAuthorized {
             menu.addItem(actionItem(title: "Allow Microphone...",
                                     action: #selector(handleMicrophone),

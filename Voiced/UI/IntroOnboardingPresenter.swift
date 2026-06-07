@@ -262,6 +262,9 @@ private struct IntroOnboardingView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Text("You can switch to larger, more accurate models later in Settings.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
