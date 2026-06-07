@@ -46,6 +46,7 @@ Expected result: transcription works without new model download traffic.
 Expected:
 
 - Hugging Face/WhisperKit model download only after the user presses a model download button in onboarding or `Download now` in Settings > Models.
+- PostHog diagnostics only when a build includes `POSTHOG_PROJECT_TOKEN` and the user has basic diagnostics enabled. Diagnostics must not include audio, transcript text, clipboard contents, screenshots, session replay, file names, file paths, window titles, or target application names.
 
 Not expected:
 

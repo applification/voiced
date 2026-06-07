@@ -515,7 +515,7 @@ function DownloadCta() {
 function Footer() {
   return (
     <footer className="border-t border-border bg-background px-5 py-6 sm:px-8 lg:px-10">
-      <div className="mx-auto flex max-w-7xl justify-center text-sm text-muted-foreground">
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-4 text-sm text-muted-foreground sm:flex-row sm:justify-between">
         <a
           href="https://applification.net"
           aria-label="Tuned by Applification"
@@ -525,6 +525,14 @@ function Footer() {
           <ApplificationMark className="h-4 w-9 text-[#385040]" />
           <span className="font-medium text-[#385040]">Applification</span>
         </a>
+        <nav aria-label="Footer" className="flex gap-5">
+          <Link className="transition hover:text-foreground" href="/privacy">
+            Privacy
+          </Link>
+          <Link className="transition hover:text-foreground" href="/support">
+            Support
+          </Link>
+        </nav>
       </div>
     </footer>
   );

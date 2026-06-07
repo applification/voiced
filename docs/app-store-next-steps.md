@@ -28,7 +28,7 @@ The direct distribution path can remain available for now, but it should be trea
 3. Telemetry disclosure.
    If `POSTHOG_PROJECT_TOKEN` is supplied for TestFlight or App Store builds, App Store privacy answers must disclose any collected diagnostics or analytics accurately. If telemetry is not needed for first TestFlight, keep the token empty.
 
-   Current first-upload preference: leave `POSTHOG_PROJECT_TOKEN` empty unless TestFlight diagnostics are worth the extra privacy disclosure work.
+   Current first-upload state: the TestFlight build should include PostHog diagnostics, so App Store privacy answers and public privacy copy must disclose the basic usage and crash diagnostics collected.
 
 4. Menu bar app reviewability.
    Because `LSUIElement` is true, review notes need a very direct test script so reviewers can find onboarding, Settings, model download, output mode, and TextEdit verification without guessing.
@@ -144,7 +144,10 @@ Current upload attempt:
 
 - `./script/upload_testflight.sh --skip-archive` reached `xcodebuild -exportArchive` on `rufus` but failed before upload with `exportArchive Failed to Use Accounts`.
 - Xcode reported invalid keychain credentials for an Apple Developer account: `missing Xcode-Username`.
-- Next step is to refresh or replace the Xcode account credentials on the machine used for upload, then retry `./script/upload_testflight.sh --skip-archive`.
+- Upload was then retried on the Apple-authorized machine and succeeded. The uploaded build is visible in App Store Connect > TestFlight.
+- App Encryption Documentation was completed with no app-implemented encryption algorithms. The build reached `Ready to Submit`.
+- Internal TestFlight distribution was enabled manually, and the TestFlight-installed app is working well.
+- Keep `rufus` as a repo/prep machine unless its Xcode account credentials are intentionally refreshed later.
 
 ## Phase 5: External TestFlight
 
@@ -172,6 +175,6 @@ Before submitting for public App Review:
 - Add a release checklist script or Make target that runs the App Store build, archive, entitlement inspection, and upload steps in order.
 - Consider adding a small `script/inspect_app_store_build.sh` helper for repeatable entitlement and bundle metadata checks.
 - Consider adding a short "authorized machine handoff" checklist that lists the exact scripts to run elsewhere and the output to report back.
-- Decide whether first TestFlight should include PostHog telemetry. If yes, update the privacy checklist with the exact events and properties collected.
+- Keep PostHog diagnostics disclosure aligned across App Store privacy answers, `docs/app-store-metadata.md`, the public privacy page, and in-app Settings copy.
 - Add a versioning note for App Store build numbers, because App Store Connect requires every uploaded build number to be unique.
 - Update `README.md` once App Store distribution is active so direct DMG distribution is no longer presented as the main release path.
