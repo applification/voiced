@@ -38,6 +38,8 @@ private struct IntroOnboardingView: View {
 
     @State private var microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
     @State private var accessibilityTrusted = AXIsProcessTrustedWithOptions(nil)
+    @State private var showingAutoPasteHelp = false
+    @State private var showingClipboardHelp = false
 
     private var canStart: Bool {
         microphoneStatus == .authorized && (settings.outputMode == .copyOnly || accessibilityTrusted)
@@ -156,7 +158,10 @@ private struct IntroOnboardingView: View {
                     isReady: accessibilityTrusted,
                     status: accessibilityTrusted ? "Ready" : "Optional permission",
                     statusColor: accessibilityTrusted ? .green : .orange,
-                    detail: "Paste directly into the app you are using."
+                    detail: "Paste directly into the app you are using.",
+                    helpTitle: "Auto Paste",
+                    helpText: "Auto Paste briefly places the transcript on the clipboard, sends \u{2318}V to the app you were using, then restores your previous clipboard when possible. macOS requires Accessibility permission before any app can send that paste command on your behalf.",
+                    isShowingHelp: $showingAutoPasteHelp
                 ) {
                     settings.outputMode = .clipboardPaste
                     refreshStatuses()
@@ -201,7 +206,10 @@ private struct IntroOnboardingView: View {
                     isReady: true,
                     status: "No extra permission",
                     statusColor: .green,
-                    detail: "Copy transcripts. Paste when you are ready."
+                    detail: "Copy transcripts. Paste when you are ready.",
+                    helpTitle: "Clipboard Only",
+                    helpText: "Clipboard Only stops after copying the transcript. You paste manually, so Voiced does not need permission to control other apps.",
+                    isShowingHelp: $showingClipboardHelp
                 ) {
                     settings.outputMode = .copyOnly
                     refreshStatuses()
@@ -221,6 +229,9 @@ private struct IntroOnboardingView: View {
         status: String,
         statusColor: Color,
         detail: String,
+        helpTitle: String,
+        helpText: String,
+        isShowingHelp: Binding<Bool>,
         select: @escaping () -> Void,
         @ViewBuilder actions: () -> Actions
     ) -> some View {
@@ -243,6 +254,8 @@ private struct IntroOnboardingView: View {
                 }
 
                 Spacer(minLength: 8)
+
+                HelpPopoverButton(title: helpTitle, text: helpText, isPresented: isShowingHelp)
 
                 if isSelected && isReady {
                     Image(systemName: "checkmark.circle.fill")
@@ -348,6 +361,39 @@ private struct IntroOnboardingView: View {
     private func openPrivacyPane(_ pane: String) {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") {
             NSWorkspace.shared.open(url)
+        }
+    }
+}
+
+private struct HelpPopoverButton: View {
+    let title: String
+    let text: String
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        Button {
+            isPresented.toggle()
+        } label: {
+            Image(systemName: "questionmark.circle.fill")
+                .font(.system(size: 13, weight: .regular))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.secondary)
+                .frame(width: 16, height: 16)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Circle())
+        .help("Show help for \(title)")
+        .popover(isPresented: $isPresented, arrowEdge: .top) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(.headline)
+                Text(text)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(width: 280, alignment: .leading)
+            .padding(14)
         }
     }
 }
