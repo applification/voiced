@@ -259,6 +259,10 @@ extension StatusMenuController {
     }
 
     private func addAppMenuItems() {
+        menu.addItem(actionItem(title: "Getting Started...",
+                                action: #selector(showGettingStarted),
+                                symbolName: "questionmark.circle",
+                                color: .secondaryLabelColor))
         menu.addItem(actionItem(title: "Settings...",
                                 action: #selector(openSettings),
                                 symbolName: "gearshape.fill",

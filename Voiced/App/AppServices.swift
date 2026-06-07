@@ -12,6 +12,7 @@ enum AppServices {
 final class VoicedAppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: AppCoordinator?
     private var statusMenu: StatusMenuController?
+    private var onboardingWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let settings = AppServices.settings
@@ -21,5 +22,11 @@ final class VoicedAppDelegate: NSObject, NSApplicationDelegate {
         statusMenu = StatusMenuController(settings: settings, lastCapture: lastCapture)
         coordinator = AppCoordinator(settings: settings, lastCapture: lastCapture, telemetry: telemetry)
         coordinator?.start()
+        Task { @MainActor in
+            onboardingWindow = IntroOnboardingPresenter.presentIfNeeded(settings: settings) { [weak self] in
+                self?.onboardingWindow?.close()
+                self?.onboardingWindow = nil
+            }
+        }
     }
 }

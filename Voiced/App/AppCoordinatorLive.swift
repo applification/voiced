@@ -92,7 +92,13 @@ final class AppCoordinator {
                 let hotkey = self.settings.pushToTalkHotkey
                 guard keyCode == hotkey.keyCode else { return }
                 let isDown = flags.contains(hotkey.eventFlag)
-                if isDown && !self.isPTTDown { self.isPTTDown = true; self.handleKeyDown() }
+                if isDown && !self.isPTTDown {
+                    self.isPTTDown = true
+                    self.handleKeyDown()
+                } else if isDown && self.isPTTDown && !self.captureState.isRecording && !self.captureState.isBusy {
+                    AppCoordinator.logger.warning("Push-to-talk latch was already down while idle; treating modifier event as a fresh press")
+                    self.handleKeyDown()
+                }
                 if !isDown && self.isPTTDown { self.isPTTDown = false; self.handleKeyUp() }
             default:
                 break
@@ -185,6 +191,7 @@ final class AppCoordinator {
     private func handleKeyDown() {
         AppCoordinator.logger.debug("handleKeyDown() invoked; state=\(String(describing: self.captureState), privacy: .public)")
         guard !captureState.isBusy else { return }
+        permissions.refreshStatuses()
         guard permissions.micAuthorized else {
             AppCoordinator.logger.warning("Mic not authorized; requesting permission")
             telemetry.capture(.permissionPromptShown, properties: ["permission": "microphone"])
@@ -292,13 +299,17 @@ final class AppCoordinator {
                     if self.permissions.accessibilityEnabled {
                         self.output.pastePreservingClipboard(text, targetApplication: targetApplication)
                     } else {
-                        self.permissions.openAccessibilityPrefs()
                         self.output.copyToClipboard(text)
+                        let decision = self.permissions.explainPasteAccessibilityAndChoose()
+                        if decision == .useClipboardOnly {
+                            self.settings.outputMode = .copyOnly
+                        }
                         self.telemetry.captureError(.pastePermissionNeeded, properties: [
-                            "output_mode": self.settings.outputMode.rawValue
+                            "output_mode": self.settings.outputMode.rawValue,
+                            "decision": String(describing: decision)
                         ])
                         self.captureState = .showingError
-                        self.indicator.show(state: .error("Paste permission needed"))
+                        self.indicator.show(state: .error(decision == .openSettings ? "Paste permission needed" : "Copied to clipboard"))
                         try? await Task.sleep(nanoseconds: 1_500_000_000)
                     }
                 } else {

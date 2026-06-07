@@ -40,6 +40,7 @@
 		D847D33F895A52EC7B60E033 /* IndicatorState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C86E820E91FA67D9D682750B /* IndicatorState.swift */; };
 		E3E609F4078E7BB43C4AC1D1 /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = E01FFFACCBE06473CDCD6384 /* AppNotifications.swift */; };
 		E41501F56C890F9B8F12E129 /* StatusMenuController+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51B8479456A17344EACBFC55 /* StatusMenuController+Actions.swift */; };
+		E4379CA56F99C2D22EE3AFDF /* IntroOnboardingPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9972ADCF2078365AE57E8CB5 /* IntroOnboardingPresenter.swift */; };
 		E7E4DC9DBB5AFDE410055958 /* TranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71CD0C2ABDE2A1A0D7510C80 /* TranscriptionService.swift */; };
 		E81EAE8038B63A2C03EE5AC1 /* AppCoordinatorLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AE923A0E8BCA98872BE2CD /* AppCoordinatorLive.swift */; };
 /* End PBXBuildFile section */
@@ -65,6 +66,7 @@
 		7AE28435042EA5C3E3EDADEA /* ModelLoadProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadProgress.swift; sourceTree = "<group>"; };
 		80266AAFB1DE4B84FC5CE9BA /* StatusMenuController+MenuBuilding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StatusMenuController+MenuBuilding.swift"; sourceTree = "<group>"; };
 		9831842C76DBBF67F7B19B0D /* StatusMenuController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMenuController.swift; sourceTree = "<group>"; };
+		9972ADCF2078365AE57E8CB5 /* IntroOnboardingPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntroOnboardingPresenter.swift; sourceTree = "<group>"; };
 		998FED825A591A11ABBF1166 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
 		9CF2FE36886981B6240FEA03 /* OutputManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputManager.swift; sourceTree = "<group>"; };
 		B85425127B1B5B385D50C850 /* SoundCue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundCue.swift; sourceTree = "<group>"; };
@@ -157,6 +159,7 @@
 				1E9D2150B7863C5B4DA190D6 /* FloatingIndicator.swift */,
 				C86E820E91FA67D9D682750B /* IndicatorState.swift */,
 				53CDC1DEB94A862FBD8B4176 /* IndicatorViews.swift */,
+				9972ADCF2078365AE57E8CB5 /* IntroOnboardingPresenter.swift */,
 				6D7AD448C90A10E568928B60 /* NotchGeometry.swift */,
 				BFA387A03AF9C8840D824040 /* SettingsView.swift */,
 				9831842C76DBBF67F7B19B0D /* StatusMenuController.swift */,
@@ -302,6 +305,7 @@
 				8A1B1D25125EA0837144E04B /* HotkeyManager.swift in Sources */,
 				D847D33F895A52EC7B60E033 /* IndicatorState.swift in Sources */,
 				18F9191DB3B2274A9F03BF90 /* IndicatorViews.swift in Sources */,
+				E4379CA56F99C2D22EE3AFDF /* IntroOnboardingPresenter.swift in Sources */,
 				7F2E8EE943ED5389739F4C73 /* LastCaptureStore.swift in Sources */,
 				63E047CB4300FEF61D33905D /* ModelIntegrity.swift in Sources */,
 				C01B2893022BFFCB565EF670 /* ModelLoadProgress.swift in Sources */,

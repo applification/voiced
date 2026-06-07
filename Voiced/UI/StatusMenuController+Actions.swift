@@ -73,8 +73,12 @@ extension StatusMenuController {
         permissions.refreshStatuses()
         logger.info("Paste Last Transcript selected; accessibilityEnabled=\(self.permissions.accessibilityEnabled, privacy: .public) characters=\(transcript.count, privacy: .public)")
         guard permissions.accessibilityEnabled else {
-            permissions.openAccessibilityPrefs()
             output.copyToClipboard(transcript)
+            let decision = permissions.explainPasteAccessibilityAndChoose()
+            if decision == .useClipboardOnly {
+                settings.outputMode = .copyOnly
+            }
+            rebuildMenu()
             return
         }
 
@@ -87,8 +91,8 @@ extension StatusMenuController {
         logger.info("Test Paste Permission selected; accessibilityEnabled=\(self.permissions.accessibilityEnabled, privacy: .public)")
 
         guard permissions.accessibilityEnabled else {
-            permissions.openAccessibilityPrefs()
             output.copyToClipboard(testText)
+            _ = permissions.explainPasteAccessibilityAndChoose()
             return
         }
 
@@ -112,7 +116,18 @@ extension StatusMenuController {
             return
         }
 
-        permissions.openAccessibilityPrefs()
+        _ = permissions.explainPasteAccessibilityAndChoose()
+    }
+
+    @objc func showGettingStarted() {
+        if let onboardingWindow {
+            onboardingWindow.makeKeyAndOrderFront(nil)
+        } else {
+            onboardingWindow = IntroOnboardingPresenter.present(settings: settings) { [weak self] in
+                self?.onboardingWindow?.close()
+                self?.onboardingWindow = nil
+            }
+        }
     }
 
     @objc func openSettings() {

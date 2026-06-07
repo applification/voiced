@@ -57,6 +57,12 @@ final class SettingsStore {
         }
     }
 
+    var hasSeenIntroOnboarding: Bool {
+        didSet {
+            userDefaults.set(hasSeenIntroOnboarding, forKey: Keys.hasSeenIntroOnboarding)
+        }
+    }
+
     private let userDefaults: UserDefaults
 
     init(userDefaults: UserDefaults = .standard) {
@@ -95,6 +101,8 @@ final class SettingsStore {
         } else {
             basicDiagnosticsEnabled = userDefaults.bool(forKey: Keys.basicDiagnosticsEnabled)
         }
+
+        hasSeenIntroOnboarding = userDefaults.bool(forKey: Keys.hasSeenIntroOnboarding)
     }
 
     private static func clampedLastCaptureMinutes(_ minutes: Int) -> Int {
@@ -113,4 +121,5 @@ private enum Keys {
     static let deactivationSound = "deactivationSound"
     static let pushToTalkHotkey = "pushToTalkHotkey"
     static let basicDiagnosticsEnabled = "basicDiagnosticsEnabled"
+    static let hasSeenIntroOnboarding = "hasSeenIntroOnboarding"
 }

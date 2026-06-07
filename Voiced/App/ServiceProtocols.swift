@@ -51,6 +51,7 @@ protocol PermissionManaging: AnyObject {
 
     func refreshStatuses()
     func requestMicrophone(completion: @Sendable @escaping (Bool) -> Void)
+    func explainPasteAccessibilityAndChoose() -> AccessibilityPastePermissionDecision
     func requestAccessibilityPrompt()
     func openAccessibilityPrefs()
 }
