@@ -7,3 +7,5 @@ xcuserdata/
 DerivedData/
 build-release
 *.p8
+.env*
+.vercel/
