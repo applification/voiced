@@ -94,6 +94,8 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
+Deployment notes live in [docs/website-deployment.md](docs/website-deployment.md).
+
 ## Release Packaging
 
 Release packaging notes live in [docs/release-packaging.md](docs/release-packaging.md). The repository includes helper scripts for creating the local app bundle and release artifacts, but distribution builds should be signed and notarized before publication.
