@@ -64,6 +64,37 @@ extension StatusMenuController {
         output.copyToClipboard(transcript, restoringAfter: 5)
     }
 
+    @objc func pasteLastTranscript() {
+        guard let transcript = lastCapture.last else {
+            logger.warning("Paste Last Transcript selected without stored transcript")
+            return
+        }
+
+        permissions.refreshStatuses()
+        logger.info("Paste Last Transcript selected; accessibilityEnabled=\(self.permissions.accessibilityEnabled, privacy: .public) characters=\(transcript.count, privacy: .public)")
+        guard permissions.accessibilityEnabled else {
+            permissions.openAccessibilityPrefs()
+            output.copyToClipboard(transcript)
+            return
+        }
+
+        output.pastePreservingClipboard(transcript, targetApplication: nil)
+    }
+
+    @objc func testPastePermission() {
+        let testText = "Voiced paste test"
+        permissions.refreshStatuses()
+        logger.info("Test Paste Permission selected; accessibilityEnabled=\(self.permissions.accessibilityEnabled, privacy: .public)")
+
+        guard permissions.accessibilityEnabled else {
+            permissions.openAccessibilityPrefs()
+            output.copyToClipboard(testText)
+            return
+        }
+
+        output.pastePreservingClipboard(testText, targetApplication: nil)
+    }
+
     @objc func handleMicrophone() {
         guard !micAuthorized else {
             rebuildMenu()

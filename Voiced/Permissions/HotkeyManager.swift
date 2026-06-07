@@ -68,11 +68,11 @@ final class HotkeyManager {
 	                guard event.type == .flagsChanged || event.type == .keyDown else { return }
 	                let keyCode = CGKeyCode(event.keyCode)
 	                if event.type == .keyDown && keyCode != Self.escapeKeyCode { return }
-	                let flags = CGEventFlags(rawValue: UInt64(event.modifierFlags.rawValue))
+	                let flags = Self.cgEventFlags(from: event.modifierFlags)
 	                if event.type == .flagsChanged {
-	                    HotkeyManager.logger.debug("NSEvent modifier keyCode: \(keyCode, privacy: .public), flags: \(UInt64(flags.rawValue), privacy: .public)")
+	                    HotkeyManager.logger.debug("NSEvent global modifier keyCode: \(keyCode, privacy: .public), appKitFlags: \(UInt64(event.modifierFlags.rawValue), privacy: .public), cgFlags: \(UInt64(flags.rawValue), privacy: .public)")
 	                } else {
-	                    HotkeyManager.logger.debug("NSEvent Escape key")
+	                    HotkeyManager.logger.debug("NSEvent global Escape key")
 	                }
 	                self.handler?(event.type == .keyDown ? .keyDown : .flagsChanged, keyCode, flags)
 	            }
@@ -82,15 +82,16 @@ final class HotkeyManager {
 	                guard event.type == .flagsChanged || event.type == .keyDown else { return event }
 	                let keyCode = CGKeyCode(event.keyCode)
 	                if event.type == .keyDown && keyCode != Self.escapeKeyCode { return event }
-	                let flags = CGEventFlags(rawValue: UInt64(event.modifierFlags.rawValue))
+	                let flags = Self.cgEventFlags(from: event.modifierFlags)
 	                if event.type == .flagsChanged {
-	                    HotkeyManager.logger.debug("NSEvent local modifier keyCode: \(keyCode, privacy: .public), flags: \(UInt64(flags.rawValue), privacy: .public)")
+	                    HotkeyManager.logger.debug("NSEvent local modifier keyCode: \(keyCode, privacy: .public), appKitFlags: \(UInt64(event.modifierFlags.rawValue), privacy: .public), cgFlags: \(UInt64(flags.rawValue), privacy: .public)")
 	                } else {
 	                    HotkeyManager.logger.debug("NSEvent local Escape key")
 	                }
 	                self.handler?(event.type == .keyDown ? .keyDown : .flagsChanged, keyCode, flags)
 	                return event
 	            }
+            HotkeyManager.logger.info("NSEvent fallback monitors installed")
         }
     }
 
@@ -104,5 +105,22 @@ final class HotkeyManager {
         if let lm = localMonitor { NSEvent.removeMonitor(lm) }
         globalMonitor = nil
         localMonitor = nil
+    }
+
+    private static func cgEventFlags(from modifierFlags: NSEvent.ModifierFlags) -> CGEventFlags {
+        var flags: CGEventFlags = []
+        if modifierFlags.contains(.command) {
+            flags.insert(.maskCommand)
+        }
+        if modifierFlags.contains(.option) {
+            flags.insert(.maskAlternate)
+        }
+        if modifierFlags.contains(.control) {
+            flags.insert(.maskControl)
+        }
+        if modifierFlags.contains(.shift) {
+            flags.insert(.maskShift)
+        }
+        return flags
     }
 }

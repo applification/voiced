@@ -225,6 +225,19 @@ extension StatusMenuController {
                                   color: .controlAccentColor)
         copyLast.isEnabled = hasLastCapture
         menu.addItem(copyLast)
+
+        let pasteLast = actionItem(title: "Paste Last Transcript",
+                                   action: #selector(pasteLastTranscript),
+                                   symbolName: "text.insert",
+                                   color: .controlAccentColor)
+        pasteLast.isEnabled = hasLastCapture
+        menu.addItem(pasteLast)
+
+        let testPaste = actionItem(title: "Test Paste Permission",
+                                   action: #selector(testPastePermission),
+                                   symbolName: "checkmark.shield",
+                                   color: .secondaryLabelColor)
+        menu.addItem(testPaste)
     }
 
     private func addPermissionMenuItems() {
