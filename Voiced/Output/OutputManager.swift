@@ -57,12 +57,13 @@ final class OutputManager {
         Self.restoreTask?.cancel()
         Self.restoreTask = nil
         let previousItems = Self.snapshotPasteboard(pb)
-        _ = Self.writeStringToPasteboard(text)
+        let wroteTranscript = Self.writeStringToPasteboard(text)
         let transcriptGeneration = pb.changeCount
         let accessibilityTrusted = AXIsProcessTrustedWithOptions(nil)
         let targetName = targetApplication?.localizedName ?? "none"
+        let frontmostName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "none"
 
-        Self.logger.info("Prepared transcript paste; target=\(targetName, privacy: .public) accessibilityTrusted=\(accessibilityTrusted, privacy: .public) characters=\(text.count, privacy: .public)")
+        Self.logger.info("Prepared transcript paste; target=\(targetName, privacy: .public) frontmost=\(frontmostName, privacy: .public) accessibilityTrusted=\(accessibilityTrusted, privacy: .public) wroteTranscript=\(wroteTranscript, privacy: .public) changeCount=\(transcriptGeneration, privacy: .public) characters=\(text.count, privacy: .public)")
 
         guard accessibilityTrusted else {
             Self.logger.warning("Accessibility is not trusted; leaving transcript on clipboard instead of attempting paste")
@@ -70,7 +71,8 @@ final class OutputManager {
         }
 
         if let targetApplication, !targetApplication.isTerminated {
-            targetApplication.activate(options: [.activateAllWindows])
+            let activated = targetApplication.activate(options: [.activateAllWindows])
+            Self.logger.info("Activated paste target=\(targetName, privacy: .public) success=\(activated, privacy: .public)")
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -128,6 +130,10 @@ final class OutputManager {
 
     private static func postCommandV(to targetApplication: NSRunningApplication?) {
         let vKey: CGKeyCode = 9 // ANSI 'v'
+        let frontmostName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "none"
+        let targetName = targetApplication?.localizedName ?? "frontmost"
+        logger.info("Posting synthetic Cmd+V; target=\(targetName, privacy: .public) frontmost=\(frontmostName, privacy: .public)")
+
         guard let src = CGEventSource(stateID: .combinedSessionState) else {
             logger.error("Unable to create CGEventSource for paste")
             return
@@ -142,7 +148,6 @@ final class OutputManager {
         keyDown.post(tap: .cgAnnotatedSessionEventTap)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             keyUp.post(tap: .cgAnnotatedSessionEventTap)
-            let targetName = targetApplication?.localizedName ?? "frontmost"
             logger.info("Posted synthetic Cmd+V to \(targetName, privacy: .public)")
         }
     }

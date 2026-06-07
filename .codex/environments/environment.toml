@@ -6,9 +6,14 @@ name = "Voiced"
 script = ""
 
 [[actions]]
-name = "Build & Run"
+name = "Build & Run App Store"
 icon = "run"
-command = "./script/build_and_run.sh"
+command = "./script/run_app_store.sh reset-run"
+
+[[actions]]
+name = "App Store Logs"
+icon = "tool"
+command = "./script/run_app_store.sh reset-logs"
 
 [[actions]]
 name = "Install Stable App"

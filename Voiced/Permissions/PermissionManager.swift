@@ -3,6 +3,11 @@ import AVFoundation
 import Combine
 @preconcurrency import ApplicationServices
 
+enum AccessibilityPastePermissionDecision: Equatable {
+    case openSettings
+    case useClipboardOnly
+}
+
 final class PermissionManager: ObservableObject {
     @Published private(set) var micAuthorized: Bool = false
     @Published private(set) var accessibilityEnabled: Bool = false
@@ -23,6 +28,28 @@ final class PermissionManager: ObservableObject {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    @MainActor
+    func explainPasteAccessibilityAndChoose() -> AccessibilityPastePermissionDecision {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Allow Voiced to paste for you?"
+        alert.informativeText = """
+        Paste mode needs Accessibility permission so Voiced can send Command-V to the app you were typing in after transcription.
+
+        Voiced does not read your keystrokes. If you prefer not to grant this permission, your transcript has been copied to the clipboard so you can paste it manually.
+        """
+        alert.addButton(withTitle: "Open Accessibility Settings")
+        alert.addButton(withTitle: "Use Clipboard Only")
+        alert.icon = NSImage(systemSymbolName: "hand.raised.fill", accessibilityDescription: "Accessibility permission")
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            openAccessibilityPrefs()
+            return .openSettings
+        }
+
+        return .useClipboardOnly
     }
 
     func requestAccessibilityPrompt() {

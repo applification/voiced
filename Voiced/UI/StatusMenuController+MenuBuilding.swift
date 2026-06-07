@@ -21,10 +21,14 @@ extension StatusMenuController {
                                 color: accessibilityEnabled ? .systemGreen : .systemOrange))
         menu.addItem(.separator())
 
+        addPermissionMenuItems()
+        if !micAuthorized || !accessibilityEnabled {
+            menu.addItem(.separator())
+        }
+
         addTranscriptMenuItems()
         addOutputMenu()
         addModelMenu()
-        addPermissionMenuItems()
         menu.addItem(.separator())
         addAppMenuItems()
     }
@@ -177,10 +181,6 @@ extension StatusMenuController {
                                      symbolName: "gearshape",
                                      color: .secondaryLabelColor))
 
-        let warmUpItem = actionItem(title: "Warm Up Model", action: #selector(warmUpModel))
-        warmUpItem.isEnabled = settings.modelDownloadsApproved
-        modelMenu.addItem(warmUpItem)
-
         let modelItem = NSMenuItem(title: "Model", action: nil, keyEquivalent: "")
         modelItem.image = menuIcon("brain.head.profile", color: .secondaryLabelColor)
         modelItem.submenu = modelMenu
@@ -225,12 +225,18 @@ extension StatusMenuController {
                                   color: .controlAccentColor)
         copyLast.isEnabled = hasLastCapture
         menu.addItem(copyLast)
+
+        let pasteLast = actionItem(title: "Paste Last Transcript",
+                                   action: #selector(pasteLastTranscript),
+                                   symbolName: "text.insert",
+                                   color: .controlAccentColor)
+        pasteLast.isEnabled = hasLastCapture
+        menu.addItem(pasteLast)
     }
 
     private func addPermissionMenuItems() {
         guard !micAuthorized || !accessibilityEnabled else { return }
 
-        menu.addItem(.separator())
         if !micAuthorized {
             menu.addItem(actionItem(title: "Allow Microphone...",
                                     action: #selector(handleMicrophone),
@@ -246,10 +252,20 @@ extension StatusMenuController {
     }
 
     private func addAppMenuItems() {
-        menu.addItem(actionItem(title: "Settings...",
-                                action: #selector(openSettings),
-                                symbolName: "gearshape.fill",
-                                color: .secondaryLabelColor))
+        let settingsItem = actionItem(title: "Settings...",
+                                      action: #selector(openSettings),
+                                      symbolName: "gearshape.fill",
+                                      color: .secondaryLabelColor)
+        settingsItem.isEnabled = settings.hasSeenIntroOnboarding
+        menu.addItem(settingsItem)
+
+        let setupGuideItem = actionItem(title: "Setup Guide...",
+                                        action: #selector(showSetupGuide),
+                                        symbolName: "checklist",
+                                        color: .secondaryLabelColor)
+        setupGuideItem.isEnabled = settings.hasSeenIntroOnboarding
+        menu.addItem(setupGuideItem)
+
         menu.addItem(actionItem(title: "Quit Voiced",
                                 action: #selector(quit),
                                 keyEquivalent: "q",

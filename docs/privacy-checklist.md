@@ -15,7 +15,15 @@ Voiced is intentionally local-only after the approved model download.
 
 Voiced uses WhisperKit with explicitly selected local models.
 
-The first explicit model download may contact Hugging Face through WhisperKit. WhisperKit caches downloaded model files under:
+On first run, onboarding lets the user choose a local model and discloses the approximate size before network access begins. Later model changes are explicit from Settings > Models.
+
+In the App Store sandbox build, WhisperKit caches downloaded model files under:
+
+```text
+~/Library/Containers/net.applification.voiced/Data/Documents/huggingface/models/argmaxinc/whisperkit-coreml
+```
+
+In the direct distribution build, WhisperKit may cache downloaded model files under:
 
 ```text
 ~/Documents/huggingface/models/argmaxinc/whisperkit-coreml
@@ -37,7 +45,7 @@ Expected result: transcription works without new model download traffic.
 
 Expected:
 
-- Hugging Face model download only after explicit download action.
+- Hugging Face/WhisperKit model download only after the user presses a model download button in onboarding or `Download now` in Settings > Models.
 
 Not expected:
 

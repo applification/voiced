@@ -274,6 +274,22 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Model attribution")
+                    .font(.callout.weight(.semibold))
+                Text("Voiced uses WhisperKit by Argmax and OpenAI Whisper models converted for Core ML. WhisperKit is MIT licensed. OpenAI Whisper is MIT licensed.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 12) {
+                    Link("WhisperKit", destination: URL(string: "https://github.com/argmaxinc/argmax-oss-swift")!)
+                    Link("OpenAI Whisper", destination: URL(string: "https://github.com/openai/whisper")!)
+                }
+                .font(.callout)
+            }
+
             Spacer(minLength: 0)
         }
         .id(modelStatusRevision)

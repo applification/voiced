@@ -46,15 +46,6 @@ extension StatusMenuController {
         rebuildMenu()
     }
 
-    @objc func warmUpModel() {
-        if !settings.modelDownloadsApproved {
-            settings.modelDownloadsApproved = true
-            NotificationCenter.default.post(name: .voicedModelApprovalChanged, object: nil)
-            rebuildMenu()
-        }
-        NotificationCenter.default.post(name: .voicedModelDownloadRequested, object: settings.transcriptionModel)
-    }
-
     @objc func copyLastTranscript() {
         guard let transcript = lastCapture.last else {
             logger.warning("Copy Last Transcript selected without stored transcript")
@@ -62,6 +53,27 @@ extension StatusMenuController {
         }
         logger.info("Copy Last Transcript selected; characters=\(transcript.count, privacy: .public)")
         output.copyToClipboard(transcript, restoringAfter: 5)
+    }
+
+    @objc func pasteLastTranscript() {
+        guard let transcript = lastCapture.last else {
+            logger.warning("Paste Last Transcript selected without stored transcript")
+            return
+        }
+
+        permissions.refreshStatuses()
+        logger.info("Paste Last Transcript selected; accessibilityEnabled=\(self.permissions.accessibilityEnabled, privacy: .public) characters=\(transcript.count, privacy: .public)")
+        guard permissions.accessibilityEnabled else {
+            output.copyToClipboard(transcript)
+            let decision = permissions.explainPasteAccessibilityAndChoose()
+            if decision == .useClipboardOnly {
+                settings.outputMode = .copyOnly
+            }
+            rebuildMenu()
+            return
+        }
+
+        output.pastePreservingClipboard(transcript, targetApplication: nil)
     }
 
     @objc func handleMicrophone() {
@@ -81,14 +93,37 @@ extension StatusMenuController {
             return
         }
 
-        permissions.openAccessibilityPrefs()
+        _ = permissions.explainPasteAccessibilityAndChoose()
+    }
+
+    @objc func showSetupGuide() {
+        guard settings.hasSeenIntroOnboarding else {
+            rebuildMenu()
+            return
+        }
+        if let onboardingWindow {
+            onboardingWindow.makeKeyAndOrderFront(nil)
+        } else {
+            onboardingWindow = IntroOnboardingPresenter.presentSetupGuide(settings: settings) { [weak self] in
+                self?.onboardingWindow?.close()
+                self?.onboardingWindow = nil
+            }
+        }
     }
 
     @objc func openSettings() {
+        guard settings.hasSeenIntroOnboarding else {
+            rebuildMenu()
+            return
+        }
         presentSettings(section: .general)
     }
 
     @objc func openModelSettings() {
+        guard settings.hasSeenIntroOnboarding else {
+            rebuildMenu()
+            return
+        }
         presentSettings(section: .models)
     }
 

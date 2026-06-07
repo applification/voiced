@@ -40,6 +40,7 @@
 		D847D33F895A52EC7B60E033 /* IndicatorState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C86E820E91FA67D9D682750B /* IndicatorState.swift */; };
 		E3E609F4078E7BB43C4AC1D1 /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = E01FFFACCBE06473CDCD6384 /* AppNotifications.swift */; };
 		E41501F56C890F9B8F12E129 /* StatusMenuController+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51B8479456A17344EACBFC55 /* StatusMenuController+Actions.swift */; };
+		E4379CA56F99C2D22EE3AFDF /* IntroOnboardingPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9972ADCF2078365AE57E8CB5 /* IntroOnboardingPresenter.swift */; };
 		E7E4DC9DBB5AFDE410055958 /* TranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71CD0C2ABDE2A1A0D7510C80 /* TranscriptionService.swift */; };
 		E81EAE8038B63A2C03EE5AC1 /* AppCoordinatorLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AE923A0E8BCA98872BE2CD /* AppCoordinatorLive.swift */; };
 /* End PBXBuildFile section */
@@ -65,6 +66,7 @@
 		7AE28435042EA5C3E3EDADEA /* ModelLoadProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadProgress.swift; sourceTree = "<group>"; };
 		80266AAFB1DE4B84FC5CE9BA /* StatusMenuController+MenuBuilding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StatusMenuController+MenuBuilding.swift"; sourceTree = "<group>"; };
 		9831842C76DBBF67F7B19B0D /* StatusMenuController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMenuController.swift; sourceTree = "<group>"; };
+		9972ADCF2078365AE57E8CB5 /* IntroOnboardingPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntroOnboardingPresenter.swift; sourceTree = "<group>"; };
 		998FED825A591A11ABBF1166 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
 		9CF2FE36886981B6240FEA03 /* OutputManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputManager.swift; sourceTree = "<group>"; };
 		B85425127B1B5B385D50C850 /* SoundCue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundCue.swift; sourceTree = "<group>"; };
@@ -157,6 +159,7 @@
 				1E9D2150B7863C5B4DA190D6 /* FloatingIndicator.swift */,
 				C86E820E91FA67D9D682750B /* IndicatorState.swift */,
 				53CDC1DEB94A862FBD8B4176 /* IndicatorViews.swift */,
+				9972ADCF2078365AE57E8CB5 /* IntroOnboardingPresenter.swift */,
 				6D7AD448C90A10E568928B60 /* NotchGeometry.swift */,
 				BFA387A03AF9C8840D824040 /* SettingsView.swift */,
 				9831842C76DBBF67F7B19B0D /* StatusMenuController.swift */,
@@ -302,6 +305,7 @@
 				8A1B1D25125EA0837144E04B /* HotkeyManager.swift in Sources */,
 				D847D33F895A52EC7B60E033 /* IndicatorState.swift in Sources */,
 				18F9191DB3B2274A9F03BF90 /* IndicatorViews.swift in Sources */,
+				E4379CA56F99C2D22EE3AFDF /* IntroOnboardingPresenter.swift in Sources */,
 				7F2E8EE943ED5389739F4C73 /* LastCaptureStore.swift in Sources */,
 				63E047CB4300FEF61D33905D /* ModelIntegrity.swift in Sources */,
 				C01B2893022BFFCB565EF670 /* ModelLoadProgress.swift in Sources */,
@@ -330,6 +334,69 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		26AA09AFFF00FD20665DFAC5 /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "Config/Voiced-AppStore.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 6;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.6;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				POSTHOG_HOST = "https://eu.i.posthog.com";
+				POSTHOG_PROJECT_TOKEN = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = AppStore;
+		};
 		365B0B6D66DCABCA27D4D62D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -365,7 +432,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -385,7 +452,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.5;
+				MARKETING_VERSION = 0.1.6;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -452,7 +519,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -466,7 +533,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.5;
+				MARKETING_VERSION = 0.1.6;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				POSTHOG_HOST = "https://eu.i.posthog.com";
@@ -478,6 +545,24 @@
 				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
+		};
+		8BD63D724F2B67284A89B63F /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "Config/Voiced-AppStore.entitlements";
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = Config/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = net.applification.voiced;
+				PRODUCT_NAME = Voiced;
+				SDKROOT = macosx;
+			};
+			name = AppStore;
 		};
 		D3BA9FD6E2558E46754E7ACF /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -503,20 +588,22 @@
 		199AE245D1E15C53092ABE07 /* Build configuration list for PBXProject "Voiced" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
+				26AA09AFFF00FD20665DFAC5 /* AppStore */,
 				365B0B6D66DCABCA27D4D62D /* Debug */,
 				7DB83B336365557CB4E874AC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
+			defaultConfigurationName = AppStore;
 		};
 		4C037366AD905872F8D74E43 /* Build configuration list for PBXNativeTarget "Voiced" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
+				8BD63D724F2B67284A89B63F /* AppStore */,
 				5E59D0987509847797D634C5 /* Debug */,
 				D3BA9FD6E2558E46754E7ACF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
+			defaultConfigurationName = AppStore;
 		};
 /* End XCConfigurationList section */
 

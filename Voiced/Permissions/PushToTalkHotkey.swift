@@ -17,6 +17,15 @@ enum PushToTalkHotkey: String, CaseIterable, Identifiable {
         }
     }
 
+    var onboardingLabel: String {
+        switch self {
+        case .rightCommand: "Right \u{2318}"
+        case .rightOption: "Right \u{2325}"
+        case .rightControl: "Right \u{2303}"
+        case .rightShift: "Right \u{21E7}"
+        }
+    }
+
     var menuTitle: String {
         "Hold \(label) to Record"
     }

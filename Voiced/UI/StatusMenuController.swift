@@ -13,6 +13,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     let statusItem: NSStatusItem
     let menu = NSMenu()
     var settingsWindow: NSWindow?
+    var onboardingWindow: NSWindow?
 
     init(settings: SettingsStore, lastCapture: LastCaptureStore, settingsNavigation: SettingsNavigation = AppServices.settingsNavigation) {
         self.settings = settings

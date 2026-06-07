@@ -72,9 +72,11 @@ final class AppCoordinator {
             forName: .voicedModelDownloadRequested,
             object: nil,
             queue: nil
-        ) { [weak self] _ in
+        ) { [weak self] notification in
+            let source = notification.userInfo?["source"] as? String
             Task { @MainActor in
-                self?.warmUpTranscriptionService(reason: "download request")
+                let reason = source == "onboarding" ? "onboarding download" : "download request"
+                self?.warmUpTranscriptionService(reason: reason)
             }
         }
         transcriber.onModelProgress = { [weak self] progress in
@@ -92,7 +94,13 @@ final class AppCoordinator {
                 let hotkey = self.settings.pushToTalkHotkey
                 guard keyCode == hotkey.keyCode else { return }
                 let isDown = flags.contains(hotkey.eventFlag)
-                if isDown && !self.isPTTDown { self.isPTTDown = true; self.handleKeyDown() }
+                if isDown && !self.isPTTDown {
+                    self.isPTTDown = true
+                    self.handleKeyDown()
+                } else if isDown && self.isPTTDown && !self.captureState.isRecording && !self.captureState.isBusy {
+                    AppCoordinator.logger.warning("Push-to-talk latch was already down while idle; treating modifier event as a fresh press")
+                    self.handleKeyDown()
+                }
                 if !isDown && self.isPTTDown { self.isPTTDown = false; self.handleKeyUp() }
             default:
                 break
@@ -104,7 +112,9 @@ final class AppCoordinator {
         guard settings.modelDownloadsApproved else { return }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let shouldShowLoader = reason != "app start" && !self.transcriber.isSelectedModelLoaded
+            let shouldShowLoader = reason != "app start"
+                && reason != "onboarding download"
+                && !self.transcriber.isSelectedModelLoaded
             if shouldShowLoader {
                 self.captureState = .loadingModel
                 self.indicator.show(state: .loadingModel(self.settings.transcriptionModel.label))
@@ -142,6 +152,7 @@ final class AppCoordinator {
     }
 
     private func handleModelProgress(_ progress: ModelLoadProgress) {
+        NotificationCenter.default.post(name: .voicedModelProgressChanged, object: progress)
         guard progress.model == settings.transcriptionModel else {
             return
         }
@@ -184,7 +195,12 @@ final class AppCoordinator {
 
     private func handleKeyDown() {
         AppCoordinator.logger.debug("handleKeyDown() invoked; state=\(String(describing: self.captureState), privacy: .public)")
+        guard settings.hasSeenIntroOnboarding else {
+            AppCoordinator.logger.info("Ignoring push-to-talk before first-run setup is complete")
+            return
+        }
         guard !captureState.isBusy else { return }
+        permissions.refreshStatuses()
         guard permissions.micAuthorized else {
             AppCoordinator.logger.warning("Mic not authorized; requesting permission")
             telemetry.capture(.permissionPromptShown, properties: ["permission": "microphone"])
@@ -292,13 +308,17 @@ final class AppCoordinator {
                     if self.permissions.accessibilityEnabled {
                         self.output.pastePreservingClipboard(text, targetApplication: targetApplication)
                     } else {
-                        self.permissions.openAccessibilityPrefs()
                         self.output.copyToClipboard(text)
+                        let decision = self.permissions.explainPasteAccessibilityAndChoose()
+                        if decision == .useClipboardOnly {
+                            self.settings.outputMode = .copyOnly
+                        }
                         self.telemetry.captureError(.pastePermissionNeeded, properties: [
-                            "output_mode": self.settings.outputMode.rawValue
+                            "output_mode": self.settings.outputMode.rawValue,
+                            "decision": String(describing: decision)
                         ])
                         self.captureState = .showingError
-                        self.indicator.show(state: .error("Paste permission needed"))
+                        self.indicator.show(state: .error(decision == .openSettings ? "Paste permission needed" : "Copied to clipboard"))
                         try? await Task.sleep(nanoseconds: 1_500_000_000)
                     }
                 } else {
