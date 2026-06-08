@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     template: "%s - Voiced",
   },
   description:
-    "Voiced is a focused, open-source Mac dictation app that turns push-to-talk recordings into clean text with local transcription.",
+    "Voiced is a focused Mac dictation app that turns push-to-talk recordings into clean text with local transcription.",
   applicationName: "Voiced",
   authors: [{ name: "Applification" }],
   creator: "Applification",
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     "private transcription",
     "local transcription",
     "push to talk",
-    "open source Mac app",
+    "Mac productivity app",
   ],
   category: "productivity",
   icons: {
@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     card: "summary",
     title: "Voiced - Private Dictation for macOS",
     description:
-      "Open-source push-to-talk dictation for Mac, with local transcription after model download.",
+      "Push-to-talk dictation for Mac, with local transcription after model download.",
     images: ["/voiced-icon.png"],
   },
   appleWebApp: {

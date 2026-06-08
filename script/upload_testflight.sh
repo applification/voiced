@@ -18,7 +18,7 @@ Requirements:
   - Apple Developer account added to Xcode, or App Store Connect API key
     arguments supplied through xcodebuild environment/flags.
   - App Store Connect app record for net.applification.voiced.
-  - App Store distribution signing available for team L5H3AZQD66.
+  - App Store distribution signing available for Apple Developer team GY6Q9L4423.
 
 Environment overrides:
   VOICED_APP_STORE_ARCHIVE_PATH

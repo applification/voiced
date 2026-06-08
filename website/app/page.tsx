@@ -22,19 +22,6 @@ const brandLabel =
 const monoLabel =
   "font-[family-name:var(--font-overpass-mono)] font-medium tracking-[0.005em]";
 
-function GitHubIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden
-      className={className}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-    >
-      <path d="M12 2C6.48 2 2 6.58 2 12.23c0 4.52 2.87 8.35 6.84 9.71.5.1.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.78.62-3.37-1.21-3.37-1.21-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.55-1.14-4.55-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05A9.31 9.31 0 0 1 12 6.96c.85 0 1.7.12 2.5.34 1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.81 0 .27.18.59.69.49A10.07 10.07 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z" />
-    </svg>
-  );
-}
-
 function ApplificationMark({ className }: { className?: string }) {
   return (
     <svg
@@ -74,9 +61,9 @@ const trustPoints = [
     text: "Runs from the menu bar with macOS permissions you can see and change.",
   },
   {
-    icon: GitHubIcon,
-    title: "Open source",
-    text: "The code, privacy model, release scripts, and local build notes are public.",
+    icon: ShieldCheck,
+    title: "Plain privacy boundaries",
+    text: "Privacy, diagnostics, model downloads, and permissions are explained before they matter.",
   },
   {
     icon: Lock,
@@ -99,7 +86,7 @@ const privacyFacts = [
   "Copy-only mode avoids Accessibility paste",
 ];
 
-const ctaFacts = ["macOS 14 or newer", "Default hotkey: Right Command", "MIT licensed"];
+const ctaFacts = ["macOS 14 or newer", "Default hotkey: Right Command", "Local transcription"];
 
 function StatusDot({ className = "" }: { className?: string }) {
   return (
@@ -323,12 +310,9 @@ function Hero() {
             <a className="transition hover:text-[#e8ece8]" href="#privacy">
               Privacy
             </a>
-            <a
-              className="transition hover:text-[#e8ece8]"
-              href="https://github.com/applification/voiced"
-            >
-              Source
-            </a>
+            <Link className="transition hover:text-[#e8ece8]" href="/support">
+              Support
+            </Link>
           </nav>
         </header>
 
@@ -355,13 +339,13 @@ function Hero() {
                 <ArrowDownToLine aria-hidden className="size-4" />
                 Download for macOS
               </a>
-              <a
-                href="https://github.com/applification/voiced"
+              <Link
+                href="/privacy"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[#e8ece8]/18 bg-[#101818] px-5 text-sm font-semibold text-[#e8ece8] transition hover:bg-[#181c1c] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
               >
-                <GitHubIcon className="size-4" />
-                View source
-              </a>
+                <ShieldCheck aria-hidden className="size-4" />
+                Read privacy notes
+              </Link>
             </div>
             <div className="mt-10 flex flex-wrap gap-2 text-sm text-[#e8ece8]/72">
               <span
@@ -374,7 +358,7 @@ function Hero() {
                 Clipboard-preserving paste
               </span>
               <span className={`rounded-full bg-[#101818] px-3 py-1.5 ${brandLabel}`}>
-                Open source
+                App Store beta
               </span>
             </div>
           </div>
@@ -515,7 +499,7 @@ function DownloadCta() {
 function Footer() {
   return (
     <footer className="border-t border-border bg-background px-5 py-6 sm:px-8 lg:px-10">
-      <div className="mx-auto flex max-w-7xl justify-center text-sm text-muted-foreground">
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-4 text-sm text-muted-foreground sm:flex-row sm:justify-between">
         <a
           href="https://applification.net"
           aria-label="Tuned by Applification"
@@ -525,6 +509,14 @@ function Footer() {
           <ApplificationMark className="h-4 w-9 text-[#385040]" />
           <span className="font-medium text-[#385040]">Applification</span>
         </a>
+        <nav aria-label="Footer" className="flex gap-5">
+          <Link className="transition hover:text-foreground" href="/privacy">
+            Privacy
+          </Link>
+          <Link className="transition hover:text-foreground" href="/support">
+            Support
+          </Link>
+        </nav>
       </div>
     </footer>
   );
