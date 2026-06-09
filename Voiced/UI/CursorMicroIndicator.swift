@@ -179,10 +179,9 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
 
         let screen = NSScreen.screens.first { NSMouseInRect(cursorLocation, $0.frame, false) } ?? NSScreen.main
         let visibleFrame = screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
-        let offset = NSPoint(x: 10, y: -size.height - 10)
         let origin = NSPoint(
-            x: min(max(cursorLocation.x + offset.x, visibleFrame.minX + 8), visibleFrame.maxX - size.width - 8),
-            y: min(max(cursorLocation.y + offset.y, visibleFrame.minY + 8), visibleFrame.maxY - size.height - 8)
+            x: min(max(cursorLocation.x - size.width / 2, visibleFrame.minX + 8), visibleFrame.maxX - size.width - 8),
+            y: min(max(cursorLocation.y - size.height / 2, visibleFrame.minY + 8), visibleFrame.maxY - size.height - 8)
         )
         panel.setFrameOrigin(origin)
     }
@@ -244,6 +243,7 @@ private struct CursorTranscriptReviewView: View {
     @State private var copiedRevision = 0
     @State private var isDragHandleHovered = false
     @State private var isDragStarting = false
+    @State private var hasMouseEntered = false
 
     init(text: String, onCopy: @escaping (String) -> Void, onDismiss: @escaping () -> Void) {
         self.text = text
@@ -311,6 +311,13 @@ private struct CursorTranscriptReviewView: View {
                 .strokeBorder(.primary.opacity(0.12))
         }
         .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+        .onHover { hovering in
+            if hovering {
+                hasMouseEntered = true
+            } else if hasMouseEntered {
+                onDismiss()
+            }
+        }
         .id(copiedRevision)
     }
 
