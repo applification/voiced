@@ -38,6 +38,9 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
             rootView: CursorTranscriptReviewView(
                 text: text,
                 onCopy: onCopy,
+                onMoveWindow: { [weak panel] event in
+                    panel?.performDrag(with: event)
+                },
                 onDismiss: { [weak self] in
                     self?.hide()
                 }
@@ -237,17 +240,25 @@ private struct CursorWaveBar: View {
 private struct CursorTranscriptReviewView: View {
     let text: String
     let onCopy: (String) -> Void
+    let onMoveWindow: (NSEvent) -> Void
     let onDismiss: () -> Void
 
     @State private var editableText: String
     @State private var copiedRevision = 0
+    @State private var isMoveHandleHovered = false
     @State private var isDragHandleHovered = false
     @State private var isDragStarting = false
     @State private var hasMouseEntered = false
 
-    init(text: String, onCopy: @escaping (String) -> Void, onDismiss: @escaping () -> Void) {
+    init(
+        text: String,
+        onCopy: @escaping (String) -> Void,
+        onMoveWindow: @escaping (NSEvent) -> Void,
+        onDismiss: @escaping () -> Void
+    ) {
         self.text = text
         self.onCopy = onCopy
+        self.onMoveWindow = onMoveWindow
         self.onDismiss = onDismiss
         _editableText = State(initialValue: text)
     }
@@ -255,6 +266,8 @@ private struct CursorTranscriptReviewView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
+                moveHandle
+
                 Label("Copied", systemImage: "checkmark.circle.fill")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Color(red: 0.40, green: 0.70, blue: 0.48))
@@ -319,6 +332,48 @@ private struct CursorTranscriptReviewView: View {
             }
         }
         .id(copiedRevision)
+    }
+
+    private var moveHandle: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "arrow.up.and.down.and.arrow.left.and.right")
+                .font(.system(size: 11, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+            Text("Move")
+                .font(.caption.weight(.semibold))
+        }
+        .foregroundStyle(isMoveHandleHovered ? Color.accentColor : .secondary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background {
+            Capsule()
+                .fill(isMoveHandleHovered ? Color.accentColor.opacity(0.12) : Color(nsColor: .controlBackgroundColor).opacity(0.75))
+        }
+        .overlay {
+            Capsule()
+                .strokeBorder(
+                    isMoveHandleHovered ? Color.accentColor.opacity(0.55) : Color.primary.opacity(0.08),
+                    lineWidth: 1
+                )
+        }
+        .contentShape(Capsule())
+        .onHover { hovering in
+            isMoveHandleHovered = hovering
+            if hovering {
+                NSCursor.openHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    guard let event = NSApp.currentEvent else { return }
+                    NSCursor.closedHand.set()
+                    onMoveWindow(event)
+                }
+        )
+        .help("Move review bubble")
     }
 
     private var dragHandle: some View {
