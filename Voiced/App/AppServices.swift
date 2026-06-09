@@ -22,8 +22,8 @@ final class VoicedAppDelegate: NSObject, NSApplicationDelegate {
         statusMenu = StatusMenuController(settings: settings, lastCapture: lastCapture)
         coordinator = AppCoordinator(settings: settings, lastCapture: lastCapture, telemetry: telemetry)
         coordinator?.start()
-        Task { @MainActor in
-            onboardingWindow = IntroOnboardingPresenter.presentIfNeeded(settings: settings) { [weak self] in
+        Task { @MainActor [weak self] in
+            self?.onboardingWindow = IntroOnboardingPresenter.presentIfNeeded(settings: settings) { [weak self] in
                 self?.onboardingWindow?.close()
                 self?.onboardingWindow = nil
             }

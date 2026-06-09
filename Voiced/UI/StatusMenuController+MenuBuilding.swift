@@ -1,6 +1,5 @@
 import AppKit
 import AVFoundation
-@preconcurrency import ApplicationServices
 import ServiceManagement
 
 @MainActor
@@ -16,13 +15,10 @@ extension StatusMenuController {
         menu.addItem(statusItem(title: micAuthorized ? "Mic OK" : "Mic Needed",
                                 symbolName: micAuthorized ? "checkmark.circle.fill" : "mic.slash.fill",
                                 color: micAuthorized ? .systemGreen : .systemOrange))
-        menu.addItem(statusItem(title: accessibilityEnabled ? "Paste Permission OK" : "Enable Accessibility for Paste",
-                                symbolName: accessibilityEnabled ? "checkmark.circle.fill" : "hand.raised.fill",
-                                color: accessibilityEnabled ? .systemGreen : .systemOrange))
         menu.addItem(.separator())
 
         addPermissionMenuItems()
-        if !micAuthorized || !accessibilityEnabled {
+        if !micAuthorized {
             menu.addItem(.separator())
         }
 
@@ -39,10 +35,6 @@ extension StatusMenuController {
         case .denied, .restricted, .notDetermined: false
         @unknown default: false
         }
-    }
-
-    var accessibilityEnabled: Bool {
-        AXIsProcessTrustedWithOptions(nil)
     }
 
     func statusItem(title: String, symbolName: String, color: NSColor? = nil) -> NSMenuItem {
@@ -123,10 +115,10 @@ extension StatusMenuController {
 
     private func addOutputMenu() {
         let outputMenu = NSMenu()
-        outputMenu.addItem(actionItem(title: "Paste",
+        outputMenu.addItem(actionItem(title: "Review",
                                       action: #selector(setOutputPaste),
-                                      state: settings.outputMode == .clipboardPaste ? .on : .off,
-                                      symbolName: "text.insert",
+                                      state: settings.outputMode == .review ? .on : .off,
+                                      symbolName: "text.bubble",
                                       color: .secondaryLabelColor))
         outputMenu.addItem(actionItem(title: "Copy",
                                       action: #selector(setOutputCopy),
@@ -226,27 +218,21 @@ extension StatusMenuController {
         copyLast.isEnabled = hasLastCapture
         menu.addItem(copyLast)
 
-        let pasteLast = actionItem(title: "Paste Last Transcript",
-                                   action: #selector(pasteLastTranscript),
-                                   symbolName: "text.insert",
+        let pasteLast = actionItem(title: "Copy Last Transcript Again",
+                                   action: #selector(copyLastTranscriptAgain),
+                                   symbolName: "doc.on.clipboard",
                                    color: .controlAccentColor)
         pasteLast.isEnabled = hasLastCapture
         menu.addItem(pasteLast)
     }
 
     private func addPermissionMenuItems() {
-        guard !micAuthorized || !accessibilityEnabled else { return }
+        guard !micAuthorized else { return }
 
         if !micAuthorized {
             menu.addItem(actionItem(title: "Allow Microphone...",
                                     action: #selector(handleMicrophone),
                                     symbolName: "mic.slash.fill",
-                                    color: .systemOrange))
-        }
-        if !accessibilityEnabled {
-            menu.addItem(actionItem(title: "Open Accessibility Settings...",
-                                    action: #selector(handleAccessibility),
-                                    symbolName: "hand.raised.fill",
                                     color: .systemOrange))
         }
     }

@@ -28,7 +28,6 @@ protocol AppTranscribing: AnyObject {
 @MainActor
 protocol OutputPerforming: AnyObject {
     func copyToClipboard(_ text: String)
-    func pastePreservingClipboard(_ text: String, targetApplication: NSRunningApplication?)
 }
 
 @MainActor
@@ -40,6 +39,7 @@ protocol IndicatorPresenting: AnyObject {
 @MainActor
 protocol CursorIndicatorPresenting: AnyObject {
     func showTranscribingAtCursor()
+    func showReviewAtCursor(text: String, onCopy: @escaping (String) -> Void)
     func hide()
     func hideImmediately()
 }
@@ -47,13 +47,9 @@ protocol CursorIndicatorPresenting: AnyObject {
 @MainActor
 protocol PermissionManaging: AnyObject {
     var micAuthorized: Bool { get }
-    var accessibilityEnabled: Bool { get }
 
     func refreshStatuses()
     func requestMicrophone(completion: @Sendable @escaping (Bool) -> Void)
-    func explainPasteAccessibilityAndChoose() -> AccessibilityPastePermissionDecision
-    func requestAccessibilityPrompt()
-    func openAccessibilityPrefs()
 }
 
 @MainActor

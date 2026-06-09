@@ -1,6 +1,5 @@
 import AppKit
 import AVFoundation
-@preconcurrency import ApplicationServices
 import SwiftUI
 
 @MainActor
@@ -71,15 +70,14 @@ private struct IntroOnboardingView: View {
     var onFinish: () -> Void
 
     @State private var microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-    @State private var accessibilityTrusted = AXIsProcessTrustedWithOptions(nil)
-    @State private var showingAutoPasteHelp = false
+    @State private var showingReviewHelp = false
     @State private var showingClipboardHelp = false
     @State private var modelProgress: ModelLoadProgress?
     @State private var downloadingModel: TranscriptionModel?
     @State private var selectedModel = TranscriptionModel.tiny
 
     private var canStart: Bool {
-        isSelectedModelReady && microphoneStatus == .authorized && (settings.outputMode == .copyOnly || accessibilityTrusted)
+        isSelectedModelReady && microphoneStatus == .authorized
     }
 
     private var canFinish: Bool {
@@ -233,57 +231,35 @@ private struct IntroOnboardingView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 outputChoiceCard(
-                    title: "Auto Paste",
-                    symbolName: "text.insert",
-                    isSelected: settings.outputMode == .clipboardPaste,
-                    isReady: accessibilityTrusted,
-                    status: accessibilityTrusted ? "Ready" : "Optional permission",
-                    statusColor: accessibilityTrusted ? .green : .orange,
-                    detail: "Paste directly into the app you are using.",
-                    helpTitle: "Auto Paste",
-                    helpText: "Auto Paste briefly places the transcript on the clipboard, sends \u{2318}V to the app you were using, then restores your previous clipboard when possible. macOS requires Accessibility permission before any app can send that paste command on your behalf.",
-                    isShowingHelp: $showingAutoPasteHelp
+                    title: "Review Bubble",
+                    symbolName: "text.bubble",
+                    isSelected: settings.outputMode == .review,
+                    isReady: true,
+                    status: "Ready",
+                    statusColor: .green,
+                    detail: "Show transcripts near the cursor so you can check, edit, copy, or drag them.",
+                    helpTitle: "Review Bubble",
+                    helpText: "Review Bubble copies the transcript, then keeps a small editable preview near the cursor. Paste manually with Command-V or drag the text into another app.",
+                    isShowingHelp: $showingReviewHelp
                 ) {
-                    settings.outputMode = .clipboardPaste
+                    settings.outputMode = .review
                     refreshStatuses()
                 } actions: {
-                    if settings.outputMode == .clipboardPaste && !accessibilityTrusted {
-                        VStack(alignment: .leading, spacing: 8) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                instructionStep("1") {
-                                    Button("Open Accessibility Settings") {
-                                        requestAccessibilityPrompt()
-                                        openPrivacyPane("Privacy_Accessibility")
-                                    }
-                                }
-                                instructionStep("2", "Click +, then open the Applications folder")
-                                instructionStep("3") {
-                                    HStack(alignment: .center, spacing: 4) {
-                                        Text("Select")
-                                        Image("VoicedHeaderIcon")
-                                            .resizable()
-                                            .interpolation(.high)
-                                            .frame(width: 14, height: 14)
-                                        Text("Voiced, enable it, then return here")
-                                    }
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
+                    Text("Copied first. You stay in control of when it goes into another app.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 outputChoiceCard(
-                    title: "Clipboard Only",
+                    title: "Copy Only",
                     symbolName: "doc.on.clipboard",
                     isSelected: settings.outputMode == .copyOnly,
                     isReady: true,
                     status: "No extra permission",
                     statusColor: .green,
                     detail: "Copy transcripts. Paste when you are ready.",
-                    helpTitle: "Clipboard Only",
-                    helpText: "Clipboard Only stops after copying the transcript. You paste manually, so Voiced does not need permission to control other apps.",
+                    helpTitle: "Copy Only",
+                    helpText: "Copy Only stops after copying the transcript. It does not show the review bubble.",
                     isShowingHelp: $showingClipboardHelp
                 ) {
                     settings.outputMode = .copyOnly
@@ -527,21 +503,11 @@ private struct IntroOnboardingView: View {
     }
 
     private var transcriptStatusText: String {
-        switch settings.outputMode {
-        case .clipboardPaste:
-            accessibilityTrusted ? "Ready" : "Optional permission"
-        case .copyOnly:
-            "Ready"
-        }
+        "Ready"
     }
 
     private var transcriptStatusColor: Color {
-        switch settings.outputMode {
-        case .clipboardPaste:
-            accessibilityTrusted ? .green : .orange
-        case .copyOnly:
-            .green
-        }
+        .green
     }
 
     private var modelInlineProgressText: String {
@@ -554,7 +520,6 @@ private struct IntroOnboardingView: View {
 
     private func refreshStatuses() {
         microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-        accessibilityTrusted = AXIsProcessTrustedWithOptions(nil)
     }
 
     private func startSelectedModelDownloadIfNeeded() {
@@ -580,11 +545,6 @@ private struct IntroOnboardingView: View {
             window?.makeKeyAndOrderFront(nil)
             window?.orderFrontRegardless()
         }
-    }
-
-    private func requestAccessibilityPrompt() {
-        let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
     }
 
     private func openPrivacyPane(_ pane: String) {

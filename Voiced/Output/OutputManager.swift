@@ -1,9 +1,8 @@
 import AppKit
-import ApplicationServices
 import os
 
 enum OutputBehavior {
-    case clipboardPaste
+    case review
     case copyOnly
 }
 
@@ -18,8 +17,8 @@ final class OutputManager {
 
     func performOutput(_ text: String, behavior: OutputBehavior) {
         switch behavior {
-        case .clipboardPaste:
-            pastePreservingClipboard(text)
+        case .review:
+            copyToClipboard(text)
         case .copyOnly:
             copyToClipboard(text)
         }
@@ -50,43 +49,6 @@ final class OutputManager {
         }
         Self.restoreTask = restoreTask
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: restoreTask)
-    }
-
-    func pastePreservingClipboard(_ text: String, targetApplication: NSRunningApplication? = nil) {
-        let pb = NSPasteboard.general
-        Self.restoreTask?.cancel()
-        Self.restoreTask = nil
-        let previousItems = Self.snapshotPasteboard(pb)
-        let wroteTranscript = Self.writeStringToPasteboard(text)
-        let transcriptGeneration = pb.changeCount
-        let accessibilityTrusted = AXIsProcessTrustedWithOptions(nil)
-        let targetName = targetApplication?.localizedName ?? "none"
-        let frontmostName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "none"
-
-        Self.logger.info("Prepared transcript paste; target=\(targetName, privacy: .public) frontmost=\(frontmostName, privacy: .public) accessibilityTrusted=\(accessibilityTrusted, privacy: .public) wroteTranscript=\(wroteTranscript, privacy: .public) changeCount=\(transcriptGeneration, privacy: .public) characters=\(text.count, privacy: .public)")
-
-        guard accessibilityTrusted else {
-            Self.logger.warning("Accessibility is not trusted; leaving transcript on clipboard instead of attempting paste")
-            return
-        }
-
-        if let targetApplication, !targetApplication.isTerminated {
-            let activated = targetApplication.activate(options: [.activateAllWindows])
-            Self.logger.info("Activated paste target=\(targetName, privacy: .public) success=\(activated, privacy: .public)")
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            OutputManager.postCommandV(to: targetApplication)
-        }
-
-        let restoreTask = DispatchWorkItem {
-            let pb2 = NSPasteboard.general
-            guard accessibilityTrusted, pb2.changeCount == transcriptGeneration else { return }
-            Self.restorePasteboard(pb2, from: previousItems)
-            Self.logger.info("Restored previous pasteboard after transcript paste")
-        }
-        Self.restoreTask = restoreTask
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: restoreTask)
     }
 
     @discardableResult
@@ -125,30 +87,6 @@ final class OutputManager {
             if let firstString = restoredItems.compactMap({ $0.string(forType: .string) }).first {
                 pasteboard.setString(firstString, forType: .string)
             }
-        }
-    }
-
-    private static func postCommandV(to targetApplication: NSRunningApplication?) {
-        let vKey: CGKeyCode = 9 // ANSI 'v'
-        let frontmostName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "none"
-        let targetName = targetApplication?.localizedName ?? "frontmost"
-        logger.info("Posting synthetic Cmd+V; target=\(targetName, privacy: .public) frontmost=\(frontmostName, privacy: .public)")
-
-        guard let src = CGEventSource(stateID: .combinedSessionState) else {
-            logger.error("Unable to create CGEventSource for paste")
-            return
-        }
-        guard let keyDown = CGEvent(keyboardEventSource: src, virtualKey: vKey, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: src, virtualKey: vKey, keyDown: false) else {
-            logger.error("Unable to create Cmd+V keyboard events")
-            return
-        }
-        keyDown.flags = .maskCommand
-        keyUp.flags = .maskCommand
-        keyDown.post(tap: .cgAnnotatedSessionEventTap)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            keyUp.post(tap: .cgAnnotatedSessionEventTap)
-            logger.info("Posted synthetic Cmd+V to \(targetName, privacy: .public)")
         }
     }
 

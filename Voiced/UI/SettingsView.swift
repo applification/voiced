@@ -359,8 +359,8 @@ struct SettingsView: View {
 
     private var outputModeSecurityNote: String {
         switch settings.outputMode {
-        case .clipboardPaste:
-            "Paste mode uses Accessibility permission to send Cmd+V to the focused app. Copy-only avoids synthetic keystrokes."
+        case .review:
+            "Review shows each transcript near the cursor, keeps it on the clipboard, and lets you edit or drag before inserting."
         case .copyOnly:
             "Copy-only leaves the transcript on the clipboard and does not send keystrokes to other apps."
         }

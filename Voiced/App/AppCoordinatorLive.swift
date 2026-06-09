@@ -248,7 +248,6 @@ final class AppCoordinator {
         let recordingDurationBucket = durationBucket(since: recordingStartedAt)
         recordingStartedAt = nil
         activeRecordingURL = url
-        let targetApplication = targetApplication
         self.targetApplication = nil
         AppCoordinator.logger.debug("Recorder stopped; url present=\(url != nil, privacy: .public)")
         guard let url else {
@@ -265,7 +264,6 @@ final class AppCoordinator {
                 self.transcriptionTask = nil
                 self.activeRecordingURL = nil
                 self.shouldCancelCurrentCapture = false
-                self.cursorIndicator.hide()
                 try? FileManager.default.removeItem(at: url)
             }
             do {
@@ -296,33 +294,22 @@ final class AppCoordinator {
                         "model": self.settings.transcriptionModel.rawValue
                     ])
                     self.captureState = .showingError
+                    self.cursorIndicator.hide()
                     self.indicator.show(state: .error("No speech detected"))
                     try? await Task.sleep(nanoseconds: 1_000_000_000)
                     self.indicator.hide()
                     return
                 }
                 self.lastCapture.set(text, autoClearAfter: TimeInterval(self.settings.copyLastTranscriptClearsAfterMinutes * 60))
-                self.cursorIndicator.hideImmediately()
-                if self.settings.outputMode == .clipboardPaste {
-                    self.permissions.refreshStatuses()
-                    if self.permissions.accessibilityEnabled {
-                        self.output.pastePreservingClipboard(text, targetApplication: targetApplication)
-                    } else {
-                        self.output.copyToClipboard(text)
-                        let decision = self.permissions.explainPasteAccessibilityAndChoose()
-                        if decision == .useClipboardOnly {
-                            self.settings.outputMode = .copyOnly
-                        }
-                        self.telemetry.captureError(.pastePermissionNeeded, properties: [
-                            "output_mode": self.settings.outputMode.rawValue,
-                            "decision": String(describing: decision)
-                        ])
-                        self.captureState = .showingError
-                        self.indicator.show(state: .error(decision == .openSettings ? "Paste permission needed" : "Copied to clipboard"))
-                        try? await Task.sleep(nanoseconds: 1_500_000_000)
+                self.output.copyToClipboard(text)
+                if self.settings.outputMode == .review {
+                    self.cursorIndicator.showReviewAtCursor(text: text) { [weak self] updatedText in
+                        self?.output.copyToClipboard(updatedText)
                     }
+                    self.indicator.show(state: .error("Copied for review"))
                 } else {
-                    self.output.copyToClipboard(text)
+                    self.cursorIndicator.hideImmediately()
+                    self.indicator.show(state: .error("Copied to clipboard"))
                 }
                 self.telemetry.capture(.transcriptionSucceeded, properties: [
                     "recording_duration": recordingDurationBucket,
@@ -333,6 +320,7 @@ final class AppCoordinator {
                 _ = text.count // avoid logging sensitive content
             } catch is CancellationError {
                 AppCoordinator.logger.info("Transcription flow cancelled")
+                self.cursorIndicator.hide()
                 self.telemetry.capture(.recordingCancelled, properties: [
                     "phase": "transcription",
                     "recording_duration": recordingDurationBucket
@@ -341,6 +329,7 @@ final class AppCoordinator {
                 try? await Task.sleep(nanoseconds: 450_000_000)
             } catch {
                 AppCoordinator.logger.error("Transcription error: \(String(describing: error), privacy: .public)")
+                self.cursorIndicator.hide()
                 self.telemetry.captureError(.transcriptionFailed, properties: [
                     "recording_duration": recordingDurationBucket,
                     "model": self.settings.transcriptionModel.rawValue

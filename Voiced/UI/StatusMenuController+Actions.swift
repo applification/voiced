@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 extension StatusMenuController {
     @objc func setOutputPaste() {
-        settings.outputMode = .clipboardPaste
+        settings.outputMode = .review
     }
 
     @objc func setOutputCopy() {
@@ -55,25 +55,15 @@ extension StatusMenuController {
         output.copyToClipboard(transcript, restoringAfter: 5)
     }
 
-    @objc func pasteLastTranscript() {
+    @objc func copyLastTranscriptAgain() {
         guard let transcript = lastCapture.last else {
-            logger.warning("Paste Last Transcript selected without stored transcript")
+            logger.warning("Copy Last Transcript Again selected without stored transcript")
             return
         }
 
-        permissions.refreshStatuses()
-        logger.info("Paste Last Transcript selected; accessibilityEnabled=\(self.permissions.accessibilityEnabled, privacy: .public) characters=\(transcript.count, privacy: .public)")
-        guard permissions.accessibilityEnabled else {
-            output.copyToClipboard(transcript)
-            let decision = permissions.explainPasteAccessibilityAndChoose()
-            if decision == .useClipboardOnly {
-                settings.outputMode = .copyOnly
-            }
-            rebuildMenu()
-            return
-        }
-
-        output.pastePreservingClipboard(transcript, targetApplication: nil)
+        logger.info("Copy Last Transcript Again selected; characters=\(transcript.count, privacy: .public)")
+        output.copyToClipboard(transcript)
+        rebuildMenu()
     }
 
     @objc func handleMicrophone() {
@@ -88,12 +78,7 @@ extension StatusMenuController {
     }
 
     @objc func handleAccessibility() {
-        guard !accessibilityEnabled else {
-            rebuildMenu()
-            return
-        }
-
-        _ = permissions.explainPasteAccessibilityAndChoose()
+        rebuildMenu()
     }
 
     @objc func showSetupGuide() {
@@ -152,7 +137,7 @@ extension StatusMenuController {
 
     var outputBehavior: OutputBehavior {
         switch settings.outputMode {
-        case .clipboardPaste: .clipboardPaste
+        case .review: .review
         case .copyOnly: .copyOnly
         }
     }

@@ -19,9 +19,6 @@ final class HotkeyManager {
     func startListening(handler: @escaping KeyHandler) {
         self.handler = handler
 
-        let accessibilityTrusted = AXIsProcessTrustedWithOptions(nil)
-        HotkeyManager.logger.info("Accessibility trusted: \(accessibilityTrusted, privacy: .public)")
-
         if Self.isAppSandboxed {
             HotkeyManager.logger.info("App Sandbox detected; using NSEvent fallback monitors")
             installNSEventFallback()

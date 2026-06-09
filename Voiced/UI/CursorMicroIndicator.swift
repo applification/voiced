@@ -2,12 +2,17 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class CursorMicroIndicator {
+final class CursorMicroIndicator: NSObject, NSWindowDelegate {
     private var panel: NSPanel?
     private var followTask: Task<Void, Never>?
+    private var reviewAutoHideTask: Task<Void, Never>?
+    private var resignActiveObserver: NSObjectProtocol?
+    private var isShowingReview = false
 
     func showTranscribingAtCursor() {
         let panel = existingOrCreatePanel()
+        isShowingReview = false
+        panel.ignoresMouseEvents = true
         panel.contentView = TransparentHostingView(rootView: CursorMicroIndicatorView())
         position(panel, near: NSEvent.mouseLocation)
         panel.alphaValue = 0
@@ -21,7 +26,42 @@ final class CursorMicroIndicator {
         }
     }
 
+    func showReviewAtCursor(text: String, onCopy: @escaping (String) -> Void) {
+        followTask?.cancel()
+        followTask = nil
+        reviewAutoHideTask?.cancel()
+
+        let panel = existingOrCreatePanel()
+        isShowingReview = true
+        panel.ignoresMouseEvents = false
+        panel.contentView = TransparentHostingView(
+            rootView: CursorTranscriptReviewView(
+                text: text,
+                onCopy: onCopy,
+                onDismiss: { [weak self] in
+                    self?.hide()
+                }
+            )
+        )
+        positionReview(panel, near: NSEvent.mouseLocation)
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.16
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1
+        }
+
+        installFocusDismissal()
+        scheduleReviewAutoHide()
+    }
+
     func hide() {
+        isShowingReview = false
+        removeFocusDismissal()
+        reviewAutoHideTask?.cancel()
+        reviewAutoHideTask = nil
         followTask?.cancel()
         followTask = nil
         guard let panel, panel.isVisible else { return }
@@ -39,6 +79,10 @@ final class CursorMicroIndicator {
     }
 
     func hideImmediately() {
+        isShowingReview = false
+        removeFocusDismissal()
+        reviewAutoHideTask?.cancel()
+        reviewAutoHideTask = nil
         followTask?.cancel()
         followTask = nil
         guard let panel else { return }
@@ -72,9 +116,47 @@ final class CursorMicroIndicator {
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.ignoresMouseEvents = true
+        panel.delegate = self
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         self.panel = panel
         return panel
+    }
+
+    nonisolated func windowDidResignKey(_ notification: Notification) {
+        Task { @MainActor [weak self] in
+            guard self?.isShowingReview == true else { return }
+            self?.hide()
+        }
+    }
+
+    private func installFocusDismissal() {
+        removeFocusDismissal()
+        resignActiveObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: NSApp,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard self?.isShowingReview == true else { return }
+                self?.hide()
+            }
+        }
+    }
+
+    private func removeFocusDismissal() {
+        if let resignActiveObserver {
+            NotificationCenter.default.removeObserver(resignActiveObserver)
+            self.resignActiveObserver = nil
+        }
+    }
+
+    private func scheduleReviewAutoHide() {
+        reviewAutoHideTask?.cancel()
+        reviewAutoHideTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            guard let self, self.isShowingReview else { return }
+            self.hide()
+        }
     }
 
     private func position(_ panel: NSPanel, near cursorLocation: NSPoint) {
@@ -84,6 +166,20 @@ final class CursorMicroIndicator {
         let screen = NSScreen.screens.first { NSMouseInRect(cursorLocation, $0.frame, false) } ?? NSScreen.main
         let visibleFrame = screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
         let offset = NSPoint(x: 8, y: -12)
+        let origin = NSPoint(
+            x: min(max(cursorLocation.x + offset.x, visibleFrame.minX + 8), visibleFrame.maxX - size.width - 8),
+            y: min(max(cursorLocation.y + offset.y, visibleFrame.minY + 8), visibleFrame.maxY - size.height - 8)
+        )
+        panel.setFrameOrigin(origin)
+    }
+
+    private func positionReview(_ panel: NSPanel, near cursorLocation: NSPoint) {
+        let size = panel.contentView?.fittingSize ?? NSSize(width: 320, height: 118)
+        panel.setContentSize(size)
+
+        let screen = NSScreen.screens.first { NSMouseInRect(cursorLocation, $0.frame, false) } ?? NSScreen.main
+        let visibleFrame = screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+        let offset = NSPoint(x: 10, y: -size.height - 10)
         let origin = NSPoint(
             x: min(max(cursorLocation.x + offset.x, visibleFrame.minX + 8), visibleFrame.maxX - size.width - 8),
             y: min(max(cursorLocation.y + offset.y, visibleFrame.minY + 8), visibleFrame.maxY - size.height - 8)
@@ -136,5 +232,130 @@ private struct CursorWaveBar: View {
             .onAppear {
                 isActive = true
             }
+    }
+}
+
+private struct CursorTranscriptReviewView: View {
+    let text: String
+    let onCopy: (String) -> Void
+    let onDismiss: () -> Void
+
+    @State private var editableText: String
+    @State private var copiedRevision = 0
+    @State private var isDragHandleHovered = false
+    @State private var isDragStarting = false
+
+    init(text: String, onCopy: @escaping (String) -> Void, onDismiss: @escaping () -> Void) {
+        self.text = text
+        self.onCopy = onCopy
+        self.onDismiss = onDismiss
+        _editableText = State(initialValue: text)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Label("Copied", systemImage: "checkmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(red: 0.40, green: 0.70, blue: 0.48))
+
+                Spacer(minLength: 8)
+
+                Button {
+                    onCopy(editableText)
+                    copiedRevision += 1
+                } label: {
+                    Image(systemName: "doc.on.clipboard")
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.plain)
+                .help("Copy transcript")
+
+                Button {
+                    onDismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.plain)
+                .help("Dismiss")
+            }
+
+            TextEditor(text: $editableText)
+                .font(.callout)
+                .scrollContentBackground(.hidden)
+                .frame(width: 292, height: 58)
+                .padding(.horizontal, -4)
+                .onChange(of: editableText) { _, newValue in
+                    onCopy(newValue)
+                }
+
+            HStack(spacing: 8) {
+                Label("Press Command-V", systemImage: "command")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer(minLength: 8)
+
+                dragHandle
+            }
+        }
+        .padding(12)
+        .frame(width: 320, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.regularMaterial)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(.primary.opacity(0.12))
+        }
+        .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+        .id(copiedRevision)
+    }
+
+    private var dragHandle: some View {
+        HStack(spacing: 6) {
+            Image(systemName: isDragStarting ? "arrow.up.doc.fill" : "hand.draw")
+                .font(.system(size: 12, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+
+            Text(isDragStarting ? "Dragging" : "Drag to insert")
+                .font(.caption.weight(.semibold))
+        }
+        .foregroundStyle(isDragHandleHovered ? Color.accentColor : .secondary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background {
+            Capsule()
+                .fill(isDragHandleHovered ? Color.accentColor.opacity(0.12) : Color(nsColor: .controlBackgroundColor).opacity(0.9))
+        }
+        .overlay {
+            Capsule()
+                .strokeBorder(
+                    isDragHandleHovered ? Color.accentColor.opacity(0.55) : Color.primary.opacity(0.10),
+                    lineWidth: 1
+                )
+        }
+        .contentShape(Capsule())
+        .scaleEffect(isDragHandleHovered ? 1.03 : 1)
+        .animation(.easeOut(duration: 0.12), value: isDragHandleHovered)
+        .animation(.easeOut(duration: 0.12), value: isDragStarting)
+        .onHover { hovering in
+            isDragHandleHovered = hovering
+            if hovering {
+                NSCursor.openHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+        .onDrag {
+            NSCursor.closedHand.set()
+            isDragStarting = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                onDismiss()
+            }
+            return NSItemProvider(object: editableText as NSString)
+        }
     }
 }

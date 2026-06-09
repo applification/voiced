@@ -1,13 +1,13 @@
 enum OutputMode: String, CaseIterable, Identifiable {
-    case clipboardPaste
+    case review = "clipboardPaste"
     case copyOnly
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .clipboardPaste:
-            "Paste"
+        case .review:
+            "Review"
         case .copyOnly:
             "Copy"
         }

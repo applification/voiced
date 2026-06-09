@@ -70,7 +70,7 @@ final class SettingsStore {
 
         let storedOutputMode = userDefaults.string(forKey: Keys.outputMode)
             .flatMap(OutputMode.init(rawValue:))
-        outputMode = storedOutputMode ?? .clipboardPaste
+        outputMode = storedOutputMode ?? .review
 
         let storedClearMinutes = userDefaults.integer(forKey: Keys.copyLastTranscriptClearsAfterMinutes)
         copyLastTranscriptClearsAfterMinutes = Self.clampedLastCaptureMinutes(storedClearMinutes == 0 ? 3 : storedClearMinutes)
