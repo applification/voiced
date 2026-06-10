@@ -6,42 +6,34 @@ import os
 final class AppCoordinator {
     private let settings: SettingsStore
     private let hotkeys: any HotkeyListening
-    private let recorder: any AudioRecording
     private var transcriber: any AppTranscribing
     private let output: any OutputPerforming
     private let indicator: any IndicatorPresenting
     private let cursorIndicator: any CursorIndicatorPresenting
-    private let permissions: any PermissionManaging
+    private let permissions: any MicrophonePermissionManaging
     private let soundCues: any SoundCuePlaying
     private let telemetry: any TelemetryReporting
+    private let liveSession = LiveDictationSession()
     
     private static let logger = Logger(subsystem: "net.applification.voiced", category: "coordinator")
 
     private var captureState: CaptureState = .idle
-    private var targetApplication: NSRunningApplication?
     private var modelDownloadObserver: NSObjectProtocol?
-    private var meteringTask: Task<Void, Never>?
     private var transcriptionTask: Task<Void, Never>?
-    private var activeRecordingURL: URL?
-    private var shouldCancelCurrentCapture = false
-    private var isPTTDown = false
-    private var recordingStartedAt: Date?
 
     init(
         settings: SettingsStore,
         hotkeys: any HotkeyListening = HotkeyManager(),
-        recorder: any AudioRecording = AudioRecorder(),
         transcriber: any AppTranscribing,
         output: any OutputPerforming = OutputManager(),
         indicator: any IndicatorPresenting = FloatingIndicator(),
         cursorIndicator: any CursorIndicatorPresenting = CursorMicroIndicator(),
-        permissions: any PermissionManaging = PermissionManager(),
+        permissions: any MicrophonePermissionManaging = MicrophonePermissionManager(),
         soundCues: any SoundCuePlaying,
         telemetry: any TelemetryReporting = TelemetryService()
     ) {
         self.settings = settings
         self.hotkeys = hotkeys
-        self.recorder = recorder
         self.transcriber = transcriber
         self.output = output
         self.indicator = indicator
@@ -87,14 +79,14 @@ final class AppCoordinator {
                 let hotkey = self.settings.pushToTalkHotkey
                 guard keyCode == hotkey.keyCode else { return }
                 let isDown = flags.contains(hotkey.eventFlag)
-                if isDown && !self.isPTTDown {
-                    self.isPTTDown = true
+                if isDown && !self.liveSession.isPushToTalkDown {
+                    self.liveSession.pressPushToTalk()
                     self.handleKeyDown()
-                } else if isDown && self.isPTTDown && !self.captureState.isRecording && !self.captureState.isBusy {
+                } else if isDown && self.liveSession.isPushToTalkDown && !self.captureState.isRecording && !self.captureState.isBusy {
                     AppCoordinator.logger.warning("Push-to-talk latch was already down while idle; treating modifier event as a fresh press")
                     self.handleKeyDown()
                 }
-                if !isDown && self.isPTTDown { self.isPTTDown = false; self.handleKeyUp() }
+                if !isDown && self.liveSession.isPushToTalkDown { self.handleKeyUp() }
             default:
                 break
             }
@@ -174,9 +166,7 @@ final class AppCoordinator {
             return
         }
 
-        targetApplication = NSWorkspace.shared.frontmostApplication
-        shouldCancelCurrentCapture = false
-        recordingStartedAt = Date()
+        liveSession.beginRecording()
         soundCues.playActivation()
         captureState = .recording
         indicator.show(state: .recording(level: 0.5))
@@ -203,7 +193,7 @@ final class AppCoordinator {
                     "reason": "live_transcription",
                     "model": self.settings.transcriptionModel.rawValue
                 ])
-                guard !self.shouldCancelCurrentCapture else { throw CancellationError() }
+                guard !self.liveSession.shouldCancel else { throw CancellationError() }
                 self.captureState = .recording
                 self.indicator.show(state: .recording(level: 0.5))
                 self.cursorIndicator.showLiveTranscriptAtCursor(
@@ -225,8 +215,7 @@ final class AppCoordinator {
                 self.indicator.hide()
                 self.captureState = .idle
                 self.transcriptionTask = nil
-                self.shouldCancelCurrentCapture = false
-                self.recordingStartedAt = nil
+                self.liveSession.resetCancellation()
             }
         }
     }
@@ -234,9 +223,7 @@ final class AppCoordinator {
     private func handleKeyUp() {
         guard captureState.isRecording else { return }
         soundCues.playDeactivation()
-        let recordingDurationBucket = durationBucket(since: recordingStartedAt)
-        recordingStartedAt = nil
-        targetApplication = nil
+        let recordingDurationBucket = liveSession.releasePushToTalk()
         captureState = .transcribing
         indicator.show(state: .transcribing)
 
@@ -246,14 +233,12 @@ final class AppCoordinator {
             defer {
                 self.captureState = .idle
                 self.transcriptionTask = nil
-                self.activeRecordingURL = nil
-                self.shouldCancelCurrentCapture = false
-                self.targetApplication = nil
+                self.liveSession.resetCancellation()
             }
             do {
                 let text = await self.transcriber.stopLiveTranscription()
                 try Task.checkCancellation()
-                guard !self.shouldCancelCurrentCapture else { throw CancellationError() }
+                guard !self.liveSession.shouldCancel else { throw CancellationError() }
                 guard !text.isEmpty else {
                     AppCoordinator.logger.warning("Live transcription returned empty text")
                     self.telemetry.captureError(.transcriptionFailed, properties: [
@@ -338,11 +323,7 @@ final class AppCoordinator {
     private func cancelCurrentCapture() {
         guard captureState.isRecording || captureState.isShowingModelProgress || transcriptionTask != nil else { return }
 
-        shouldCancelCurrentCapture = true
-        let recordingDurationBucket = durationBucket(since: recordingStartedAt)
-        recordingStartedAt = nil
-        isPTTDown = false
-        targetApplication = nil
+        let recordingDurationBucket = liveSession.cancelRecording()
         transcriptionTask?.cancel()
         transcriptionTask = nil
         captureState = .idle
@@ -359,26 +340,10 @@ final class AppCoordinator {
             _ = await self.transcriber.stopLiveTranscription()
             try? await Task.sleep(nanoseconds: 450_000_000)
             self.indicator.hide()
-            self.shouldCancelCurrentCapture = false
+            self.liveSession.resetCancellation()
         }
     }
 
-    private func durationBucket(since startDate: Date?) -> String {
-        guard let startDate else { return "unknown" }
-        let duration = Date().timeIntervalSince(startDate)
-        switch duration {
-        case ..<1:
-            return "<1s"
-        case ..<3:
-            return "1-3s"
-        case ..<10:
-            return "3-10s"
-        case ..<30:
-            return "10-30s"
-        default:
-            return "30s+"
-        }
-    }
 
     private func lengthBucket(_ characterCount: Int) -> String {
         switch characterCount {
@@ -393,20 +358,4 @@ final class AppCoordinator {
         }
     }
 
-    private func startMeteringIndicator() {
-        meteringTask?.cancel()
-        indicator.show(state: .recording(level: recorder.currentLevel()))
-        meteringTask = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                guard let self, self.captureState.isRecording else { break }
-                self.indicator.show(state: .recording(level: self.recorder.currentLevel()))
-                try? await Task.sleep(nanoseconds: 100_000_000)
-            }
-        }
-    }
-
-    private func stopMeteringIndicator() {
-        meteringTask?.cancel()
-        meteringTask = nil
-    }
 }

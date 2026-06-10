@@ -1,7 +1,7 @@
 import AVFoundation
 import Combine
 
-final class PermissionManager: ObservableObject {
+final class MicrophonePermissionManager: ObservableObject {
     @Published private(set) var micAuthorized: Bool = false
 
     func refreshStatuses() {

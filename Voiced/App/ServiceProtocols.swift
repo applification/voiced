@@ -10,12 +10,6 @@ protocol HotkeyListening: AnyObject {
     func stopListening()
 }
 
-protocol AudioRecording: AnyObject {
-    func start() throws
-    func stop() -> URL?
-    func currentLevel() -> Double
-}
-
 @MainActor
 protocol AppTranscribing: AnyObject {
     var isSelectedModelLoaded: Bool { get }
@@ -51,7 +45,7 @@ protocol CursorIndicatorPresenting: AnyObject {
 }
 
 @MainActor
-protocol PermissionManaging: AnyObject {
+protocol MicrophonePermissionManaging: AnyObject {
     var micAuthorized: Bool { get }
 
     func refreshStatuses()
@@ -73,11 +67,10 @@ protocol TelemetryReporting: AnyObject {
 }
 
 extension HotkeyManager: HotkeyListening {}
-extension AudioRecorder: AudioRecording {}
 extension WhisperKitTranscriptionService: AppTranscribing {}
 extension OutputManager: OutputPerforming {}
 extension FloatingIndicator: IndicatorPresenting {}
 extension CursorMicroIndicator: CursorIndicatorPresenting {}
-extension PermissionManager: PermissionManaging {}
+extension MicrophonePermissionManager: MicrophonePermissionManaging {}
 extension SoundCuePlayer: SoundCuePlaying {}
 extension TelemetryService: TelemetryReporting {}

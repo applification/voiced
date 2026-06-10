@@ -1,13 +1,11 @@
 import AppKit
-import os
 
 @MainActor
 final class StatusMenuController: NSObject, NSMenuDelegate {
     let settings: SettingsStore
     let settingsNavigation: SettingsNavigation
     let output = OutputManager()
-    let permissions = PermissionManager()
-    let logger = Logger(subsystem: "net.applification.voiced", category: "status-menu")
+    let permissions = MicrophonePermissionManager()
 
     let statusItem: NSStatusItem
     let menu = NSMenu()
@@ -25,8 +23,6 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         statusItem.menu = menu
         menu.delegate = self
         rebuildMenu()
-
-        logger.info("Installed AppKit status item")
     }
 
     func menuWillOpen(_ menu: NSMenu) {
