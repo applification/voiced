@@ -304,13 +304,13 @@ private struct CursorTranscriptReviewView: View {
                 }
 
             HStack(spacing: 8) {
-                Label("Press Command-V", systemImage: "command")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                dragHandle
 
                 Spacer(minLength: 8)
 
-                dragHandle
+                Label("Press Command-V", systemImage: "command")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(12)
@@ -382,7 +382,7 @@ private struct CursorTranscriptReviewView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
 
-            Text(isDragStarting ? "Dragging" : "Drag to insert")
+            Text(isDragStarting ? "Dragging" : "Drag to paste")
                 .font(.caption.weight(.semibold))
         }
         .foregroundStyle(isDragHandleHovered ? Color.accentColor : .secondary)
