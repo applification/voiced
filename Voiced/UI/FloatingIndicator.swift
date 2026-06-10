@@ -13,6 +13,7 @@ final class FloatingIndicator {
 
     func show(state: IndicatorState) {
         visibilityGeneration += 1
+        Self.logger.info("Indicator show state=\(String(describing: state), privacy: .public) generation=\(self.visibilityGeneration, privacy: .public)")
         let panel = existingOrCreatePanel()
         notchGeometry = Self.detectNotchGeometry()
         let isNotched = notchGeometry != nil
@@ -36,6 +37,7 @@ final class FloatingIndicator {
         guard let panel else { return }
         visibilityGeneration += 1
         let generation = visibilityGeneration
+        Self.logger.info("Indicator hide generation=\(generation, privacy: .public)")
         isVisible = false
         if notchGeometry != nil {
             animateNotch(panel, visible: false)

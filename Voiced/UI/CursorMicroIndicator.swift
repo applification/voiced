@@ -95,7 +95,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         positionReview(panel, near: reviewTranscriptModel?.anchorPoint ?? NSEvent.mouseLocation)
     }
 
-    func showReviewAtCursor(text: String, onCopy: @escaping (String) -> Void) {
+    func showReviewAtCursor(text: String, onCopy: @escaping (String) -> Void, onDropRejected: @escaping () -> Void) {
         followTask?.cancel()
         followTask = nil
 
@@ -103,6 +103,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         let reviewModel = existingOrUpdatedReviewModel(appending: text)
         reviewModel.mode = .editing
         reviewModel.onCopy = onCopy
+        reviewModel.onDropRejected = onDropRejected
         reviewModel.onDismiss = { [weak self] in
             guard self?.isShowingReview == true else { return }
             self?.hide()
@@ -547,6 +548,7 @@ private final class CursorTranscriptReviewModel {
     @ObservationIgnored var anchorPoint: NSPoint?
     @ObservationIgnored var onCopy: (String) -> Void = { _ in }
     @ObservationIgnored var onDismiss: () -> Void = {}
+    @ObservationIgnored var onDropRejected: () -> Void = {}
     @ObservationIgnored var onWindowMoved: () -> Void = {}
 
     init(text: String) {
@@ -586,9 +588,11 @@ private struct CursorTranscriptReviewView: View {
     @State private var isDragStarting = false
     @State private var isWindowDragging = false
     @State private var hasMouseEntered = false
+    @State private var didRejectLastDrop = false
 
     private let accent = Color(red: 0.48, green: 0.78, blue: 0.56)
     private let confirmedInk = Color(red: 0.0, green: 0.48, blue: 0.2)
+    private let warningInk = Color(red: 0.78, green: 0.23, blue: 0.06)
     private let logger = Logger(subsystem: "net.applification.voiced", category: "cursor-review")
     private var isListening: Bool { model.mode.isListening }
 
@@ -642,10 +646,26 @@ private struct CursorTranscriptReviewView: View {
 
                 Spacer(minLength: 8)
 
-                Label("Command-V", systemImage: "command")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .opacity(isListening ? 0.45 : 1)
+                if didRejectLastDrop {
+                    Label("Drop not accepted. Press ⌘V", systemImage: "exclamationmark.triangle")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(warningInk)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background {
+                            Capsule()
+                                .fill(warningInk.opacity(0.12))
+                        }
+                        .overlay {
+                            Capsule()
+                                .strokeBorder(warningInk.opacity(0.28), lineWidth: 1)
+                        }
+                } else {
+                    Label("Command-V", systemImage: "command")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .opacity(isListening ? 0.45 : 1)
+                }
             }
             .frame(width: 536, alignment: .leading)
             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -825,13 +845,21 @@ private struct CursorTranscriptReviewView: View {
                     onDragStarted: {
                         NSCursor.closedHand.set()
                         isDragStarting = true
+                        didRejectLastDrop = false
                         model.onCopy(model.text)
                         logger.debug("Drag started textCharacters=\(model.text.count, privacy: .public)")
                     },
-                    onDragEnded: { operation in
-                        logger.debug("Drag ended operation=\(operation.rawValue, privacy: .public)")
+                    onDragEnded: { operation, targetBundleIdentifier in
+                        let dropWasNotConfirmed = operation == [] || targetBundleIdentifier == "com.apple.dt.Xcode"
+                        logger.info("Drag ended operation=\(operation.rawValue, privacy: .public) target=\(targetBundleIdentifier ?? "unknown", privacy: .public) notConfirmed=\(dropWasNotConfirmed, privacy: .public)")
                         isDragStarting = false
-                        if operation != [] {
+                        if dropWasNotConfirmed {
+                            didRejectLastDrop = true
+                            model.onDropRejected()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                didRejectLastDrop = false
+                            }
+                        } else {
                             model.onDismiss()
                         }
                     }
@@ -951,7 +979,7 @@ private struct TextDragSourceView: NSViewRepresentable {
     let onHoverChanged: (Bool) -> Void
     let onPressChanged: (Bool) -> Void
     let onDragStarted: () -> Void
-    let onDragEnded: (NSDragOperation) -> Void
+    let onDragEnded: (NSDragOperation, String?) -> Void
 
     func makeNSView(context: Context) -> TextDragSourceNSView {
         TextDragSourceNSView(
@@ -977,17 +1005,17 @@ private final class TextDragSourceNSView: NSView, NSDraggingSource {
     var onHoverChanged: (Bool) -> Void
     var onPressChanged: (Bool) -> Void
     var onDragStarted: () -> Void
-    var onDragEnded: (NSDragOperation) -> Void
+    var onDragEnded: (NSDragOperation, String?) -> Void
+    private static let logger = Logger(subsystem: "net.applification.voiced", category: "text-drag-source")
     private var hasStartedDrag = false
     private var trackingArea: NSTrackingArea?
-    private var dragFileURL: URL?
 
     init(
         text: String,
         onHoverChanged: @escaping (Bool) -> Void,
         onPressChanged: @escaping (Bool) -> Void,
         onDragStarted: @escaping () -> Void,
-        onDragEnded: @escaping (NSDragOperation) -> Void
+        onDragEnded: @escaping (NSDragOperation, String?) -> Void
     ) {
         self.text = text
         self.onHoverChanged = onHoverChanged
@@ -1053,13 +1081,7 @@ private final class TextDragSourceNSView: NSView, NSDraggingSource {
         hasStartedDrag = true
         onDragStarted()
 
-        let pasteboardItem = NSPasteboardItem()
-        pasteboardItem.setString(text, forType: .string)
-        if let fileURL = makeDragFile() {
-            pasteboardItem.setString(fileURL.absoluteString, forType: .fileURL)
-        }
-
-        let draggingItem = NSDraggingItem(pasteboardWriter: pasteboardItem)
+        let draggingItem = NSDraggingItem(pasteboardWriter: text as NSString)
         draggingItem.setDraggingFrame(bounds, contents: dragImage())
         beginDraggingSession(with: [draggingItem], event: event, source: self)
     }
@@ -1086,68 +1108,36 @@ private final class TextDragSourceNSView: NSView, NSDraggingSource {
         endedAt screenPoint: NSPoint,
         operation: NSDragOperation
     ) {
+        let targetBundleIdentifier = Self.targetBundleIdentifier(at: screenPoint)
+        Self.logger.info("Text drag ended operation=\(operation.rawValue, privacy: .public) frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "unknown", privacy: .public) target=\(targetBundleIdentifier ?? "unknown", privacy: .public) screenPoint=(\(screenPoint.x, privacy: .public), \(screenPoint.y, privacy: .public)) textCharacters=\(self.text.count, privacy: .public)")
         hasStartedDrag = false
         onPressChanged(false)
-        if operation == [] {
-            fallbackPaste(at: screenPoint)
-        }
-        cleanupDragFile()
-        onDragEnded(operation)
+        onDragEnded(operation, targetBundleIdentifier)
     }
 
-    private func makeDragFile() -> URL? {
-        cleanupDragFile()
-
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("Voiced Transcript")
-            .appendingPathExtension("txt")
-        do {
-            try text.write(to: fileURL, atomically: true, encoding: .utf8)
-            dragFileURL = fileURL
-            return fileURL
-        } catch {
+    private static func targetBundleIdentifier(at screenPoint: NSPoint) -> String? {
+        let point = quartzPoint(from: screenPoint)
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let windows = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
             return nil
         }
-    }
 
-    private func cleanupDragFile() {
-        guard let dragFileURL else { return }
-        try? FileManager.default.removeItem(at: dragFileURL)
-        self.dragFileURL = nil
-    }
+        let ownProcessIdentifier = NSRunningApplication.current.processIdentifier
+        for window in windows {
+            guard
+                let ownerProcessIdentifier = window[kCGWindowOwnerPID as String] as? pid_t,
+                ownerProcessIdentifier != ownProcessIdentifier,
+                let layer = window[kCGWindowLayer as String] as? Int,
+                layer == 0,
+                let boundsDictionary = window[kCGWindowBounds as String] as? [String: Any],
+                let bounds = CGRect(dictionaryRepresentation: boundsDictionary as CFDictionary),
+                bounds.contains(point),
+                let application = NSRunningApplication(processIdentifier: ownerProcessIdentifier)
+            else { continue }
 
-    private func fallbackPaste(at screenPoint: NSPoint) {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
-
-        let eventPoint = Self.quartzPoint(from: screenPoint)
-        let source = CGEventSource(stateID: .hidSystemState)
-        let mouseDown = CGEvent(
-            mouseEventSource: source,
-            mouseType: .leftMouseDown,
-            mouseCursorPosition: eventPoint,
-            mouseButton: .left
-        )
-        let mouseUp = CGEvent(
-            mouseEventSource: source,
-            mouseType: .leftMouseUp,
-            mouseCursorPosition: eventPoint,
-            mouseButton: .left
-        )
-        mouseDown?.post(tap: .cghidEventTap)
-        mouseUp?.post(tap: .cghidEventTap)
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-            let source = CGEventSource(stateID: .hidSystemState)
-            let keyCodeV: CGKeyCode = 9
-            let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCodeV, keyDown: true)
-            let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCodeV, keyDown: false)
-            keyDown?.flags = .maskCommand
-            keyUp?.flags = .maskCommand
-            keyDown?.post(tap: .cghidEventTap)
-            keyUp?.post(tap: .cghidEventTap)
+            return application.bundleIdentifier
         }
+        return nil
     }
 
     private static func quartzPoint(from appKitPoint: NSPoint) -> CGPoint {

@@ -249,7 +249,7 @@ final class AppCoordinator {
         soundCues.playDeactivation()
         let recordingDurationBucket = durationBucket(since: recordingStartedAt)
         recordingStartedAt = nil
-        let pasteTargetApplication = targetApplication
+        targetApplication = nil
         captureState = .transcribing
         indicator.show(state: .transcribing)
 
@@ -276,9 +276,15 @@ final class AppCoordinator {
                         "model": self.settings.transcriptionModel.rawValue
                     ])
                     if self.cursorIndicator.hasReviewText {
-                        self.cursorIndicator.showReviewAtCursor(text: "") { [weak self] updatedText in
-                            self?.output.copyToClipboard(updatedText)
-                        }
+                        self.cursorIndicator.showReviewAtCursor(
+                            text: "",
+                            onCopy: { [weak self] updatedText in
+                                self?.output.copyToClipboard(updatedText)
+                            },
+                            onDropRejected: { [weak self] in
+                                self?.showDropRejectedIndicator()
+                            }
+                        )
                         self.indicator.hide()
                     } else {
                         self.captureState = .showingError
@@ -290,12 +296,16 @@ final class AppCoordinator {
                     return
                 }
 
-                self.cursorIndicator.showReviewAtCursor(text: text) { [weak self] updatedText in
-                    self?.output.copyToClipboard(updatedText)
-                }
-                self.output.paste(text, into: pasteTargetApplication)
-                self.targetApplication = nil
-                self.indicator.show(state: .error("Pasted"))
+                self.cursorIndicator.showReviewAtCursor(
+                    text: text,
+                    onCopy: { [weak self] updatedText in
+                        self?.output.copyToClipboard(updatedText)
+                    },
+                    onDropRejected: { [weak self] in
+                        self?.showDropRejectedIndicator()
+                    }
+                )
+                self.indicator.show(state: .error("Copied for review"))
                 self.telemetry.capture(.transcriptionSucceeded, properties: [
                     "recording_duration": recordingDurationBucket,
                     "transcript_length": self.lengthBucket(text.count),
@@ -330,6 +340,16 @@ final class AppCoordinator {
             AppCoordinator.logger.info("Indicator hide; live transcription flow complete")
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             self.indicator.hide()
+        }
+    }
+
+    private func showDropRejectedIndicator() {
+        AppCoordinator.logger.info("Showing drop rejected indicator")
+        indicator.show(state: .error("Drop not accepted. Press ⌘V"))
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            AppCoordinator.logger.info("Hiding drop rejected indicator")
+            self?.indicator.hide()
         }
     }
 

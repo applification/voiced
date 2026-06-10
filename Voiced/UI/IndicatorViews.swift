@@ -36,10 +36,13 @@ struct IndicatorView: View {
                 Text("Transcribing")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            case .error:
+            case .error(let message):
                 Image(systemName: "exclamationmark")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.yellow)
+                Text(message)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
             }
         }
     }
@@ -102,10 +105,14 @@ struct NotchContentView: View {
                 .frame(width: metrics.dotSize, height: metrics.dotSize)
         case .transcribing:
             EmptyView()
-        case .error:
+        case .error(let message):
             Image(systemName: "exclamationmark")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.yellow)
+            Text(message)
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
         }
     }
 }
