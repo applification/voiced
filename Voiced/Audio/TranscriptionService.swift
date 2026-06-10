@@ -55,11 +55,14 @@ final class WhisperKitTranscriptionService: TranscriptionService {
 
         logger.info("Loading WhisperKit model: \(selectedModel.rawValue, privacy: .public)")
         let task = Task { @MainActor [selectedModel] in
-            let modelFolder = try await self.resolveModelFolder(for: selectedModel)
+            let store = ModelStore(model: selectedModel)
+            let modelFolder = try await self.resolveModelFolder(for: selectedModel, store: store)
             self.postModelProgress(model: selectedModel, phase: "Preparing", fractionCompleted: 1)
             let config = WhisperKitConfig(
                 model: selectedModel.rawValue,
+                downloadBase: store.downloadBaseURL,
                 modelFolder: modelFolder.path,
+                tokenizerFolder: store.downloadBaseURL,
                 computeOptions: selectedModel.modelComputeOptions,
                 prewarm: false,
                 load: false,
@@ -104,8 +107,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         }
     }
 
-    private func resolveModelFolder(for selectedModel: TranscriptionModel) async throws -> URL {
-        let store = ModelStore(model: selectedModel)
+    private func resolveModelFolder(for selectedModel: TranscriptionModel, store: ModelStore) async throws -> URL {
+        try store.prepareStorageForDownload()
         if store.isPlausiblyComplete {
             try verifyDownloadedModel(store, selectedModel: selectedModel)
             postModelProgress(model: selectedModel, phase: "Downloaded", fractionCompleted: 1)
@@ -124,6 +127,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         let remoteDownloadTask = Task {
             try await WhisperKit.download(
                 variant: selectedModel.rawValue,
+                downloadBase: store.downloadBaseURL,
                 from: store.modelRepo
             ) { progress in
                 Task { @MainActor in

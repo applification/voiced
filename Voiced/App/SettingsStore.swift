@@ -3,18 +3,6 @@ import Observation
 
 @Observable
 final class SettingsStore {
-    var outputMode: OutputMode {
-        didSet {
-            userDefaults.set(outputMode.rawValue, forKey: Keys.outputMode)
-        }
-    }
-
-    var copyLastTranscriptClearsAfterMinutes: Int {
-        didSet {
-            userDefaults.set(copyLastTranscriptClearsAfterMinutes, forKey: Keys.copyLastTranscriptClearsAfterMinutes)
-        }
-    }
-
     var modelDownloadsApproved: Bool {
         didSet {
             userDefaults.set(modelDownloadsApproved, forKey: Keys.modelDownloadsApproved)
@@ -68,13 +56,6 @@ final class SettingsStore {
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
 
-        let storedOutputMode = userDefaults.string(forKey: Keys.outputMode)
-            .flatMap(OutputMode.init(rawValue:))
-        outputMode = storedOutputMode ?? .review
-
-        let storedClearMinutes = userDefaults.integer(forKey: Keys.copyLastTranscriptClearsAfterMinutes)
-        copyLastTranscriptClearsAfterMinutes = Self.clampedLastCaptureMinutes(storedClearMinutes == 0 ? 3 : storedClearMinutes)
-
         modelDownloadsApproved = userDefaults.bool(forKey: Keys.modelDownloadsApproved)
             || userDefaults.bool(forKey: Keys.whisperTinyModelApproved)
 
@@ -103,16 +84,19 @@ final class SettingsStore {
         }
 
         hasSeenIntroOnboarding = userDefaults.bool(forKey: Keys.hasSeenIntroOnboarding)
+
+        resetSetupStateForApplicationSupportStorageIfNeeded()
     }
 
-    private static func clampedLastCaptureMinutes(_ minutes: Int) -> Int {
-        min(max(minutes, 1), 5)
+    private func resetSetupStateForApplicationSupportStorageIfNeeded() {
+        guard !userDefaults.bool(forKey: Keys.didResetForApplicationSupportModelStorage) else { return }
+        modelDownloadsApproved = false
+        hasSeenIntroOnboarding = false
+        userDefaults.set(true, forKey: Keys.didResetForApplicationSupportModelStorage)
     }
 }
 
 private enum Keys {
-    static let outputMode = "outputMode"
-    static let copyLastTranscriptClearsAfterMinutes = "copyLastTranscriptClearsAfterMinutes"
     static let modelDownloadsApproved = "modelDownloadsApproved"
     static let whisperTinyModelApproved = "whisperTinyModelApproved"
     static let transcriptionModel = "transcriptionModel"
@@ -122,4 +106,5 @@ private enum Keys {
     static let pushToTalkHotkey = "pushToTalkHotkey"
     static let basicDiagnosticsEnabled = "basicDiagnosticsEnabled"
     static let hasSeenIntroOnboarding = "hasSeenIntroOnboarding"
+    static let didResetForApplicationSupportModelStorage = "didResetForApplicationSupportModelStorage"
 }

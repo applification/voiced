@@ -22,8 +22,6 @@ extension StatusMenuController {
             menu.addItem(.separator())
         }
 
-        addTranscriptMenuItems()
-        addOutputMenu()
         addModelMenu()
         menu.addItem(.separator())
         addAppMenuItems()
@@ -113,24 +111,6 @@ extension StatusMenuController {
         return image
     }
 
-    private func addOutputMenu() {
-        let outputMenu = NSMenu()
-        outputMenu.addItem(actionItem(title: "Review",
-                                      action: #selector(setOutputPaste),
-                                      state: settings.outputMode == .review ? .on : .off,
-                                      symbolName: "text.bubble",
-                                      color: .secondaryLabelColor))
-        outputMenu.addItem(actionItem(title: "Copy",
-                                      action: #selector(setOutputCopy),
-                                      state: settings.outputMode == .copyOnly ? .on : .off,
-                                      symbolName: "doc.on.clipboard",
-                                      color: .secondaryLabelColor))
-        let outputItem = NSMenuItem(title: "Output", action: nil, keyEquivalent: "")
-        outputItem.image = menuIcon("arrowshape.turn.up.right.fill", color: .secondaryLabelColor)
-        outputItem.submenu = outputMenu
-        menu.addItem(outputItem)
-    }
-
     private func addPushToTalkMenu() {
         let hotkeyMenu = NSMenu()
         for hotkey in PushToTalkHotkey.allCases {
@@ -209,23 +189,6 @@ extension StatusMenuController {
         menu.addItem(soundItem)
     }
 
-    private func addTranscriptMenuItems() {
-        let hasLastCapture = lastCapture.last != nil
-        let copyLast = actionItem(title: "Copy Last Transcript",
-                                  action: #selector(copyLastTranscript),
-                                  symbolName: "doc.on.clipboard",
-                                  color: .controlAccentColor)
-        copyLast.isEnabled = hasLastCapture
-        menu.addItem(copyLast)
-
-        let pasteLast = actionItem(title: "Copy Last Transcript Again",
-                                   action: #selector(copyLastTranscriptAgain),
-                                   symbolName: "doc.on.clipboard",
-                                   color: .controlAccentColor)
-        pasteLast.isEnabled = hasLastCapture
-        menu.addItem(pasteLast)
-    }
-
     private func addPermissionMenuItems() {
         guard !micAuthorized else { return }
 
@@ -242,14 +205,13 @@ extension StatusMenuController {
                                       action: #selector(openSettings),
                                       symbolName: "gearshape.fill",
                                       color: .secondaryLabelColor)
-        settingsItem.isEnabled = settings.hasSeenIntroOnboarding
+        settingsItem.isEnabled = !IntroOnboardingPresenter.isSetupRequired(settings: settings)
         menu.addItem(settingsItem)
 
         let setupGuideItem = actionItem(title: "Setup Guide...",
                                         action: #selector(showSetupGuide),
                                         symbolName: "checklist",
                                         color: .secondaryLabelColor)
-        setupGuideItem.isEnabled = settings.hasSeenIntroOnboarding
         menu.addItem(setupGuideItem)
 
         menu.addItem(actionItem(title: "Quit Voiced",

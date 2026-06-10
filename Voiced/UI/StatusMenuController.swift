@@ -4,7 +4,6 @@ import os
 @MainActor
 final class StatusMenuController: NSObject, NSMenuDelegate {
     let settings: SettingsStore
-    let lastCapture: LastCaptureStore
     let settingsNavigation: SettingsNavigation
     let output = OutputManager()
     let permissions = PermissionManager()
@@ -15,9 +14,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     var settingsWindow: NSWindow?
     var onboardingWindow: NSWindow?
 
-    init(settings: SettingsStore, lastCapture: LastCaptureStore, settingsNavigation: SettingsNavigation = AppServices.settingsNavigation) {
+    init(settings: SettingsStore, settingsNavigation: SettingsNavigation = AppServices.settingsNavigation) {
         self.settings = settings
-        self.lastCapture = lastCapture
         self.settingsNavigation = settingsNavigation
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()

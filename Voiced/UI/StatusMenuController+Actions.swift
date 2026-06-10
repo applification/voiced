@@ -4,14 +4,6 @@ import SwiftUI
 
 @MainActor
 extension StatusMenuController {
-    @objc func setOutputPaste() {
-        settings.outputMode = .review
-    }
-
-    @objc func setOutputCopy() {
-        settings.outputMode = .copyOnly
-    }
-
     @objc func setPushToTalkHotkey(_ sender: NSMenuItem) {
         guard let rawValue = sender.representedObject as? String,
               let hotkey = PushToTalkHotkey(rawValue: rawValue) else { return }
@@ -46,26 +38,6 @@ extension StatusMenuController {
         rebuildMenu()
     }
 
-    @objc func copyLastTranscript() {
-        guard let transcript = lastCapture.last else {
-            logger.warning("Copy Last Transcript selected without stored transcript")
-            return
-        }
-        logger.info("Copy Last Transcript selected; characters=\(transcript.count, privacy: .public)")
-        output.copyToClipboard(transcript, restoringAfter: 5)
-    }
-
-    @objc func copyLastTranscriptAgain() {
-        guard let transcript = lastCapture.last else {
-            logger.warning("Copy Last Transcript Again selected without stored transcript")
-            return
-        }
-
-        logger.info("Copy Last Transcript Again selected; characters=\(transcript.count, privacy: .public)")
-        output.copyToClipboard(transcript)
-        rebuildMenu()
-    }
-
     @objc func handleMicrophone() {
         guard !micAuthorized else {
             rebuildMenu()
@@ -77,15 +49,7 @@ extension StatusMenuController {
         }
     }
 
-    @objc func handleAccessibility() {
-        rebuildMenu()
-    }
-
     @objc func showSetupGuide() {
-        guard settings.hasSeenIntroOnboarding else {
-            rebuildMenu()
-            return
-        }
         if let onboardingWindow {
             onboardingWindow.makeKeyAndOrderFront(nil)
         } else {
@@ -105,10 +69,6 @@ extension StatusMenuController {
     }
 
     @objc func openModelSettings() {
-        guard settings.hasSeenIntroOnboarding else {
-            rebuildMenu()
-            return
-        }
         presentSettings(section: .models)
     }
 
@@ -133,12 +93,5 @@ extension StatusMenuController {
 
     @objc func quit() {
         NSApplication.shared.terminate(nil)
-    }
-
-    var outputBehavior: OutputBehavior {
-        switch settings.outputMode {
-        case .review: .review
-        case .copyOnly: .copyOnly
-        }
     }
 }

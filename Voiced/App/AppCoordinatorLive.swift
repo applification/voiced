@@ -9,7 +9,6 @@ final class AppCoordinator {
     private let recorder: any AudioRecording
     private var transcriber: any AppTranscribing
     private let output: any OutputPerforming
-    private let lastCapture: LastCaptureStore
     private let indicator: any IndicatorPresenting
     private let cursorIndicator: any CursorIndicatorPresenting
     private let permissions: any PermissionManaging
@@ -30,7 +29,6 @@ final class AppCoordinator {
 
     init(
         settings: SettingsStore,
-        lastCapture: LastCaptureStore,
         hotkeys: any HotkeyListening = HotkeyManager(),
         recorder: any AudioRecording = AudioRecorder(),
         transcriber: any AppTranscribing,
@@ -42,7 +40,6 @@ final class AppCoordinator {
         telemetry: any TelemetryReporting = TelemetryService()
     ) {
         self.settings = settings
-        self.lastCapture = lastCapture
         self.hotkeys = hotkeys
         self.recorder = recorder
         self.transcriber = transcriber
@@ -54,10 +51,9 @@ final class AppCoordinator {
         self.telemetry = telemetry
     }
 
-    convenience init(settings: SettingsStore, lastCapture: LastCaptureStore, telemetry: any TelemetryReporting = TelemetryService()) {
+    convenience init(settings: SettingsStore, telemetry: any TelemetryReporting = TelemetryService()) {
         self.init(
             settings: settings,
-            lastCapture: lastCapture,
             transcriber: WhisperKitTranscriptionService(settings: settings),
             soundCues: SoundCuePlayer(settings: settings),
             telemetry: telemetry
@@ -106,18 +102,20 @@ final class AppCoordinator {
                 break
             }
         }
+
+        if !IntroOnboardingPresenter.isSetupRequired(settings: settings) {
+            warmUpTranscriptionService(reason: "app start")
+        }
     }
 
     private func warmUpTranscriptionService(reason: String) {
         guard settings.modelDownloadsApproved else { return }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let shouldShowLoader = reason != "app start"
-                && reason != "onboarding download"
-                && !self.transcriber.isSelectedModelLoaded
-            if shouldShowLoader {
+            let shouldBlockCapture = !self.transcriber.isSelectedModelLoaded
+            let shouldShowFailure = reason != "app start" && reason != "onboarding download"
+            if shouldBlockCapture {
                 self.captureState = .loadingModel
-                self.indicator.show(state: .loadingModel(self.settings.transcriptionModel.label))
             }
             do {
                 AppCoordinator.logger.info("Warming transcription service; reason=\(reason, privacy: .public)")
@@ -138,12 +136,12 @@ final class AppCoordinator {
                     "model": self.settings.transcriptionModel.rawValue
                 ])
                 NotificationCenter.default.post(name: .voicedModelStatusChanged, object: self.settings.transcriptionModel)
-                if shouldShowLoader {
+                if shouldBlockCapture && shouldShowFailure {
                     self.captureState = .showingError
                     self.indicator.show(state: .error("Model load failed"))
                 }
             }
-            if shouldShowLoader {
+            if shouldBlockCapture {
                 self.captureState = .idle
                 try? await Task.sleep(nanoseconds: 650_000_000)
                 self.indicator.hide()
@@ -153,44 +151,11 @@ final class AppCoordinator {
 
     private func handleModelProgress(_ progress: ModelLoadProgress) {
         NotificationCenter.default.post(name: .voicedModelProgressChanged, object: progress)
-        guard progress.model == settings.transcriptionModel else {
-            return
-        }
-
-        guard captureState.isShowingModelProgress else {
-            AppCoordinator.logger.debug("Ignoring hidden model progress phase=\(progress.phase, privacy: .public)")
-            return
-        }
-
-        if progress.phase == "Loaded" {
-            AppCoordinator.logger.info("Model progress loaded; hiding indicator")
+        guard progress.model == settings.transcriptionModel else { return }
+        AppCoordinator.logger.info("Model progress phase=\(progress.phase, privacy: .public) percent=\(Int((progress.fractionCompleted * 100).rounded()), privacy: .public)")
+        if progress.phase == "Loaded", captureState.isShowingModelProgress {
             captureState = .idle
-            indicator.hide()
-            return
         }
-
-        let percent = Int((progress.fractionCompleted * 100).rounded())
-        let label: String
-        switch progress.phase {
-        case "Downloading":
-            label = "\(settings.transcriptionModel.label) \(percent)%"
-        case "Downloaded":
-            label = "\(settings.transcriptionModel.label) Ready"
-        case "Preparing":
-            label = "\(settings.transcriptionModel.label) Preparing"
-        case "Loading":
-            label = "\(settings.transcriptionModel.label) Loading"
-        case "Loaded":
-            label = "\(settings.transcriptionModel.label) Loaded"
-        case "Specializing":
-            label = "\(settings.transcriptionModel.label) Specializing"
-        case "Specialized":
-            label = "\(settings.transcriptionModel.label) Specialized"
-        default:
-            label = "\(settings.transcriptionModel.label) \(progress.phase)"
-        }
-        AppCoordinator.logger.info("Model progress phase=\(progress.phase, privacy: .public) percent=\(percent, privacy: .public)")
-        indicator.show(state: .loadingModel(label))
     }
 
     private func handleKeyDown() {
@@ -212,17 +177,22 @@ final class AppCoordinator {
             return
         }
 
+        guard transcriber.isSelectedModelLoaded else {
+            AppCoordinator.logger.info("Ignoring push-to-talk while model is preparing")
+            warmUpTranscriptionService(reason: "hotkey")
+            return
+        }
+
         targetApplication = NSWorkspace.shared.frontmostApplication
         shouldCancelCurrentCapture = false
         recordingStartedAt = Date()
-        lastCapture.clear()
         soundCues.playActivation()
-        captureState = transcriber.isSelectedModelLoaded ? .recording : .loadingModel
-        indicator.show(state: transcriber.isSelectedModelLoaded ? .recording(level: 0.5) : .loadingModel(settings.transcriptionModel.label))
+        captureState = .recording
+        indicator.show(state: .recording(level: 0.5))
 
         telemetry.capture(.recordingStarted, properties: [
             "model": settings.transcriptionModel.rawValue,
-            "output_mode": settings.outputMode.rawValue,
+            "output_mode": "review",
             "mode": "live"
         ])
 
@@ -275,11 +245,11 @@ final class AppCoordinator {
 
     private func handleKeyUp() {
         AppCoordinator.logger.debug("handleKeyUp() invoked; state=\(String(describing: self.captureState), privacy: .public)")
-        guard captureState.isRecording || captureState.isShowingModelProgress else { return }
+        guard captureState.isRecording else { return }
         soundCues.playDeactivation()
         let recordingDurationBucket = durationBucket(since: recordingStartedAt)
         recordingStartedAt = nil
-        targetApplication = nil
+        let pasteTargetApplication = targetApplication
         captureState = .transcribing
         indicator.show(state: .transcribing)
 
@@ -291,6 +261,7 @@ final class AppCoordinator {
                 self.transcriptionTask = nil
                 self.activeRecordingURL = nil
                 self.shouldCancelCurrentCapture = false
+                self.targetApplication = nil
             }
             do {
                 let text = await self.transcriber.stopLiveTranscription()
@@ -304,30 +275,32 @@ final class AppCoordinator {
                         "recording_duration": recordingDurationBucket,
                         "model": self.settings.transcriptionModel.rawValue
                     ])
-                    self.captureState = .showingError
-                    self.cursorIndicator.hide()
-                    self.indicator.show(state: .error("No speech detected"))
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
-                    self.indicator.hide()
+                    if self.cursorIndicator.hasReviewText {
+                        self.cursorIndicator.showReviewAtCursor(text: "") { [weak self] updatedText in
+                            self?.output.copyToClipboard(updatedText)
+                        }
+                        self.indicator.hide()
+                    } else {
+                        self.captureState = .showingError
+                        self.cursorIndicator.hide()
+                        self.indicator.show(state: .error("No speech detected"))
+                        try? await Task.sleep(nanoseconds: 1_000_000_000)
+                        self.indicator.hide()
+                    }
                     return
                 }
 
-                self.lastCapture.set(text, autoClearAfter: TimeInterval(self.settings.copyLastTranscriptClearsAfterMinutes * 60))
-                self.output.copyToClipboard(text)
-                if self.settings.outputMode == .review {
-                    self.cursorIndicator.showReviewAtCursor(text: text) { [weak self] updatedText in
-                        self?.output.copyToClipboard(updatedText)
-                    }
-                    self.indicator.show(state: .error("Copied for review"))
-                } else {
-                    self.cursorIndicator.hideImmediately()
-                    self.indicator.show(state: .error("Copied to clipboard"))
+                self.cursorIndicator.showReviewAtCursor(text: text) { [weak self] updatedText in
+                    self?.output.copyToClipboard(updatedText)
                 }
+                self.output.paste(text, into: pasteTargetApplication)
+                self.targetApplication = nil
+                self.indicator.show(state: .error("Pasted"))
                 self.telemetry.capture(.transcriptionSucceeded, properties: [
                     "recording_duration": recordingDurationBucket,
                     "transcript_length": self.lengthBucket(text.count),
                     "model": self.settings.transcriptionModel.rawValue,
-                    "output_mode": self.settings.outputMode.rawValue,
+                    "output_mode": "review",
                     "mode": "live"
                 ])
                 _ = text.count // avoid logging sensitive content

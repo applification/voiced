@@ -30,6 +30,7 @@ protocol AppTranscribing: AnyObject {
 @MainActor
 protocol OutputPerforming: AnyObject {
     func copyToClipboard(_ text: String)
+    func paste(_ text: String, into targetApplication: NSRunningApplication?)
 }
 
 @MainActor
@@ -40,6 +41,8 @@ protocol IndicatorPresenting: AnyObject {
 
 @MainActor
 protocol CursorIndicatorPresenting: AnyObject {
+    var hasReviewText: Bool { get }
+
     func showTranscribingAtCursor()
     func showLiveTranscriptAtCursor(state: LiveTranscriptState, onCancel: @escaping () -> Void)
     func updateLiveTranscript(_ state: LiveTranscriptState)

@@ -23,7 +23,6 @@
 		67AAB530D645886CC9C0F22D /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F535DB58AC80A210E0A99E0 /* SettingsStore.swift */; };
 		7012341DFB4F3019CE17B1BE /* TransparentHostingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBAB4339DC33FE1AB6423836 /* TransparentHostingView.swift */; };
 		7E0234D94F0413669D7817E8 /* ServiceProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1758DB251BBDA9BDC1FEACDC /* ServiceProtocols.swift */; };
-		7F2E8EE943ED5389739F4C73 /* LastCaptureStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67FB7184D1FB559065BED77E /* LastCaptureStore.swift */; };
 		8A1B1D25125EA0837144E04B /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA37B018422928A0B461D7D1 /* HotkeyManager.swift */; };
 		924253CE1CE1FECE21F79B66 /* VoicedApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A8AACD2D38D57B649F4C714 /* VoicedApp.swift */; };
 		945F240627B0D8E6F6DF9E9E /* FloatingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9D2150B7863C5B4DA190D6 /* FloatingIndicator.swift */; };
@@ -34,7 +33,6 @@
 		B76B4ED521E2EEE978248A21 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9CC44EAC360DCAF30814206A /* WhisperKit */; };
 		C01B2893022BFFCB565EF670 /* ModelLoadProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE28435042EA5C3E3EDADEA /* ModelLoadProgress.swift */; };
 		C5F0664BDF2F4C0C7989121E /* SoundCuePlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52BF312BC256443226FD940 /* SoundCuePlayer.swift */; };
-		C6BE1655792B2AA1AD82D6BB /* OutputMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A6CE12537A4321167766FA /* OutputMode.swift */; };
 		CFCE55C5EC4589DDC784B797 /* CaptureState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C260EB544B057FE1807E22CD /* CaptureState.swift */; };
 		D56AA73ED472F7EB7D0C8A9F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2DC7F659259C1147C0E793B /* Assets.xcassets */; };
 		D6E6C49354E2F3B06B037864 /* StatusMenuController+MenuBuilding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80266AAFB1DE4B84FC5CE9BA /* StatusMenuController+MenuBuilding.swift */; };
@@ -47,7 +45,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		00A6CE12537A4321167766FA /* OutputMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMode.swift; sourceTree = "<group>"; };
 		0F535DB58AC80A210E0A99E0 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		1758DB251BBDA9BDC1FEACDC /* ServiceProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProtocols.swift; sourceTree = "<group>"; };
 		1A8AACD2D38D57B649F4C714 /* VoicedApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicedApp.swift; sourceTree = "<group>"; };
@@ -61,7 +58,6 @@
 		53CDC1DEB94A862FBD8B4176 /* IndicatorViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndicatorViews.swift; sourceTree = "<group>"; };
 		56B356BE926A848C62F377A0 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
 		5F7F8212B350BEB52CB23267 /* PushToTalkHotkey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkHotkey.swift; sourceTree = "<group>"; };
-		67FB7184D1FB559065BED77E /* LastCaptureStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastCaptureStore.swift; sourceTree = "<group>"; };
 		6D7AD448C90A10E568928B60 /* NotchGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchGeometry.swift; sourceTree = "<group>"; };
 		71CD0C2ABDE2A1A0D7510C80 /* TranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionService.swift; sourceTree = "<group>"; };
 		7AE28435042EA5C3E3EDADEA /* ModelLoadProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadProgress.swift; sourceTree = "<group>"; };
@@ -213,9 +209,7 @@
 		EEC39E3099022CB5081423FA /* Output */ = {
 			isa = PBXGroup;
 			children = (
-				67FB7184D1FB559065BED77E /* LastCaptureStore.swift */,
 				9CF2FE36886981B6240FEA03 /* OutputManager.swift */,
-				00A6CE12537A4321167766FA /* OutputMode.swift */,
 			);
 			path = Output;
 			sourceTree = "<group>";
@@ -309,13 +303,11 @@
 				D847D33F895A52EC7B60E033 /* IndicatorState.swift in Sources */,
 				18F9191DB3B2274A9F03BF90 /* IndicatorViews.swift in Sources */,
 				E4379CA56F99C2D22EE3AFDF /* IntroOnboardingPresenter.swift in Sources */,
-				7F2E8EE943ED5389739F4C73 /* LastCaptureStore.swift in Sources */,
 				63E047CB4300FEF61D33905D /* ModelIntegrity.swift in Sources */,
 				C01B2893022BFFCB565EF670 /* ModelLoadProgress.swift in Sources */,
 				9B45019C2D0CAA24E4294BC1 /* ModelStore.swift in Sources */,
 				11DA3FAEE4B90A5E06EA8A2B /* NotchGeometry.swift in Sources */,
 				1228FA40BFE2B248959E8317 /* OutputManager.swift in Sources */,
-				C6BE1655792B2AA1AD82D6BB /* OutputMode.swift in Sources */,
 				B10810AD945D4329AEA46E01 /* PermissionManager.swift in Sources */,
 				0F6FAD6456C5766BBF6D8F02 /* PushToTalkHotkey.swift in Sources */,
 				7E0234D94F0413669D7817E8 /* ServiceProtocols.swift in Sources */,
