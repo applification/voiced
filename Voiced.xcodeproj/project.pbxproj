@@ -29,6 +29,7 @@
 		945F240627B0D8E6F6DF9E9E /* FloatingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9D2150B7863C5B4DA190D6 /* FloatingIndicator.swift */; };
 		9B45019C2D0CAA24E4294BC1 /* ModelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E48B37645D9C844833348A15 /* ModelStore.swift */; };
 		A9F041342BB91FAF0F8BBD37 /* TranscriptionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E333EDF66F0B9EB498F402FA /* TranscriptionModel.swift */; };
+		AC2D31B72FD9356A00C866C4 /* LiveTranscriptState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2D31B62FD9356A00C866C4 /* LiveTranscriptState.swift */; };
 		B10810AD945D4329AEA46E01 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 998FED825A591A11ABBF1166 /* PermissionManager.swift */; };
 		B76B4ED521E2EEE978248A21 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9CC44EAC360DCAF30814206A /* WhisperKit */; };
 		C01B2893022BFFCB565EF670 /* ModelLoadProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE28435042EA5C3E3EDADEA /* ModelLoadProgress.swift */; };
@@ -69,6 +70,7 @@
 		9972ADCF2078365AE57E8CB5 /* IntroOnboardingPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntroOnboardingPresenter.swift; sourceTree = "<group>"; };
 		998FED825A591A11ABBF1166 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
 		9CF2FE36886981B6240FEA03 /* OutputManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputManager.swift; sourceTree = "<group>"; };
+		AC2D31B62FD9356A00C866C4 /* LiveTranscriptState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscriptState.swift; sourceTree = "<group>"; };
 		B85425127B1B5B385D50C850 /* SoundCue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundCue.swift; sourceTree = "<group>"; };
 		BA37B018422928A0B461D7D1 /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
 		BFA387A03AF9C8840D824040 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -186,6 +188,7 @@
 				56B356BE926A848C62F377A0 /* AudioRecorder.swift */,
 				E333EDF66F0B9EB498F402FA /* TranscriptionModel.swift */,
 				71CD0C2ABDE2A1A0D7510C80 /* TranscriptionService.swift */,
+				AC2D31B62FD9356A00C866C4 /* LiveTranscriptState.swift */,
 			);
 			path = Audio;
 			sourceTree = "<group>";
@@ -324,6 +327,7 @@
 				D6E6C49354E2F3B06B037864 /* StatusMenuController+MenuBuilding.swift in Sources */,
 				0A8A20A33A6B5CC39238FB71 /* StatusMenuController.swift in Sources */,
 				5533DDF7CD2F7C04A715F483 /* TelemetryService.swift in Sources */,
+				AC2D31B72FD9356A00C866C4 /* LiveTranscriptState.swift in Sources */,
 				A9F041342BB91FAF0F8BBD37 /* TranscriptionModel.swift in Sources */,
 				E7E4DC9DBB5AFDE410055958 /* TranscriptionService.swift in Sources */,
 				7012341DFB4F3019CE17B1BE /* TransparentHostingView.swift in Sources */,

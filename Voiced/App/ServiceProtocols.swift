@@ -23,6 +23,8 @@ protocol AppTranscribing: AnyObject {
 
     func loadModelIfNeeded() async throws
     func transcribeFile(at url: URL) async throws -> String
+    func startLiveTranscription(onUpdate: @escaping @MainActor (LiveTranscriptState) -> Void) async throws
+    func stopLiveTranscription() async -> String
 }
 
 @MainActor
@@ -39,6 +41,8 @@ protocol IndicatorPresenting: AnyObject {
 @MainActor
 protocol CursorIndicatorPresenting: AnyObject {
     func showTranscribingAtCursor()
+    func showLiveTranscriptAtCursor(state: LiveTranscriptState, onCancel: @escaping () -> Void)
+    func updateLiveTranscript(_ state: LiveTranscriptState)
     func showReviewAtCursor(text: String, onCopy: @escaping (String) -> Void)
     func hide()
     func hideImmediately()

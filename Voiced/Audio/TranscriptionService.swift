@@ -1,7 +1,7 @@
 import CoreML
 import Foundation
 import os
-import WhisperKit
+@preconcurrency import WhisperKit
 
 @MainActor
 protocol TranscriptionService {
@@ -17,6 +17,9 @@ final class WhisperKitTranscriptionService: TranscriptionService {
     private var loadedModel: TranscriptionModel?
     private var loadTask: Task<Void, Error>?
     private var lastProgressByModel: [TranscriptionModel: Double] = [:]
+    private var streamTranscriber: AudioStreamTranscriber?
+    private var streamTranscriptionTask: Task<Void, Never>?
+    private var latestLiveState = LiveTranscriptState.idle
     private let preparationTimeoutNanoseconds: UInt64 = 60_000_000_000
     var onModelProgress: ((ModelLoadProgress) -> Void)?
 
@@ -203,6 +206,82 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         logger.info("WhisperKit transcription completed; characters=\(text.count, privacy: .public)")
         return text
     }
+
+    func startLiveTranscription(onUpdate: @escaping @MainActor (LiveTranscriptState) -> Void) async throws {
+        try await loadModelIfNeeded()
+        guard let whisperKit else {
+            throw TranscriptionError.modelNotLoaded
+        }
+        guard let tokenizer = whisperKit.tokenizer else {
+            throw TranscriptionError.modelNotLoaded
+        }
+
+        await streamTranscriber?.stopStreamTranscription()
+        streamTranscriptionTask?.cancel()
+        latestLiveState = .idle
+
+        let transcriber = AudioStreamTranscriber(
+            audioEncoder: whisperKit.audioEncoder,
+            featureExtractor: whisperKit.featureExtractor,
+            segmentSeeker: whisperKit.segmentSeeker,
+            textDecoder: whisperKit.textDecoder,
+            tokenizer: tokenizer,
+            audioProcessor: whisperKit.audioProcessor,
+            decodingOptions: DecodingOptions(),
+            stateChangeCallback: { [weak self] _, newState in
+                let committed = newState.confirmedSegments
+                    .map(\.text)
+                    .joined(separator: " ")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let unconfirmed = newState.unconfirmedSegments
+                    .map(\.text)
+                    .joined(separator: " ")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let current = newState.currentText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let provisional = current.isEmpty ? unconfirmed : current
+                let isRecording = newState.isRecording
+
+                Task { @MainActor in
+                    let state = LiveTranscriptState(
+                        committedText: committed,
+                        provisionalText: provisional,
+                        isRecording: isRecording
+                    )
+                    self?.latestLiveState = state
+                    onUpdate(state)
+                }
+            }
+        )
+        streamTranscriber = transcriber
+        streamTranscriptionTask = Task { [weak self, transcriber] in
+            do {
+                try await transcriber.startStreamTranscription()
+            } catch {
+                await MainActor.run {
+                    self?.logger.error("Live transcription failed: \(String(describing: error), privacy: .public)")
+                }
+            }
+        }
+        onUpdate(LiveTranscriptState(committedText: "", provisionalText: "Listening...", isRecording: true))
+        logger.info("Live transcription started")
+    }
+
+    func stopLiveTranscription() async -> String {
+        guard let streamTranscriber else {
+            return latestLiveState.combinedText
+        }
+
+        await streamTranscriber.stopStreamTranscription()
+        streamTranscriptionTask?.cancel()
+        streamTranscriptionTask = nil
+        self.streamTranscriber = nil
+
+        let text = latestLiveState.combinedText
+        latestLiveState = .idle
+        logger.info("Live transcription stopped; characters=\(text.count, privacy: .public)")
+        return text
+    }
+
 }
 
 enum TranscriptionError: LocalizedError {

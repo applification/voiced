@@ -7,7 +7,9 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
     private var followTask: Task<Void, Never>?
     private var reviewAutoHideTask: Task<Void, Never>?
     private var resignActiveObserver: NSObjectProtocol?
+    private var liveCancelHandler: (() -> Void)?
     private var isShowingReview = false
+    private var isShowingLiveTranscript = false
 
     func showTranscribingAtCursor() {
         let panel = existingOrCreatePanel()
@@ -26,6 +28,47 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         }
     }
 
+    func showLiveTranscriptAtCursor(state: LiveTranscriptState, onCancel: @escaping () -> Void) {
+        reviewAutoHideTask?.cancel()
+        reviewAutoHideTask = nil
+        removeFocusDismissal()
+
+        let panel = existingOrCreatePanel()
+        isShowingReview = false
+        isShowingLiveTranscript = true
+        liveCancelHandler = onCancel
+        panel.ignoresMouseEvents = false
+        panel.contentView = TransparentHostingView(
+            rootView: CursorLiveTranscriptView(
+                state: state,
+                onCancel: onCancel
+            )
+        )
+        positionLiveTranscript(panel, near: NSEvent.mouseLocation)
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+        startFollowingLiveTranscript(panel)
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.14
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1
+        }
+    }
+
+    func updateLiveTranscript(_ state: LiveTranscriptState) {
+        guard isShowingLiveTranscript, let panel else { return }
+        panel.contentView = TransparentHostingView(
+            rootView: CursorLiveTranscriptView(
+                state: state,
+                onCancel: { [weak self] in
+                    self?.liveCancelHandler?()
+                }
+            )
+        )
+        positionLiveTranscript(panel, near: NSEvent.mouseLocation)
+    }
+
     func showReviewAtCursor(text: String, onCopy: @escaping (String) -> Void) {
         followTask?.cancel()
         followTask = nil
@@ -33,6 +76,8 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
 
         let panel = existingOrCreatePanel()
         isShowingReview = true
+        isShowingLiveTranscript = false
+        liveCancelHandler = nil
         panel.ignoresMouseEvents = false
         panel.contentView = TransparentHostingView(
             rootView: CursorTranscriptReviewView(
@@ -62,6 +107,8 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
 
     func hide() {
         isShowingReview = false
+        isShowingLiveTranscript = false
+        liveCancelHandler = nil
         removeFocusDismissal()
         reviewAutoHideTask?.cancel()
         reviewAutoHideTask = nil
@@ -83,6 +130,8 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
 
     func hideImmediately() {
         isShowingReview = false
+        isShowingLiveTranscript = false
+        liveCancelHandler = nil
         removeFocusDismissal()
         reviewAutoHideTask?.cancel()
         reviewAutoHideTask = nil
@@ -101,6 +150,17 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
                 guard let self, let panel, panel.isVisible else { break }
                 self.position(panel, near: NSEvent.mouseLocation)
                 try? await Task.sleep(nanoseconds: 50_000_000)
+            }
+        }
+    }
+
+    private func startFollowingLiveTranscript(_ panel: NSPanel) {
+        followTask?.cancel()
+        followTask = Task { @MainActor [weak self, weak panel] in
+            while !Task.isCancelled {
+                guard let self, let panel, panel.isVisible, self.isShowingLiveTranscript else { break }
+                self.positionLiveTranscript(panel, near: NSEvent.mouseLocation)
+                try? await Task.sleep(nanoseconds: 80_000_000)
             }
         }
     }
@@ -188,6 +248,29 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         )
         panel.setFrameOrigin(origin)
     }
+
+    private func positionLiveTranscript(_ panel: NSPanel, near cursorLocation: NSPoint) {
+        let fittingSize = panel.contentView?.fittingSize ?? NSSize(width: 340, height: 104)
+        let size = NSSize(
+            width: min(max(fittingSize.width, 300), 360),
+            height: min(max(fittingSize.height, 88), 170)
+        )
+        panel.setContentSize(size)
+
+        let screen = NSScreen.screens.first { NSMouseInRect(cursorLocation, $0.frame, false) } ?? NSScreen.main
+        let visibleFrame = screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+        let offset = NSPoint(x: 14, y: -16)
+        var origin = NSPoint(x: cursorLocation.x + offset.x, y: cursorLocation.y + offset.y - size.height)
+        if origin.x + size.width > visibleFrame.maxX - 8 {
+            origin.x = cursorLocation.x - size.width - offset.x
+        }
+        if origin.y < visibleFrame.minY + 8 {
+            origin.y = cursorLocation.y + abs(offset.y)
+        }
+        origin.x = min(max(origin.x, visibleFrame.minX + 8), visibleFrame.maxX - size.width - 8)
+        origin.y = min(max(origin.y, visibleFrame.minY + 8), visibleFrame.maxY - size.height - 8)
+        panel.setFrameOrigin(origin)
+    }
 }
 
 private struct CursorMicroIndicatorView: View {
@@ -234,6 +317,62 @@ private struct CursorWaveBar: View {
             .onAppear {
                 isActive = true
             }
+    }
+}
+
+private struct CursorLiveTranscriptView: View {
+    let state: LiveTranscriptState
+    let onCancel: () -> Void
+
+    private let accent = Color(red: 0.48, green: 0.78, blue: 0.56)
+    private var transcriptText: String {
+        let text = state.combinedText
+        if !text.isEmpty { return text }
+        return state.provisionalText.isEmpty ? "Listening..." : state.provisionalText
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 8) {
+                HStack(alignment: .center, spacing: 5) {
+                    Image(systemName: state.isRecording ? "waveform" : "text.bubble")
+                        .font(.system(size: 12, weight: .semibold))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(accent)
+                    Text(state.isRecording ? "Listening" : "Finishing")
+                        .font(.caption.weight(.semibold))
+                }
+
+                Spacer(minLength: 8)
+
+                Button(action: onCancel) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.plain)
+                .help("Cancel transcription")
+            }
+
+            Text(transcriptText)
+                .font(.callout)
+                .foregroundStyle(transcriptText == "Listening..." || transcriptText == "Waiting for speech..." ? .secondary : .primary)
+                .lineLimit(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+                .animation(.easeOut(duration: 0.12), value: transcriptText)
+        }
+        .padding(12)
+        .frame(width: 340, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.regularMaterial)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(.primary.opacity(0.12))
+        }
+        .shadow(color: .black.opacity(0.16), radius: 8, y: 3)
     }
 }
 
