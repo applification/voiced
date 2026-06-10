@@ -1,11 +1,8 @@
 import AppKit
-import os
 import SwiftUI
 
 @MainActor
 final class FloatingIndicator {
-    private static let logger = Logger(subsystem: "net.applification.voiced", category: "indicator")
-
     private var panel: NSPanel?
     private var notchGeometry: NotchGeometry?
     private var isVisible = false
@@ -13,7 +10,6 @@ final class FloatingIndicator {
 
     func show(state: IndicatorState) {
         visibilityGeneration += 1
-        Self.logger.info("Indicator show state=\(String(describing: state), privacy: .public) generation=\(self.visibilityGeneration, privacy: .public)")
         let panel = existingOrCreatePanel()
         notchGeometry = Self.detectNotchGeometry()
         let isNotched = notchGeometry != nil
@@ -37,7 +33,6 @@ final class FloatingIndicator {
         guard let panel else { return }
         visibilityGeneration += 1
         let generation = visibilityGeneration
-        Self.logger.info("Indicator hide generation=\(generation, privacy: .public)")
         isVisible = false
         if notchGeometry != nil {
             animateNotch(panel, visible: false)
@@ -103,7 +98,6 @@ final class FloatingIndicator {
             y: visible ? visibleY : hiddenY
         )
         panel.setFrameOrigin(origin)
-        Self.logger.info("Notch indicator frame origin=(\(origin.x, privacy: .public), \(origin.y, privacy: .public)) size=(\(width, privacy: .public), \(height, privacy: .public)) centerX=\(geometry.centerX, privacy: .public) screen=\(String(describing: geometry.screenFrame), privacy: .public)")
     }
 
     private func tearDownContent(for generation: Int, panel: NSPanel) {
@@ -152,8 +146,6 @@ final class FloatingIndicator {
         } else {
             metrics = .fallback
         }
-
-        logger.info("Detected notch screen frame=\(String(describing: frame), privacy: .public) visible=\(String(describing: screen.visibleFrame), privacy: .public) safeTop=\(screen.safeAreaInsets.top, privacy: .public) left=\(String(describing: leftArea), privacy: .public) right=\(String(describing: rightArea), privacy: .public) centerX=\(centerX, privacy: .public) width=\(metrics.width, privacy: .public) height=\(metrics.height, privacy: .public)")
 
         return NotchGeometry(
             screenFrame: frame,

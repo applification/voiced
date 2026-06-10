@@ -1,9 +1,7 @@
 import AppKit
-import os
 
 @MainActor
 final class OutputManager {
-    private static let logger = Logger(subsystem: "net.applification.voiced", category: "output")
     private static var restoreTask: DispatchWorkItem?
 
     private struct SavedPasteboardItem {
@@ -13,8 +11,7 @@ final class OutputManager {
     func copyToClipboard(_ text: String) {
         Self.restoreTask?.cancel()
         Self.restoreTask = nil
-        let changed = Self.writeStringToPasteboard(text)
-        Self.logger.info("Copied text to clipboard; success=\(changed, privacy: .public) characters=\(text.count, privacy: .public)")
+        Self.writeStringToPasteboard(text)
     }
 
     func copyToClipboard(_ text: String, restoringAfter seconds: TimeInterval) {
@@ -22,16 +19,14 @@ final class OutputManager {
         Self.restoreTask?.cancel()
         Self.restoreTask = nil
         let previousItems = Self.snapshotPasteboard(pb)
-        let changed = Self.writeStringToPasteboard(text)
+        Self.writeStringToPasteboard(text)
         let transcriptGeneration = pb.changeCount
-        Self.logger.info("Copied text to clipboard temporarily; success=\(changed, privacy: .public) seconds=\(seconds, privacy: .public) characters=\(text.count, privacy: .public)")
 
         guard seconds > 0 else { return }
         let restoreTask = DispatchWorkItem {
             let pb2 = NSPasteboard.general
             guard pb2.changeCount == transcriptGeneration else { return }
             Self.restorePasteboard(pb2, from: previousItems)
-            Self.logger.info("Restored previous pasteboard after temporary copy")
         }
         Self.restoreTask = restoreTask
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: restoreTask)

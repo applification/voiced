@@ -1,6 +1,5 @@
 import AppKit
 import Observation
-import os
 import SwiftUI
 
 @MainActor
@@ -324,7 +323,6 @@ private final class CursorPanel: NSPanel {
 private struct CursorMicroIndicatorView: View {
     private let accent = Color(red: 0.48, green: 0.78, blue: 0.56)
     private let confirmedInk = Color(red: 0.0, green: 0.48, blue: 0.2)
-    private let logger = Logger(subsystem: "net.applification.voiced", category: "cursor-review")
 
     var body: some View {
         HStack(alignment: .center, spacing: 2.5) {
@@ -593,7 +591,6 @@ private struct CursorTranscriptReviewView: View {
     private let accent = Color(red: 0.48, green: 0.78, blue: 0.56)
     private let confirmedInk = Color(red: 0.0, green: 0.48, blue: 0.2)
     private let warningInk = Color(red: 0.78, green: 0.23, blue: 0.06)
-    private let logger = Logger(subsystem: "net.applification.voiced", category: "cursor-review")
     private var isListening: Bool { model.mode.isListening }
 
     var body: some View {
@@ -702,20 +699,15 @@ private struct CursorTranscriptReviewView: View {
         .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
         .contentShape(Rectangle())
         .onAppear {
-            logger.debug("Review bubble appeared textCharacters=\(model.text.count, privacy: .public)")
             DispatchQueue.main.async {
                 isEditorFocused = !isListening
             }
         }
         .onHover { hovering in
-            logger.debug("Review bubble hover=\(hovering, privacy: .public) isDragStarting=\(isDragStarting, privacy: .public)")
             if hovering {
                 hasMouseEntered = true
             } else if hasMouseEntered && !isDragStarting && !isWindowDragging && !isListening {
-                logger.debug("Review bubble dismissed after mouse exit")
                 model.onDismiss()
-            } else if isDragStarting || isWindowDragging {
-                logger.debug("Review bubble mouse exit ignored during drag")
             }
         }
     }
@@ -824,7 +816,6 @@ private struct CursorTranscriptReviewView: View {
         .animation(.easeOut(duration: 0.12), value: isDragStarting)
         .onHover { hovering in
             isDragHandleHovered = hovering
-            logger.debug("Drag handle hover=\(hovering, privacy: .public) textCharacters=\(model.text.count, privacy: .public)")
             if hovering && !isListening {
                 NSCursor.openHand.push()
             } else {
@@ -837,7 +828,6 @@ private struct CursorTranscriptReviewView: View {
                     text: model.text,
                     onHoverChanged: { hovering in
                         isDragHandleHovered = hovering
-                        logger.debug("Drag source hover=\(hovering, privacy: .public) textCharacters=\(model.text.count, privacy: .public)")
                     },
                     onPressChanged: { pressing in
                         isDragStarting = pressing
@@ -847,11 +837,9 @@ private struct CursorTranscriptReviewView: View {
                         isDragStarting = true
                         didRejectLastDrop = false
                         model.onCopy(model.text)
-                        logger.debug("Drag started textCharacters=\(model.text.count, privacy: .public)")
                     },
                     onDragEnded: { operation, targetBundleIdentifier in
                         let dropWasNotConfirmed = operation == [] || targetBundleIdentifier == "com.apple.dt.Xcode"
-                        logger.info("Drag ended operation=\(operation.rawValue, privacy: .public) target=\(targetBundleIdentifier ?? "unknown", privacy: .public) notConfirmed=\(dropWasNotConfirmed, privacy: .public)")
                         isDragStarting = false
                         if dropWasNotConfirmed {
                             didRejectLastDrop = true
@@ -1006,7 +994,6 @@ private final class TextDragSourceNSView: NSView, NSDraggingSource {
     var onPressChanged: (Bool) -> Void
     var onDragStarted: () -> Void
     var onDragEnded: (NSDragOperation, String?) -> Void
-    private static let logger = Logger(subsystem: "net.applification.voiced", category: "text-drag-source")
     private var hasStartedDrag = false
     private var trackingArea: NSTrackingArea?
 
@@ -1109,7 +1096,6 @@ private final class TextDragSourceNSView: NSView, NSDraggingSource {
         operation: NSDragOperation
     ) {
         let targetBundleIdentifier = Self.targetBundleIdentifier(at: screenPoint)
-        Self.logger.info("Text drag ended operation=\(operation.rawValue, privacy: .public) frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "unknown", privacy: .public) target=\(targetBundleIdentifier ?? "unknown", privacy: .public) screenPoint=(\(screenPoint.x, privacy: .public), \(screenPoint.y, privacy: .public)) textCharacters=\(self.text.count, privacy: .public)")
         hasStartedDrag = false
         onPressChanged(false)
         onDragEnded(operation, targetBundleIdentifier)

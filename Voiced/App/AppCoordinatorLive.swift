@@ -61,9 +61,7 @@ final class AppCoordinator {
     }
 
     func start() {
-        AppCoordinator.logger.info("AppCoordinator start() called")
         permissions.refreshStatuses()
-        AppCoordinator.logger.info("Permissions — mic: \(self.permissions.micAuthorized, privacy: .public)")
         modelDownloadObserver = NotificationCenter.default.addObserver(
             forName: .voicedModelDownloadRequested,
             object: nil,
@@ -86,7 +84,6 @@ final class AppCoordinator {
                 guard keyCode == escapeKey else { return }
                 self.cancelCurrentCapture()
             case .flagsChanged:
-                AppCoordinator.logger.debug("flagsChanged keyCode=\(keyCode, privacy: .public) flags=\(UInt64(flags.rawValue), privacy: .public)")
                 let hotkey = self.settings.pushToTalkHotkey
                 guard keyCode == hotkey.keyCode else { return }
                 let isDown = flags.contains(hotkey.eventFlag)
@@ -118,13 +115,11 @@ final class AppCoordinator {
                 self.captureState = .loadingModel
             }
             do {
-                AppCoordinator.logger.info("Warming transcription service; reason=\(reason, privacy: .public)")
                 self.telemetry.capture(.modelLoadStarted, properties: [
                     "reason": reason,
                     "model": self.settings.transcriptionModel.rawValue
                 ])
                 try await self.transcriber.loadModelIfNeeded()
-                AppCoordinator.logger.info("Transcription service warm")
                 self.telemetry.capture(.modelLoadSucceeded, properties: [
                     "reason": reason,
                     "model": self.settings.transcriptionModel.rawValue
@@ -152,16 +147,13 @@ final class AppCoordinator {
     private func handleModelProgress(_ progress: ModelLoadProgress) {
         NotificationCenter.default.post(name: .voicedModelProgressChanged, object: progress)
         guard progress.model == settings.transcriptionModel else { return }
-        AppCoordinator.logger.info("Model progress phase=\(progress.phase, privacy: .public) percent=\(Int((progress.fractionCompleted * 100).rounded()), privacy: .public)")
         if progress.phase == "Loaded", captureState.isShowingModelProgress {
             captureState = .idle
         }
     }
 
     private func handleKeyDown() {
-        AppCoordinator.logger.debug("handleKeyDown() invoked; state=\(String(describing: self.captureState), privacy: .public)")
         guard settings.hasSeenIntroOnboarding else {
-            AppCoordinator.logger.info("Ignoring push-to-talk before first-run setup is complete")
             return
         }
         guard !captureState.isBusy else { return }
@@ -178,7 +170,6 @@ final class AppCoordinator {
         }
 
         guard transcriber.isSelectedModelLoaded else {
-            AppCoordinator.logger.info("Ignoring push-to-talk while model is preparing")
             warmUpTranscriptionService(reason: "hotkey")
             return
         }
@@ -200,7 +191,6 @@ final class AppCoordinator {
         transcriptionTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                AppCoordinator.logger.info("Starting live transcription service")
                 self.telemetry.capture(.modelLoadStarted, properties: [
                     "reason": "live_transcription",
                     "model": self.settings.transcriptionModel.rawValue
@@ -221,9 +211,7 @@ final class AppCoordinator {
                 ) { [weak self] in
                     self?.cancelCurrentCapture()
                 }
-                AppCoordinator.logger.info("Live recording started")
             } catch is CancellationError {
-                AppCoordinator.logger.info("Live transcription start cancelled")
             } catch {
                 AppCoordinator.logger.error("Failed to start live transcription: \(String(describing: error), privacy: .public)")
                 self.telemetry.captureError(.recordingStartFailed, properties: [
@@ -244,7 +232,6 @@ final class AppCoordinator {
     }
 
     private func handleKeyUp() {
-        AppCoordinator.logger.debug("handleKeyUp() invoked; state=\(String(describing: self.captureState), privacy: .public)")
         guard captureState.isRecording else { return }
         soundCues.playDeactivation()
         let recordingDurationBucket = durationBucket(since: recordingStartedAt)
@@ -267,7 +254,6 @@ final class AppCoordinator {
                 let text = await self.transcriber.stopLiveTranscription()
                 try Task.checkCancellation()
                 guard !self.shouldCancelCurrentCapture else { throw CancellationError() }
-                AppCoordinator.logger.info("Live transcription completed; characters=\(text.count, privacy: .public)")
                 guard !text.isEmpty else {
                     AppCoordinator.logger.warning("Live transcription returned empty text")
                     self.telemetry.captureError(.transcriptionFailed, properties: [
@@ -315,7 +301,6 @@ final class AppCoordinator {
                 ])
                 _ = text.count // avoid logging sensitive content
             } catch is CancellationError {
-                AppCoordinator.logger.info("Live transcription flow cancelled")
                 _ = await self.transcriber.stopLiveTranscription()
                 self.cursorIndicator.hide()
                 self.telemetry.capture(.recordingCancelled, properties: [
@@ -337,18 +322,15 @@ final class AppCoordinator {
                 self.captureState = .showingError
                 self.indicator.show(state: .error("Transcription failed"))
             }
-            AppCoordinator.logger.info("Indicator hide; live transcription flow complete")
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             self.indicator.hide()
         }
     }
 
     private func showDropRejectedIndicator() {
-        AppCoordinator.logger.info("Showing drop rejected indicator")
         indicator.show(state: .error("Drop not accepted. Press ⌘V"))
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 1_500_000_000)
-            AppCoordinator.logger.info("Hiding drop rejected indicator")
             self?.indicator.hide()
         }
     }
@@ -356,7 +338,6 @@ final class AppCoordinator {
     private func cancelCurrentCapture() {
         guard captureState.isRecording || captureState.isShowingModelProgress || transcriptionTask != nil else { return }
 
-        AppCoordinator.logger.info("Cancelling current capture")
         shouldCancelCurrentCapture = true
         let recordingDurationBucket = durationBucket(since: recordingStartedAt)
         recordingStartedAt = nil

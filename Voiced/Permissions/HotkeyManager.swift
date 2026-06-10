@@ -1,9 +1,7 @@
 import Cocoa
-import os
 
 @MainActor
 final class HotkeyManager {
-    private static let logger = Logger(subsystem: "net.applification.voiced", category: "hotkeys")
     private static let escapeKeyCode: CGKeyCode = 53
 
     typealias KeyHandler = (_ type: CGEventType, _ keyCode: CGKeyCode, _ flags: CGEventFlags) -> Void
@@ -51,7 +49,6 @@ final class HotkeyManager {
             self?.handle(event)
             return event
         }
-        HotkeyManager.logger.info("NSEvent hotkey monitors installed")
     }
 
     private func handle(_ event: NSEvent) {
@@ -60,11 +57,6 @@ final class HotkeyManager {
         if event.type == .keyDown && keyCode != Self.escapeKeyCode { return }
 
         let flags = Self.cgEventFlags(from: event.modifierFlags)
-        if event.type == .flagsChanged {
-            HotkeyManager.logger.debug("NSEvent modifier keyCode: \(keyCode, privacy: .public), appKitFlags: \(UInt64(event.modifierFlags.rawValue), privacy: .public), cgFlags: \(UInt64(flags.rawValue), privacy: .public)")
-        } else {
-            HotkeyManager.logger.debug("NSEvent Escape key")
-        }
         handler?(event.type == .keyDown ? .keyDown : .flagsChanged, keyCode, flags)
     }
 }

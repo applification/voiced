@@ -53,7 +53,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         whisperKit = nil
         loadedModel = nil
 
-        logger.info("Loading WhisperKit model: \(selectedModel.rawValue, privacy: .public)")
         let task = Task { @MainActor [selectedModel] in
             let store = ModelStore(model: selectedModel)
             let modelFolder = try await self.resolveModelFolder(for: selectedModel, store: store)
@@ -71,7 +70,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             let whisperKit = try await WhisperKit(config)
             whisperKit.modelStateCallback = { [selectedModel] _, newState in
                 Task { @MainActor in
-                    self.logger.info("WhisperKit model state: \(newState.description, privacy: .public)")
                     self.postModelProgress(model: selectedModel, phase: newState.description, fractionCompleted: 1)
                 }
             }
@@ -88,7 +86,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             task.cancel()
             throw error
         }
-        logger.info("WhisperKit model loaded: \(selectedModel.rawValue, privacy: .public)")
     }
 
     private func waitForPreparationTask(_ task: Task<Void, Error>, selectedModel: TranscriptionModel) async throws {
@@ -115,7 +112,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             return store.localModelURL
         }
 
-        logger.info("Downloading WhisperKit model: \(selectedModel.rawValue, privacy: .public)")
         lastProgressByModel[selectedModel] = 0
         postModelProgress(model: selectedModel, phase: "Downloading", fractionCompleted: 0)
         let progressPollingTask = Task { @MainActor [weak self] in
@@ -144,7 +140,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         }
         let folder = try await remoteDownloadTask.value
         try verifyDownloadedModel(store, selectedModel: selectedModel)
-        logger.info("WhisperKit model downloaded: \(folder.path, privacy: .public)")
         postModelProgress(model: selectedModel, phase: "Downloaded", fractionCompleted: 1)
         return folder
     }
@@ -152,7 +147,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
     private func verifyDownloadedModel(_ store: ModelStore, selectedModel: TranscriptionModel) throws {
         do {
             try ModelIntegrity.verify(model: selectedModel, at: store.localModelURL)
-            logger.info("Verified WhisperKit model integrity: \(selectedModel.rawValue, privacy: .public)")
         } catch {
             logger.error("WhisperKit model integrity verification failed: \(String(describing: error), privacy: .public)")
             try? store.deleteDownloadedModel()
@@ -202,7 +196,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         }
 
         let path = url.path
-        logger.info("Starting WhisperKit transcription; file exists: \(FileManager.default.fileExists(atPath: path), privacy: .public)")
         let results = try await whisperKit.transcribe(audioPath: path)
         let text = LiveTranscriptState.sanitizedText(
             results
@@ -213,7 +206,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             throw TranscriptionError.noResult
         }
 
-        logger.info("WhisperKit transcription completed; characters=\(text.count, privacy: .public)")
         return text
     }
 
@@ -252,17 +244,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             ),
             requiredSegmentsForConfirmation: 1,
             stateChangeCallback: { [weak self] _, newState in
-                #if DEBUG
-                let rawIsRecording = newState.isRecording
-                let rawConfirmedCount = newState.confirmedSegments.count
-                let rawUnconfirmedCount = newState.unconfirmedSegments.count
-                let rawCurrentText = newState.currentText
-                let rawConfirmed = Self.debugDescription(for: newState.confirmedSegments)
-                let rawUnconfirmed = Self.debugDescription(for: newState.unconfirmedSegments)
-                Task { @MainActor in
-                    self?.logger.debug("WhisperKit raw stream state isRecording=\(rawIsRecording, privacy: .public) confirmedCount=\(rawConfirmedCount, privacy: .public) unconfirmedCount=\(rawUnconfirmedCount, privacy: .public) currentText=\(rawCurrentText, privacy: .public) confirmedSegments=\(rawConfirmed, privacy: .public) unconfirmedSegments=\(rawUnconfirmed, privacy: .public)")
-                }
-                #endif
                 let confirmedSegments = newState.confirmedSegments
                 let unconfirmedSegments = newState.unconfirmedSegments
                 let hypothesisWords = unconfirmedSegments.flatMap { $0.words ?? [] }
@@ -292,7 +273,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             }
         }
         onUpdate(LiveTranscriptState(committedText: "", provisionalText: "Listening...", isRecording: true))
-        logger.info("Live transcription started")
     }
 
     func stopLiveTranscription() async -> String {
@@ -311,7 +291,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         latestLiveState = .idle
         livePreviousWords = []
         liveConfirmedWords = []
-        logger.info("Live transcription stopped; characters=\(text.count, privacy: .public)")
         return text
     }
 
@@ -413,17 +392,6 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         LiveTranscriptState.sanitizedText(words.map(\.word).joined())
     }
 
-    #if DEBUG
-    nonisolated private static func debugDescription(for segments: [TranscriptionSegment]) -> String {
-        guard !segments.isEmpty else { return "[]" }
-        return segments.map { segment in
-            let words = segment.words?.map { word in
-                "{word:\(word.word.debugDescription), start:\(word.start), end:\(word.end), probability:\(word.probability), tokens:\(word.tokens)}"
-            }.joined(separator: ", ") ?? "nil"
-            return "{id:\(segment.id), seek:\(segment.seek), start:\(segment.start), end:\(segment.end), duration:\(segment.duration), text:\(segment.text.debugDescription), tokens:\(segment.tokens), avgLogprob:\(segment.avgLogprob), compressionRatio:\(segment.compressionRatio), noSpeechProb:\(segment.noSpeechProb), words:[\(words)]}"
-        }.joined(separator: ", ")
-    }
-    #endif
 
 }
 
