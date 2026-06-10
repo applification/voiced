@@ -4,14 +4,6 @@ import SwiftUI
 
 @MainActor
 extension StatusMenuController {
-    @objc func setOutputPaste() {
-        settings.outputMode = .clipboardPaste
-    }
-
-    @objc func setOutputCopy() {
-        settings.outputMode = .copyOnly
-    }
-
     @objc func setPushToTalkHotkey(_ sender: NSMenuItem) {
         guard let rawValue = sender.representedObject as? String,
               let hotkey = PushToTalkHotkey(rawValue: rawValue) else { return }
@@ -46,36 +38,6 @@ extension StatusMenuController {
         rebuildMenu()
     }
 
-    @objc func copyLastTranscript() {
-        guard let transcript = lastCapture.last else {
-            logger.warning("Copy Last Transcript selected without stored transcript")
-            return
-        }
-        logger.info("Copy Last Transcript selected; characters=\(transcript.count, privacy: .public)")
-        output.copyToClipboard(transcript, restoringAfter: 5)
-    }
-
-    @objc func pasteLastTranscript() {
-        guard let transcript = lastCapture.last else {
-            logger.warning("Paste Last Transcript selected without stored transcript")
-            return
-        }
-
-        permissions.refreshStatuses()
-        logger.info("Paste Last Transcript selected; accessibilityEnabled=\(self.permissions.accessibilityEnabled, privacy: .public) characters=\(transcript.count, privacy: .public)")
-        guard permissions.accessibilityEnabled else {
-            output.copyToClipboard(transcript)
-            let decision = permissions.explainPasteAccessibilityAndChoose()
-            if decision == .useClipboardOnly {
-                settings.outputMode = .copyOnly
-            }
-            rebuildMenu()
-            return
-        }
-
-        output.pastePreservingClipboard(transcript, targetApplication: nil)
-    }
-
     @objc func handleMicrophone() {
         guard !micAuthorized else {
             rebuildMenu()
@@ -87,20 +49,7 @@ extension StatusMenuController {
         }
     }
 
-    @objc func handleAccessibility() {
-        guard !accessibilityEnabled else {
-            rebuildMenu()
-            return
-        }
-
-        _ = permissions.explainPasteAccessibilityAndChoose()
-    }
-
     @objc func showSetupGuide() {
-        guard settings.hasSeenIntroOnboarding else {
-            rebuildMenu()
-            return
-        }
         if let onboardingWindow {
             onboardingWindow.makeKeyAndOrderFront(nil)
         } else {
@@ -120,10 +69,6 @@ extension StatusMenuController {
     }
 
     @objc func openModelSettings() {
-        guard settings.hasSeenIntroOnboarding else {
-            rebuildMenu()
-            return
-        }
         presentSettings(section: .models)
     }
 
@@ -148,12 +93,5 @@ extension StatusMenuController {
 
     @objc func quit() {
         NSApplication.shared.terminate(nil)
-    }
-
-    var outputBehavior: OutputBehavior {
-        switch settings.outputMode {
-        case .clipboardPaste: .clipboardPaste
-        case .copyOnly: .copyOnly
-        }
     }
 }

@@ -13,7 +13,6 @@ enum TelemetryEvent: String {
     case modelLoadStarted = "model_load_started"
     case modelLoadSucceeded = "model_load_succeeded"
     case modelLoadFailed = "model_load_failed"
-    case outputFailed = "output_failed"
     case permissionPromptShown = "permission_prompt_shown"
     case diagnosticError = "diagnostic_error"
 }
@@ -23,8 +22,6 @@ enum TelemetryErrorCategory: String {
     case recordingStartFailed = "recording_start_failed"
     case modelLoadFailed = "model_load_failed"
     case transcriptionFailed = "transcription_failed"
-    case pastePermissionNeeded = "paste_permission_needed"
-    case outputFailed = "output_failed"
 }
 
 @MainActor
@@ -104,9 +101,7 @@ final class TelemetryService {
             return .modelLoadFailed
         case .transcriptionFailed:
             return .transcriptionFailed
-        case .outputFailed:
-            return .outputFailed
-        case .microphonePermission, .recordingStartFailed, .pastePermissionNeeded:
+        case .microphonePermission, .recordingStartFailed:
             return .diagnosticError
         }
     }

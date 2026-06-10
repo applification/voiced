@@ -30,7 +30,6 @@ struct SettingsView: View {
     @State private var modelManagementError: String?
     @State private var modelStatusRevision = 0
     @State private var downloadingModel: TranscriptionModel?
-    @State private var showingOutputModeHelp = false
 
     init(settings: SettingsStore, navigation: SettingsNavigation = SettingsNavigation()) {
         self.settings = settings
@@ -133,35 +132,6 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 18) {
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 14) {
                 GridRow {
-                    Text("Output mode")
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        Picker("Output mode", selection: Bindable(settings).outputMode) {
-                            ForEach(OutputMode.allCases) { mode in
-                                Text(mode.label).tag(mode)
-                            }
-                        }
-                        .labelsHidden()
-
-                        HelpButton {
-                            showingOutputModeHelp.toggle()
-                        }
-                        .popover(isPresented: $showingOutputModeHelp, arrowEdge: .trailing) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Output mode")
-                                    .font(.headline)
-                                Text(outputModeSecurityNote)
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            .frame(width: 260, alignment: .leading)
-                            .padding(14)
-                        }
-                    }
-                }
-
-                GridRow {
                     Text("Push-to-talk")
                         .foregroundStyle(.secondary)
                     Picker("Push-to-talk", selection: Bindable(settings).pushToTalkHotkey) {
@@ -170,17 +140,6 @@ struct SettingsView: View {
                         }
                     }
                     .labelsHidden()
-                }
-
-                GridRow {
-                    Text("Last capture")
-                        .foregroundStyle(.secondary)
-                    Stepper(
-                        "Clear after \(settings.copyLastTranscriptClearsAfterMinutes) minute\(settings.copyLastTranscriptClearsAfterMinutes == 1 ? "" : "s")",
-                        value: Bindable(settings).copyLastTranscriptClearsAfterMinutes,
-                        in: 1...5,
-                        step: 1
-                    )
                 }
 
                 GridRow {
@@ -310,7 +269,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Included")
                     .font(.callout.weight(.semibold))
-                Text("App opens, app version, macOS version, anonymous install activity, recording starts and cancellations, transcription success or failure, selected model, output mode, coarse duration buckets, and broad error categories.")
+                Text("App opens, app version, macOS version, anonymous install activity, recording starts and cancellations, transcription success or failure, selected model, coarse duration buckets, and broad error categories.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -354,15 +313,6 @@ struct SettingsView: View {
             } catch {
                 launchAtLoginError = error.localizedDescription
             }
-        }
-    }
-
-    private var outputModeSecurityNote: String {
-        switch settings.outputMode {
-        case .clipboardPaste:
-            "Paste mode uses Accessibility permission to send Cmd+V to the focused app. Copy-only avoids synthetic keystrokes."
-        case .copyOnly:
-            "Copy-only leaves the transcript on the clipboard and does not send keystrokes to other apps."
         }
     }
 
@@ -489,22 +439,5 @@ private struct ApplificationMark: View {
         Image("ApplificationMark")
             .resizable()
             .scaledToFit()
-    }
-}
-
-private struct HelpButton: View {
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "questionmark.circle.fill")
-                .font(.system(size: 13, weight: .regular))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.secondary)
-                .frame(width: 14, height: 14)
-        }
-        .buttonStyle(.plain)
-        .contentShape(Circle())
-        .help("Show output mode help")
     }
 }

@@ -10,10 +10,19 @@ struct ModelStore {
     }
 
     var localRepoURL: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("huggingface", isDirectory: true)
+        downloadBaseURL
             .appendingPathComponent("models", isDirectory: true)
             .appendingPathComponent(modelRepo, isDirectory: true)
+    }
+
+    var applicationSupportURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Voiced", isDirectory: true)
+    }
+
+    var downloadBaseURL: URL {
+        applicationSupportURL
+            .appendingPathComponent("huggingface", isDirectory: true)
     }
 
     var localModelURL: URL {
@@ -52,6 +61,10 @@ struct ModelStore {
     func deleteDownloadedModel() throws {
         guard existsOnDisk else { return }
         try FileManager.default.removeItem(at: localModelURL)
+    }
+
+    func prepareStorageForDownload() throws {
+        try FileManager.default.createDirectory(at: downloadBaseURL, withIntermediateDirectories: true)
     }
 
     private func directorySize(at url: URL) -> UInt64 {

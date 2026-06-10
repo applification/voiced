@@ -1,16 +1,21 @@
 import AppKit
 import AVFoundation
-@preconcurrency import ApplicationServices
 import SwiftUI
 
 @MainActor
 enum IntroOnboardingPresenter {
     static func presentIfNeeded(settings: SettingsStore, onFinish: @escaping () -> Void) -> NSWindow? {
-        guard !settings.hasSeenIntroOnboarding else { return nil }
+        guard isSetupRequired(settings: settings) else { return nil }
         return present(settings: settings, mode: .firstRun) {
             settings.hasSeenIntroOnboarding = true
             onFinish()
         }
+    }
+
+    static func isSetupRequired(settings: SettingsStore) -> Bool {
+        !settings.hasSeenIntroOnboarding
+            || AVCaptureDevice.authorizationStatus(for: .audio) != .authorized
+            || !ModelStore(model: settings.transcriptionModel).isDownloaded
     }
 
     static func presentSetupGuide(settings: SettingsStore, onFinish: @escaping () -> Void = {}) -> NSWindow {
@@ -27,8 +32,8 @@ enum IntroOnboardingPresenter {
         if mode == .firstRun {
             window.styleMask.remove(.closable)
         }
-        window.setContentSize(NSSize(width: 700, height: 660))
-        window.minSize = NSSize(width: 700, height: 660)
+        window.setContentSize(NSSize(width: 700, height: 460))
+        window.minSize = NSSize(width: 700, height: 460)
         window.isReleasedWhenClosed = false
         hostingController.rootView = IntroOnboardingView(settings: settings, mode: mode, window: window, onFinish: onFinish)
         window.center()
@@ -71,23 +76,25 @@ private struct IntroOnboardingView: View {
     var onFinish: () -> Void
 
     @State private var microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-    @State private var accessibilityTrusted = AXIsProcessTrustedWithOptions(nil)
-    @State private var showingAutoPasteHelp = false
-    @State private var showingClipboardHelp = false
     @State private var modelProgress: ModelLoadProgress?
     @State private var downloadingModel: TranscriptionModel?
+    @State private var preparedModels: Set<TranscriptionModel> = []
     @State private var selectedModel = TranscriptionModel.tiny
 
     private var canStart: Bool {
-        isSelectedModelReady && microphoneStatus == .authorized && (settings.outputMode == .copyOnly || accessibilityTrusted)
+        isSelectedModelPrepared && microphoneStatus == .authorized
     }
 
     private var canFinish: Bool {
         mode == .setupGuide || canStart
     }
 
-    private var isSelectedModelReady: Bool {
+    private var isSelectedModelDownloaded: Bool {
         ModelStore(model: selectedModel).isDownloaded
+    }
+
+    private var isSelectedModelPrepared: Bool {
+        preparedModels.contains(selectedModel)
     }
 
     var body: some View {
@@ -99,7 +106,7 @@ private struct IntroOnboardingView: View {
                     symbolName: "brain.head.profile",
                     title: "Speech model",
                     status: modelStatusText,
-                    statusColor: isSelectedModelReady ? .green : .orange,
+                    statusColor: isSelectedModelPrepared ? .green : .orange,
                     detail: "Choose a local model. Bigger models take longer to download but can improve accuracy."
                 ) {
                     modelChoiceSection
@@ -116,18 +123,6 @@ private struct IntroOnboardingView: View {
                 ) {
                     microphoneAction
                 }
-
-                Divider()
-
-                setupRow(
-                    symbolName: "text.bubble.fill",
-                    title: "Transcripts",
-                    status: transcriptStatusText,
-                    statusColor: transcriptStatusColor,
-                    detail: "Choose how Voiced delivers each transcript."
-                ) {
-                    outputChoiceSection
-                }
             }
 
             Spacer(minLength: 4)
@@ -143,24 +138,26 @@ private struct IntroOnboardingView: View {
             }
         }
         .padding(24)
-        .frame(width: 700, height: 660, alignment: .topLeading)
+        .frame(width: 700, height: 460, alignment: .topLeading)
         .onAppear {
             refreshStatuses()
             selectedModel = settings.transcriptionModel
+            prepareSelectedModelIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: .voicedModelProgressChanged)) { notification in
-            guard let progress = notification.object as? ModelLoadProgress,
-                  progress.model == downloadingModel else { return }
+            guard let progress = notification.object as? ModelLoadProgress else { return }
+            if progress.phase == "Loaded" {
+                preparedModels.insert(progress.model)
+            }
+            guard progress.model == downloadingModel else { return }
             modelProgress = progress
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .voicedModelStatusChanged)) { notification in
-            let changedModel = notification.object as? TranscriptionModel
-            if let changedModel,
-               changedModel == downloadingModel,
-               ModelStore(model: changedModel).isDownloaded {
+            if progress.phase == "Loaded" {
                 downloadingModel = nil
                 modelProgress = nil
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .voicedModelStatusChanged)) { notification in
+            let changedModel = notification.object as? TranscriptionModel
             guard changedModel == selectedModel else { return }
             refreshStatuses()
         }
@@ -229,74 +226,6 @@ private struct IntroOnboardingView: View {
         }
     }
 
-    private var outputChoiceSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                outputChoiceCard(
-                    title: "Auto Paste",
-                    symbolName: "text.insert",
-                    isSelected: settings.outputMode == .clipboardPaste,
-                    isReady: accessibilityTrusted,
-                    status: accessibilityTrusted ? "Ready" : "Optional permission",
-                    statusColor: accessibilityTrusted ? .green : .orange,
-                    detail: "Paste directly into the app you are using.",
-                    helpTitle: "Auto Paste",
-                    helpText: "Auto Paste briefly places the transcript on the clipboard, sends \u{2318}V to the app you were using, then restores your previous clipboard when possible. macOS requires Accessibility permission before any app can send that paste command on your behalf.",
-                    isShowingHelp: $showingAutoPasteHelp
-                ) {
-                    settings.outputMode = .clipboardPaste
-                    refreshStatuses()
-                } actions: {
-                    if settings.outputMode == .clipboardPaste && !accessibilityTrusted {
-                        VStack(alignment: .leading, spacing: 8) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                instructionStep("1") {
-                                    Button("Open Accessibility Settings") {
-                                        requestAccessibilityPrompt()
-                                        openPrivacyPane("Privacy_Accessibility")
-                                    }
-                                }
-                                instructionStep("2", "Click +, then open the Applications folder")
-                                instructionStep("3") {
-                                    HStack(alignment: .center, spacing: 4) {
-                                        Text("Select")
-                                        Image("VoicedHeaderIcon")
-                                            .resizable()
-                                            .interpolation(.high)
-                                            .frame(width: 14, height: 14)
-                                        Text("Voiced, enable it, then return here")
-                                    }
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                outputChoiceCard(
-                    title: "Clipboard Only",
-                    symbolName: "doc.on.clipboard",
-                    isSelected: settings.outputMode == .copyOnly,
-                    isReady: true,
-                    status: "No extra permission",
-                    statusColor: .green,
-                    detail: "Copy transcripts. Paste when you are ready.",
-                    helpTitle: "Clipboard Only",
-                    helpText: "Clipboard Only stops after copying the transcript. You paste manually, so Voiced does not need permission to control other apps.",
-                    isShowingHelp: $showingClipboardHelp
-                ) {
-                    settings.outputMode = .copyOnly
-                    refreshStatuses()
-                } actions: {
-                    EmptyView()
-                }
-            }
-            .padding(.top, 10)
-            .frame(height: 162)
-        }
-    }
-
     private var modelChoiceSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             LazyVGrid(
@@ -317,6 +246,7 @@ private struct IntroOnboardingView: View {
     private func modelChoiceCard(_ model: TranscriptionModel) -> some View {
         let isSelected = selectedModel == model
         let isDownloaded = ModelStore(model: model).isDownloaded
+        let isPrepared = preparedModels.contains(model)
         let tint = model.tintColor
         return VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .top, spacing: 8) {
@@ -337,14 +267,14 @@ private struct IntroOnboardingView: View {
 
                 Spacer(minLength: 4)
 
-                if isDownloaded {
+                if isPrepared {
                     Label("Ready", systemImage: "checkmark.circle.fill")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.green)
                         .labelStyle(.titleAndIcon)
                 } else if isSelected && downloadingModel == nil {
-                    Button("Download (\(model.downloadSizeText))") {
-                        startSelectedModelDownloadIfNeeded()
+                    Button(isDownloaded ? "Prepare" : "Download (\(model.downloadSizeText))") {
+                        prepareSelectedModelIfNeeded()
                     }
                     .font(.caption.weight(.medium))
                     .buttonStyle(.bordered)
@@ -391,71 +321,6 @@ private struct IntroOnboardingView: View {
             if downloadingModel == nil {
                 modelProgress = nil
             }
-        }
-    }
-
-    private func outputChoiceCard<Actions: View>(
-        title: String,
-        symbolName: String,
-        isSelected: Bool,
-        isReady: Bool,
-        status: String,
-        statusColor: Color,
-        detail: String,
-        helpTitle: String,
-        helpText: String,
-        isShowingHelp: Binding<Bool>,
-        select: @escaping () -> Void,
-        @ViewBuilder actions: () -> Actions
-    ) -> some View {
-        let selectedColor = Color.accentColor.opacity(0.10)
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: symbolName)
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 20, height: 20)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.callout.weight(.semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.9)
-
-                    Text(status)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(statusColor)
-                }
-
-                Spacer(minLength: 8)
-
-                HelpPopoverButton(title: helpTitle, text: helpText, isPresented: isShowingHelp)
-
-                if isSelected && isReady {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.accentColor)
-                }
-            }
-
-            Text(detail)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            actions()
-
-            Spacer(minLength: 0)
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 162, maxHeight: .infinity, alignment: .topLeading)
-        .background(isSelected ? selectedColor : Color(nsColor: .controlBackgroundColor).opacity(0.45))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(isSelected ? Color.accentColor : Color(nsColor: .separatorColor), lineWidth: isSelected ? 1.5 : 1)
-        }
-        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .onTapGesture {
-            select()
         }
     }
 
@@ -514,34 +379,17 @@ private struct IntroOnboardingView: View {
     }
 
     private var modelStatusText: String {
-        if isSelectedModelReady {
+        if isSelectedModelPrepared {
             return "Ready"
         }
         guard let modelProgress else {
-            return downloadingModel != nil ? "Starting" : "Needed"
+            if downloadingModel != nil { return "Starting" }
+            return isSelectedModelDownloaded ? "Prepare" : "Needed"
         }
         if modelProgress.phase == "Downloading" {
             return "\(Int((modelProgress.fractionCompleted * 100).rounded()))%"
         }
         return modelProgress.phase
-    }
-
-    private var transcriptStatusText: String {
-        switch settings.outputMode {
-        case .clipboardPaste:
-            accessibilityTrusted ? "Ready" : "Optional permission"
-        case .copyOnly:
-            "Ready"
-        }
-    }
-
-    private var transcriptStatusColor: Color {
-        switch settings.outputMode {
-        case .clipboardPaste:
-            accessibilityTrusted ? .green : .orange
-        case .copyOnly:
-            .green
-        }
     }
 
     private var modelInlineProgressText: String {
@@ -554,12 +402,11 @@ private struct IntroOnboardingView: View {
 
     private func refreshStatuses() {
         microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-        accessibilityTrusted = AXIsProcessTrustedWithOptions(nil)
     }
 
-    private func startSelectedModelDownloadIfNeeded() {
+    private func prepareSelectedModelIfNeeded() {
         settings.transcriptionModel = selectedModel
-        guard !isSelectedModelReady else { return }
+        guard !isSelectedModelPrepared else { return }
         guard downloadingModel == nil else { return }
         downloadingModel = selectedModel
         modelProgress = nil
@@ -582,47 +429,9 @@ private struct IntroOnboardingView: View {
         }
     }
 
-    private func requestAccessibilityPrompt() {
-        let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
-    }
-
     private func openPrivacyPane(_ pane: String) {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") {
             NSWorkspace.shared.open(url)
-        }
-    }
-}
-
-private struct HelpPopoverButton: View {
-    let title: String
-    let text: String
-    @Binding var isPresented: Bool
-
-    var body: some View {
-        Button {
-            isPresented.toggle()
-        } label: {
-            Image(systemName: "questionmark.circle.fill")
-                .font(.system(size: 13, weight: .regular))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.secondary)
-                .frame(width: 16, height: 16)
-        }
-        .buttonStyle(.plain)
-        .contentShape(Circle())
-        .help("Show help for \(title)")
-        .popover(isPresented: $isPresented, arrowEdge: .top) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.headline)
-                Text(text)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(width: 280, alignment: .leading)
-            .padding(14)
         }
     }
 }

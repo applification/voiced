@@ -32,27 +32,17 @@ struct IndicatorView: View {
                 Circle()
                     .fill(waveformColor)
                     .frame(width: 6, height: 6)
-            case .loadingModel(let model):
-                ProgressView()
-                    .controlSize(.small)
-                    .progressViewStyle(.circular)
-                    .tint(waveformColor)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Loading model")
-                        .font(.caption)
-                        .foregroundStyle(.primary)
-                    Text(model)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
             case .transcribing:
                 Text("Transcribing")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            case .error:
+            case .error(let message):
                 Image(systemName: "exclamationmark")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.yellow)
+                Text(message)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
             }
         }
     }
@@ -113,20 +103,16 @@ struct NotchContentView: View {
             Circle()
                 .fill(waveformColor)
                 .frame(width: metrics.dotSize, height: metrics.dotSize)
-        case .loadingModel(let model):
-            NotchSpinnerView(color: waveformColor)
-            Text(model)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-                .frame(maxWidth: .infinity, alignment: .leading)
         case .transcribing:
             EmptyView()
-        case .error:
+        case .error(let message):
             Image(systemName: "exclamationmark")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.yellow)
+            Text(message)
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
         }
     }
 }
@@ -145,26 +131,6 @@ private struct NotchTranscribingIcon: View {
             .animation(.easeInOut(duration: 0.62).repeatForever(autoreverses: true), value: pulse)
             .onAppear {
                 pulse = true
-            }
-            .frame(width: 14, height: 14)
-    }
-}
-
-private struct NotchSpinnerView: View {
-    let color: Color
-
-    @State private var rotation = 0.0
-
-    var body: some View {
-        Image(systemName: "arrow.triangle.2.circlepath")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(color)
-            .rotationEffect(.degrees(rotation))
-            .onAppear {
-                rotation = 0
-                withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: false)) {
-                    rotation = 360
-                }
             }
             .frame(width: 14, height: 14)
     }
