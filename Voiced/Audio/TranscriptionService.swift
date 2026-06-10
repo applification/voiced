@@ -20,6 +20,11 @@ final class WhisperKitTranscriptionService: TranscriptionService {
     private var streamTranscriber: AudioStreamTranscriber?
     private var streamTranscriptionTask: Task<Void, Never>?
     private var latestLiveState = LiveTranscriptState.idle
+    private var livePreviousWords: [WordTiming] = []
+    private var liveConfirmedWords: [WordTiming] = []
+    private let liveWordConfirmationsNeeded = 2
+    private let liveStopGraceNanoseconds: UInt64 = 800_000_000
+    private let liveFinalizationTimeoutNanoseconds: UInt64 = 1_500_000_000
     private let preparationTimeoutNanoseconds: UInt64 = 60_000_000_000
     var onModelProgress: ((ModelLoadProgress) -> Void)?
 
@@ -61,10 +66,10 @@ final class WhisperKitTranscriptionService: TranscriptionService {
                 download: false
             )
             let whisperKit = try await WhisperKit(config)
-            whisperKit.modelStateCallback = { [weak self, selectedModel] _, newState in
+            whisperKit.modelStateCallback = { [selectedModel] _, newState in
                 Task { @MainActor in
-                    self?.logger.info("WhisperKit model state: \(newState.description, privacy: .public)")
-                    self?.postModelProgress(model: selectedModel, phase: newState.description, fractionCompleted: 1)
+                    self.logger.info("WhisperKit model state: \(newState.description, privacy: .public)")
+                    self.postModelProgress(model: selectedModel, phase: newState.description, fractionCompleted: 1)
                 }
             }
             try await whisperKit.loadModels()
@@ -120,9 +125,9 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             try await WhisperKit.download(
                 variant: selectedModel.rawValue,
                 from: store.modelRepo
-            ) { [weak self] progress in
+            ) { progress in
                 Task { @MainActor in
-                    self?.postModelProgress(
+                    self.postModelProgress(
                         model: selectedModel,
                         phase: "Downloading",
                         fractionCompleted: progress.fractionCompleted
@@ -195,10 +200,11 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         let path = url.path
         logger.info("Starting WhisperKit transcription; file exists: \(FileManager.default.fileExists(atPath: path), privacy: .public)")
         let results = try await whisperKit.transcribe(audioPath: path)
-        let text = results
-            .map(\.text)
-            .joined(separator: " ")
-            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        let text = LiveTranscriptState.sanitizedText(
+            results
+                .map(\.text)
+                .joined(separator: " ")
+        )
         guard !text.isEmpty else {
             throw TranscriptionError.noResult
         }
@@ -219,35 +225,54 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         await streamTranscriber?.stopStreamTranscription()
         streamTranscriptionTask?.cancel()
         latestLiveState = .idle
+        livePreviousWords = []
+        liveConfirmedWords = []
+
+        nonisolated(unsafe) let audioEncoder = whisperKit.audioEncoder
+        nonisolated(unsafe) let featureExtractor = whisperKit.featureExtractor
+        nonisolated(unsafe) let segmentSeeker = whisperKit.segmentSeeker
+        nonisolated(unsafe) let textDecoder = whisperKit.textDecoder
+        nonisolated(unsafe) let streamTokenizer = tokenizer
+        nonisolated(unsafe) let audioProcessor = whisperKit.audioProcessor
 
         let transcriber = AudioStreamTranscriber(
-            audioEncoder: whisperKit.audioEncoder,
-            featureExtractor: whisperKit.featureExtractor,
-            segmentSeeker: whisperKit.segmentSeeker,
-            textDecoder: whisperKit.textDecoder,
-            tokenizer: tokenizer,
-            audioProcessor: whisperKit.audioProcessor,
-            decodingOptions: DecodingOptions(),
+            audioEncoder: audioEncoder,
+            featureExtractor: featureExtractor,
+            segmentSeeker: segmentSeeker,
+            textDecoder: textDecoder,
+            tokenizer: streamTokenizer,
+            audioProcessor: audioProcessor,
+            decodingOptions: DecodingOptions(
+                skipSpecialTokens: true,
+                wordTimestamps: true
+            ),
+            requiredSegmentsForConfirmation: 1,
             stateChangeCallback: { [weak self] _, newState in
-                let committed = newState.confirmedSegments
-                    .map(\.text)
-                    .joined(separator: " ")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                let unconfirmed = newState.unconfirmedSegments
-                    .map(\.text)
-                    .joined(separator: " ")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                let current = newState.currentText.trimmingCharacters(in: .whitespacesAndNewlines)
-                let provisional = current.isEmpty ? unconfirmed : current
+                #if DEBUG
+                let rawIsRecording = newState.isRecording
+                let rawConfirmedCount = newState.confirmedSegments.count
+                let rawUnconfirmedCount = newState.unconfirmedSegments.count
+                let rawCurrentText = newState.currentText
+                let rawConfirmed = Self.debugDescription(for: newState.confirmedSegments)
+                let rawUnconfirmed = Self.debugDescription(for: newState.unconfirmedSegments)
+                Task { @MainActor in
+                    self?.logger.debug("WhisperKit raw stream state isRecording=\(rawIsRecording, privacy: .public) confirmedCount=\(rawConfirmedCount, privacy: .public) unconfirmedCount=\(rawUnconfirmedCount, privacy: .public) currentText=\(rawCurrentText, privacy: .public) confirmedSegments=\(rawConfirmed, privacy: .public) unconfirmedSegments=\(rawUnconfirmed, privacy: .public)")
+                }
+                #endif
+                let confirmedSegments = newState.confirmedSegments
+                let unconfirmedSegments = newState.unconfirmedSegments
+                let hypothesisWords = unconfirmedSegments.flatMap { $0.words ?? [] }
                 let isRecording = newState.isRecording
 
                 Task { @MainActor in
-                    let state = LiveTranscriptState(
-                        committedText: committed,
-                        provisionalText: provisional,
+                    guard let self else { return }
+                    let state = self.liveTranscriptState(
+                        confirmedSegments: confirmedSegments,
+                        unconfirmedSegments: unconfirmedSegments,
+                        hypothesisWords: hypothesisWords,
                         isRecording: isRecording
                     )
-                    self?.latestLiveState = state
+                    self.latestLiveState = state
                     onUpdate(state)
                 }
             }
@@ -271,16 +296,130 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             return latestLiveState.combinedText
         }
 
+        try? await Task.sleep(nanoseconds: liveStopGraceNanoseconds)
         await streamTranscriber.stopStreamTranscription()
+        await waitForLiveStreamFinalization()
         streamTranscriptionTask?.cancel()
         streamTranscriptionTask = nil
         self.streamTranscriber = nil
 
         let text = latestLiveState.combinedText
         latestLiveState = .idle
+        livePreviousWords = []
+        liveConfirmedWords = []
         logger.info("Live transcription stopped; characters=\(text.count, privacy: .public)")
         return text
     }
+
+    private func waitForLiveStreamFinalization() async {
+        guard let streamTranscriptionTask else { return }
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await streamTranscriptionTask.value
+            }
+            group.addTask { [liveFinalizationTimeoutNanoseconds] in
+                try? await Task.sleep(nanoseconds: liveFinalizationTimeoutNanoseconds)
+            }
+            await group.next()
+            group.cancelAll()
+        }
+    }
+
+    private func liveTranscriptState(
+        confirmedSegments: [TranscriptionSegment],
+        unconfirmedSegments: [TranscriptionSegment],
+        hypothesisWords: [WordTiming],
+        isRecording: Bool
+    ) -> LiveTranscriptState {
+        let shouldFinalizeProvisional = !isRecording
+        if !confirmedSegments.isEmpty || hypothesisWords.isEmpty {
+            livePreviousWords = []
+            liveConfirmedWords = []
+            let committed = LiveTranscriptState.sanitizedText(
+                confirmedSegments
+                    .map(\.text)
+                    .joined(separator: " ")
+            )
+            let unconfirmed = LiveTranscriptState.sanitizedText(
+                unconfirmedSegments
+                    .map(\.text)
+                    .joined(separator: " ")
+            )
+            if !shouldFinalizeProvisional {
+                return LiveTranscriptState(
+                    committedText: committed,
+                    provisionalText: unconfirmed,
+                    isRecording: isRecording
+                )
+            }
+            return LiveTranscriptState(
+                committedText: [committed, unconfirmed]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " "),
+                provisionalText: "",
+                isRecording: isRecording
+            )
+        }
+
+        if !livePreviousWords.isEmpty {
+            let commonPrefix = Self.longestCommonWordPrefix(livePreviousWords, hypothesisWords)
+            let confirmedCount = max(0, commonPrefix.count - liveWordConfirmationsNeeded)
+            if confirmedCount > liveConfirmedWords.count {
+                liveConfirmedWords = Array(commonPrefix.prefix(confirmedCount))
+            }
+        }
+
+        livePreviousWords = hypothesisWords
+
+        let confirmedWordCount = min(liveConfirmedWords.count, hypothesisWords.count)
+        let provisionalWords = Array(hypothesisWords.dropFirst(confirmedWordCount))
+        let committed = Self.text(from: liveConfirmedWords)
+        let provisional = Self.text(from: provisionalWords)
+        if !shouldFinalizeProvisional {
+            return LiveTranscriptState(
+                committedText: committed,
+                provisionalText: provisional,
+                isRecording: isRecording
+            )
+        }
+        return LiveTranscriptState(
+            committedText: [committed, provisional]
+                .filter { !$0.isEmpty }
+                .joined(separator: " "),
+            provisionalText: "",
+            isRecording: isRecording
+        )
+    }
+
+    private nonisolated static func longestCommonWordPrefix(_ lhs: [WordTiming], _ rhs: [WordTiming]) -> [WordTiming] {
+        let count = min(lhs.count, rhs.count)
+        var prefix: [WordTiming] = []
+        for index in 0..<count {
+            guard wordsMatch(lhs[index], rhs[index]) else { break }
+            prefix.append(rhs[index])
+        }
+        return prefix
+    }
+
+    private nonisolated static func wordsMatch(_ lhs: WordTiming, _ rhs: WordTiming) -> Bool {
+        lhs.tokens == rhs.tokens && lhs.word.trimmingCharacters(in: .whitespacesAndNewlines) == rhs.word.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private nonisolated static func text(from words: [WordTiming]) -> String {
+        LiveTranscriptState.sanitizedText(words.map(\.word).joined())
+    }
+
+    #if DEBUG
+    nonisolated private static func debugDescription(for segments: [TranscriptionSegment]) -> String {
+        guard !segments.isEmpty else { return "[]" }
+        return segments.map { segment in
+            let words = segment.words?.map { word in
+                "{word:\(word.word.debugDescription), start:\(word.start), end:\(word.end), probability:\(word.probability), tokens:\(word.tokens)}"
+            }.joined(separator: ", ") ?? "nil"
+            return "{id:\(segment.id), seek:\(segment.seek), start:\(segment.start), end:\(segment.end), duration:\(segment.duration), text:\(segment.text.debugDescription), tokens:\(segment.tokens), avgLogprob:\(segment.avgLogprob), compressionRatio:\(segment.compressionRatio), noSpeechProb:\(segment.noSpeechProb), words:[\(words)]}"
+        }.joined(separator: ", ")
+    }
+    #endif
 
 }
 

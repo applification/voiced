@@ -282,7 +282,6 @@ final class AppCoordinator {
         targetApplication = nil
         captureState = .transcribing
         indicator.show(state: .transcribing)
-        cursorIndicator.showTranscribingAtCursor()
 
         transcriptionTask?.cancel()
         transcriptionTask = Task { @MainActor [weak self] in
