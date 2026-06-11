@@ -5,6 +5,12 @@ struct ReminderTask: Equatable {
     let title: String
 }
 
+struct ReminderListOption: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let isDefault: Bool
+}
+
 enum ReminderExportResult {
     case success(count: Int)
     case failure(String)
@@ -59,12 +65,35 @@ final class ReminderExportService {
         ReminderChecklistParser.taskCount(in: text)
     }
 
-    func exportChecklist(from text: String) async throws -> Int {
+    func reminderLists(requestingAccess: Bool) async throws -> [ReminderListOption] {
+        if requestingAccess {
+            try await requestAccessIfNeeded()
+        } else if !hasRemindersAccess {
+            return []
+        }
+
+        let defaultIdentifier = eventStore.defaultCalendarForNewReminders()?.calendarIdentifier
+        return eventStore.calendars(for: .reminder)
+            .filter(\.allowsContentModifications)
+            .map { calendar in
+                ReminderListOption(
+                    id: calendar.calendarIdentifier,
+                    title: calendar.title,
+                    isDefault: calendar.calendarIdentifier == defaultIdentifier
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.isDefault != rhs.isDefault { return lhs.isDefault }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+    }
+
+    func exportChecklist(from text: String, to listID: String? = nil) async throws -> Int {
         let tasks = ReminderChecklistParser.tasks(in: text)
         guard !tasks.isEmpty else { throw ReminderExportError.noChecklistItems }
 
         try await requestAccessIfNeeded()
-        guard let calendar = eventStore.defaultCalendarForNewReminders() else {
+        guard let calendar = reminderCalendar(for: listID) else {
             throw ReminderExportError.missingDefaultList
         }
 
@@ -81,6 +110,25 @@ final class ReminderExportService {
             eventStore.reset()
             throw error
         }
+    }
+
+    private var hasRemindersAccess: Bool {
+        switch EKEventStore.authorizationStatus(for: .reminder) {
+        case .fullAccess, .authorized:
+            true
+        case .notDetermined, .denied, .restricted, .writeOnly:
+            false
+        @unknown default:
+            false
+        }
+    }
+
+    private func reminderCalendar(for listID: String?) -> EKCalendar? {
+        if let listID,
+           let calendar = eventStore.calendars(for: .reminder).first(where: { $0.calendarIdentifier == listID }) {
+            return calendar
+        }
+        return eventStore.defaultCalendarForNewReminders()
     }
 
     private func requestFullAccessToReminders() async throws -> Bool {

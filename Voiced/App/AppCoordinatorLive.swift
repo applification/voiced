@@ -261,8 +261,11 @@ final class AppCoordinator {
                             onProcess: { [weak self] profile, transcript in
                                 await self?.processTranscript(transcript, profile: profile) ?? transcript
                             },
-                            onExportToReminders: { [weak self] checklist in
-                                await self?.exportChecklistToReminders(checklist) ?? .failure("Reminders export is unavailable")
+                            onLoadReminderLists: { [weak self] requestingAccess in
+                                await self?.loadReminderLists(requestingAccess: requestingAccess) ?? []
+                            },
+                            onExportToReminders: { [weak self] checklist, listID in
+                                await self?.exportChecklistToReminders(checklist, listID: listID) ?? .failure("Reminders export is unavailable")
                             },
                             onDropRejected: { [weak self] in
                                 self?.showDropRejectedIndicator()
@@ -287,8 +290,11 @@ final class AppCoordinator {
                     onProcess: { [weak self] profile, transcript in
                         await self?.processTranscript(transcript, profile: profile) ?? transcript
                     },
-                    onExportToReminders: { [weak self] checklist in
-                        await self?.exportChecklistToReminders(checklist) ?? .failure("Reminders export is unavailable")
+                    onLoadReminderLists: { [weak self] requestingAccess in
+                        await self?.loadReminderLists(requestingAccess: requestingAccess) ?? []
+                    },
+                    onExportToReminders: { [weak self] checklist, listID in
+                        await self?.exportChecklistToReminders(checklist, listID: listID) ?? .failure("Reminders export is unavailable")
                     },
                     onDropRejected: { [weak self] in
                         self?.showDropRejectedIndicator()
@@ -350,9 +356,18 @@ final class AppCoordinator {
         }
     }
 
-    private func exportChecklistToReminders(_ checklist: String) async -> ReminderExportResult {
+    private func loadReminderLists(requestingAccess: Bool) async -> [ReminderListOption] {
         do {
-            let count = try await reminderExporter.exportChecklist(from: checklist)
+            return try await reminderExporter.reminderLists(requestingAccess: requestingAccess)
+        } catch {
+            AppCoordinator.logger.error("Loading Reminders lists failed: \(String(describing: error), privacy: .public)")
+            return []
+        }
+    }
+
+    private func exportChecklistToReminders(_ checklist: String, listID: String?) async -> ReminderExportResult {
+        do {
+            let count = try await reminderExporter.exportChecklist(from: checklist, to: listID)
             telemetry.capture(.transcriptionSucceeded, properties: [
                 "reminder_count": count,
                 "output_mode": "reminders_export",

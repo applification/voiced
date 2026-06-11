@@ -34,7 +34,8 @@ protocol TranscriptProcessing: AnyObject {
 @MainActor
 protocol ReminderExporting: AnyObject {
     func checklistItemCount(in text: String) -> Int
-    func exportChecklist(from text: String) async throws -> Int
+    func reminderLists(requestingAccess: Bool) async throws -> [ReminderListOption]
+    func exportChecklist(from text: String, to listID: String?) async throws -> Int
 }
 
 @MainActor
@@ -54,7 +55,8 @@ protocol CursorIndicatorPresenting: AnyObject {
         text: String,
         onCopy: @escaping (String) -> Void,
         onProcess: @escaping (TranscriptProcessingProfile, String) async -> String,
-        onExportToReminders: @escaping (String) async -> ReminderExportResult,
+        onLoadReminderLists: @escaping (Bool) async -> [ReminderListOption],
+        onExportToReminders: @escaping (String, String?) async -> ReminderExportResult,
         onDropRejected: @escaping () -> Void
     )
     func hide()

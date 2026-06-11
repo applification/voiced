@@ -98,7 +98,8 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         text: String,
         onCopy: @escaping (String) -> Void,
         onProcess: @escaping (TranscriptProcessingProfile, String) async -> String,
-        onExportToReminders: @escaping (String) async -> ReminderExportResult,
+        onLoadReminderLists: @escaping (Bool) async -> [ReminderListOption],
+        onExportToReminders: @escaping (String, String?) async -> ReminderExportResult,
         onDropRejected: @escaping () -> Void
     ) {
         followTask?.cancel()
@@ -109,6 +110,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         reviewModel.mode = .editing
         reviewModel.onCopy = onCopy
         reviewModel.onProcess = onProcess
+        reviewModel.onLoadReminderLists = onLoadReminderLists
         reviewModel.onExportToReminders = onExportToReminders
         reviewModel.onDropRejected = onDropRejected
         reviewModel.onDismiss = { [weak self] in
@@ -557,11 +559,14 @@ private final class CursorTranscriptReviewModel {
     var mode: CursorTranscriptReviewMode = .editing
     var processingProfile: TranscriptProcessingProfile?
     var isExportingToReminders = false
+    var isLoadingReminderLists = false
+    var reminderLists: [ReminderListOption] = []
     var reminderExportMessage: String?
     @ObservationIgnored var anchorPoint: NSPoint?
     @ObservationIgnored var onCopy: (String) -> Void = { _ in }
     @ObservationIgnored var onProcess: (TranscriptProcessingProfile, String) async -> String = { _, transcript in transcript }
-    @ObservationIgnored var onExportToReminders: (String) async -> ReminderExportResult = { _ in .failure("Reminders export is unavailable.") }
+    @ObservationIgnored var onLoadReminderLists: (Bool) async -> [ReminderListOption] = { _ in [] }
+    @ObservationIgnored var onExportToReminders: (String, String?) async -> ReminderExportResult = { _, _ in .failure("Reminders export is unavailable.") }
     @ObservationIgnored var onDismiss: () -> Void = {}
     @ObservationIgnored var onDropRejected: () -> Void = {}
     @ObservationIgnored var onWindowMoved: () -> Void = {}
@@ -935,8 +940,25 @@ private struct CursorTranscriptReviewView: View {
 
     private var remindersExportButton: some View {
         let isHovered = isReminderExportHovered && canExportToReminders
-        return Button {
-            exportToReminders()
+        return Menu {
+            Button("Default List") {
+                exportToReminders(listID: nil)
+            }
+
+            if !model.reminderLists.isEmpty {
+                Divider()
+                ForEach(model.reminderLists) { list in
+                    Button(list.isDefault ? "\(list.title) (Default)" : list.title) {
+                        exportToReminders(listID: list.id)
+                    }
+                }
+            } else {
+                Divider()
+                Button(model.isLoadingReminderLists ? "Loading Lists..." : "Load Lists") {
+                    loadReminderLists(requestingAccess: true)
+                }
+                .disabled(model.isLoadingReminderLists)
+            }
         } label: {
             Label("Reminders", systemImage: model.isExportingToReminders ? "hourglass" : "list.bullet.clipboard")
                 .font(.caption.weight(.semibold))
@@ -945,6 +967,7 @@ private struct CursorTranscriptReviewView: View {
                 .padding(.vertical, 7)
                 .contentShape(Capsule())
         }
+        .menuStyle(.borderlessButton)
         .buttonStyle(.plain)
         .foregroundStyle(canExportToReminders ? Color.primary : Color.secondary)
         .background {
@@ -961,6 +984,10 @@ private struct CursorTranscriptReviewView: View {
         .animation(.easeOut(duration: 0.12), value: isReminderExportHovered)
         .disabled(!canExportToReminders)
         .help("Export checklist items to Reminders")
+        .task(id: reminderTaskCount) {
+            guard reminderTaskCount > 0 else { return }
+            await loadReminderListsIfAvailable()
+        }
     }
 
     private func transcriptActionButton(profile: TranscriptProcessingProfile, title: String, symbolName: String) -> some View {
@@ -1014,14 +1041,32 @@ private struct CursorTranscriptReviewView: View {
         }
     }
 
-    private func exportToReminders() {
+    private func loadReminderLists(requestingAccess: Bool) {
+        guard !model.isLoadingReminderLists else { return }
+        model.isLoadingReminderLists = true
+        Task { @MainActor in
+            let lists = await model.onLoadReminderLists(requestingAccess)
+            model.reminderLists = lists
+            model.isLoadingReminderLists = false
+        }
+    }
+
+    private func loadReminderListsIfAvailable() async {
+        guard !model.isLoadingReminderLists, model.reminderLists.isEmpty else { return }
+        model.isLoadingReminderLists = true
+        let lists = await model.onLoadReminderLists(false)
+        model.reminderLists = lists
+        model.isLoadingReminderLists = false
+    }
+
+    private func exportToReminders(listID: String?) {
         guard canExportToReminders else { return }
         let sourceText = model.text
         model.isExportingToReminders = true
         model.reminderExportMessage = nil
         isEditorFocused = false
         Task { @MainActor in
-            let result = await model.onExportToReminders(sourceText)
+            let result = await model.onExportToReminders(sourceText, listID)
             switch result {
             case .success(let count):
                 model.reminderExportMessage = count == 1 ? "Added 1 reminder" : "Added \(count) reminders"
@@ -1030,6 +1075,9 @@ private struct CursorTranscriptReviewView: View {
             }
             model.isExportingToReminders = false
             isEditorFocused = true
+            if !model.reminderLists.isEmpty {
+                await loadReminderListsIfAvailable()
+            }
         }
     }
 
