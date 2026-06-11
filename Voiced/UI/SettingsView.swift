@@ -64,12 +64,12 @@ struct SettingsView: View {
                     }
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 340, maxHeight: 340, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 410, maxHeight: 410, alignment: .topLeading)
 
             settingsFooter
         }
         .padding(24)
-        .frame(width: 560, height: 520)
+        .frame(width: 560, height: 590)
         .onAppear {
             ModelStatusCache.refresh(settings.transcriptionModel)
         }
@@ -300,6 +300,17 @@ struct SettingsView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Recent transcripts")
+                    .font(.callout.weight(.semibold))
+                Text("The menu bar keeps up to 5 recent transcripts in memory for quick review. They are not written to disk, are cleared when Voiced quits, and expire after 60 minutes.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .font(.callout)
 
             Divider()
 

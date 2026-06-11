@@ -10,6 +10,7 @@ final class AppCoordinator {
     private let output: any OutputPerforming
     private let transcriptProcessor: any TranscriptProcessing
     private let reminderExporter: any ReminderExporting
+    private let recentTranscripts: RecentTranscriptStore
     private let indicator: any IndicatorPresenting
     private let cursorIndicator: any CursorIndicatorPresenting
     private let permissions: any MicrophonePermissionManaging
@@ -21,6 +22,7 @@ final class AppCoordinator {
 
     private var captureState: CaptureState = .idle
     private var modelDownloadObserver: NSObjectProtocol?
+    private var recentTranscriptSelectionObserver: NSObjectProtocol?
     private var transcriptionTask: Task<Void, Never>?
 
     init(
@@ -30,6 +32,7 @@ final class AppCoordinator {
         output: any OutputPerforming = OutputManager(),
         transcriptProcessor: any TranscriptProcessing = TranscriptProcessingService(),
         reminderExporter: any ReminderExporting = ReminderExportService(),
+        recentTranscripts: RecentTranscriptStore = AppServices.recentTranscripts,
         indicator: any IndicatorPresenting = FloatingIndicator(),
         cursorIndicator: any CursorIndicatorPresenting = CursorMicroIndicator(),
         permissions: any MicrophonePermissionManaging = MicrophonePermissionManager(),
@@ -42,6 +45,7 @@ final class AppCoordinator {
         self.output = output
         self.transcriptProcessor = transcriptProcessor
         self.reminderExporter = reminderExporter
+        self.recentTranscripts = recentTranscripts
         self.indicator = indicator
         self.cursorIndicator = cursorIndicator
         self.permissions = permissions
@@ -49,10 +53,15 @@ final class AppCoordinator {
         self.telemetry = telemetry
     }
 
-    convenience init(settings: SettingsStore, telemetry: any TelemetryReporting = TelemetryService()) {
+    convenience init(
+        settings: SettingsStore,
+        recentTranscripts: RecentTranscriptStore = AppServices.recentTranscripts,
+        telemetry: any TelemetryReporting = TelemetryService()
+    ) {
         self.init(
             settings: settings,
             transcriber: WhisperKitTranscriptionService(settings: settings),
+            recentTranscripts: recentTranscripts,
             soundCues: SoundCuePlayer(settings: settings),
             telemetry: telemetry
         )
@@ -69,6 +78,16 @@ final class AppCoordinator {
             Task { @MainActor in
                 let reason = source == "onboarding" ? "onboarding download" : "download request"
                 self?.warmUpTranscriptionService(reason: reason)
+            }
+        }
+        recentTranscriptSelectionObserver = NotificationCenter.default.addObserver(
+            forName: .voicedRecentTranscriptSelected,
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            guard let id = notification.object as? UUID else { return }
+            Task { @MainActor in
+                self?.openRecentTranscript(id: id)
             }
         }
         transcriber.onModelProgress = { [weak self] progress in
@@ -285,7 +304,8 @@ final class AppCoordinator {
                     return
                 }
 
-                self.cursorIndicator.showReviewAtCursor(
+                let hadReviewText = self.cursorIndicator.hasReviewText
+                let reviewText = self.cursorIndicator.showReviewAtCursor(
                     text: text,
                     onCopy: { [weak self] updatedText in
                         self?.output.copyToClipboard(updatedText)
@@ -303,6 +323,11 @@ final class AppCoordinator {
                         self?.showDropRejectedIndicator()
                     }
                 )
+                if hadReviewText {
+                    self.recentTranscripts.updateMostRecent(text: reviewText)
+                } else {
+                    self.recentTranscripts.add(text: reviewText)
+                }
                 self.indicator.show(state: .error("Copied for review"))
                 self.telemetry.capture(.transcriptionSucceeded, properties: [
                     "recording_duration": recordingDurationBucket,
@@ -336,6 +361,38 @@ final class AppCoordinator {
             }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             self.indicator.hide()
+        }
+    }
+
+    private func openRecentTranscript(id: UUID) {
+        guard let transcript = recentTranscripts.transcript(id: id) else {
+            showTemporaryIndicator(.error("Transcript expired"), duration: 1_200_000_000)
+            return
+        }
+
+        cursorIndicator.hideImmediately()
+        cursorIndicator.showReviewAtCursor(
+            text: transcript.text,
+            onCopy: { [weak self] updatedText in
+                self?.output.copyToClipboard(updatedText)
+            },
+            onProcess: { [weak self] profile, transcript in
+                await self?.processTranscript(transcript, profile: profile) ?? transcript
+            },
+            onLoadReminderLists: { [weak self] requestingAccess in
+                await self?.loadReminderLists(requestingAccess: requestingAccess) ?? []
+            },
+            onExportToReminders: { [weak self] checklist, listID in
+                await self?.exportChecklistToReminders(checklist, listID: listID) ?? .failure("Reminders export is unavailable")
+            },
+            onDropRejected: { [weak self] in
+                self?.showDropRejectedIndicator()
+            }
+        )
+        indicator.show(state: .success("Opened recent transcript"))
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            self?.indicator.hide()
         }
     }
 

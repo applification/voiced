@@ -23,6 +23,7 @@ extension StatusMenuController {
         }
 
         addModelMenu()
+        addRecentTranscriptMenu()
         menu.addItem(.separator())
         addAppMenuItems()
     }
@@ -155,6 +156,32 @@ extension StatusMenuController {
         let modelItem = NSMenuItem(title: "Model", action: nil, keyEquivalent: "")
         modelItem.submenu = modelMenu
         menu.addItem(modelItem)
+    }
+
+    private func addRecentTranscriptMenu() {
+        recentTranscripts.removeExpired()
+
+        let recentMenu = NSMenu()
+        if recentTranscripts.items.isEmpty {
+            let emptyItem = NSMenuItem(title: "No Recent Transcripts", action: nil, keyEquivalent: "")
+            emptyItem.isEnabled = false
+            recentMenu.addItem(emptyItem)
+        } else {
+            for transcript in recentTranscripts.items {
+                recentMenu.addItem(actionItem(title: transcript.title,
+                                              action: #selector(openRecentTranscript(_:)),
+                                              representedObject: transcript.id,
+                                              symbolName: "text.quote"))
+            }
+            recentMenu.addItem(.separator())
+            recentMenu.addItem(actionItem(title: "Clear Recent Transcripts",
+                                          action: #selector(clearRecentTranscripts),
+                                          symbolName: "trash"))
+        }
+
+        let recentItem = NSMenuItem(title: "Recent Transcripts", action: nil, keyEquivalent: "")
+        recentItem.submenu = recentMenu
+        menu.addItem(recentItem)
     }
 
     private func addSoundMenu() {

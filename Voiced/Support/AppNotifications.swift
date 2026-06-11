@@ -5,4 +5,6 @@ extension Notification.Name {
     static let voicedModelDownloadRequested = Notification.Name("voicedModelDownloadRequested")
     static let voicedModelProgressChanged = Notification.Name("voicedModelProgressChanged")
     static let voicedModelStatusChanged = Notification.Name("voicedModelStatusChanged")
+    static let voicedRecentTranscriptsChanged = Notification.Name("voicedRecentTranscriptsChanged")
+    static let voicedRecentTranscriptSelected = Notification.Name("voicedRecentTranscriptSelected")
 }

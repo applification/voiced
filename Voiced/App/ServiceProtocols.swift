@@ -56,6 +56,7 @@ protocol CursorIndicatorPresenting: AnyObject {
     func showLiveTranscriptAtCursor(state: LiveTranscriptState, onCancel: @escaping () -> Void)
     func updateLiveTranscript(_ state: LiveTranscriptState)
     func updateAudioLevel(_ level: Double)
+    @discardableResult
     func showReviewAtCursor(
         text: String,
         onCopy: @escaping (String) -> Void,
@@ -63,7 +64,7 @@ protocol CursorIndicatorPresenting: AnyObject {
         onLoadReminderLists: @escaping (Bool) async -> [ReminderListOption],
         onExportToReminders: @escaping (String, String?) async -> ReminderExportResult,
         onDropRejected: @escaping () -> Void
-    )
+    ) -> String
     func hide()
     func hideImmediately()
 }

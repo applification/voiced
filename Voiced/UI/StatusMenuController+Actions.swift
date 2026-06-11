@@ -39,6 +39,16 @@ extension StatusMenuController {
         rebuildMenu()
     }
 
+    @objc func openRecentTranscript(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? UUID else { return }
+        NotificationCenter.default.post(name: .voicedRecentTranscriptSelected, object: id)
+    }
+
+    @objc func clearRecentTranscripts() {
+        recentTranscripts.clear()
+        rebuildMenu()
+    }
+
     @objc func handleMicrophone() {
         guard !micAuthorized else {
             rebuildMenu()
@@ -102,8 +112,8 @@ extension StatusMenuController {
             let window = NSWindow(contentViewController: hostingController)
             window.title = "Voiced Settings"
             window.styleMask = [.titled, .closable, .miniaturizable]
-            window.setContentSize(NSSize(width: 560, height: 360))
-            window.minSize = NSSize(width: 560, height: 360)
+            window.setContentSize(NSSize(width: 560, height: 590))
+            window.minSize = NSSize(width: 560, height: 590)
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()

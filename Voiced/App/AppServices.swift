@@ -4,6 +4,7 @@ import AppKit
 enum AppServices {
     static let settings = SettingsStore()
     static let settingsNavigation = SettingsNavigation()
+    static let recentTranscripts = RecentTranscriptStore()
     static let telemetry = TelemetryService()
 }
 
@@ -17,8 +18,9 @@ final class VoicedAppDelegate: NSObject, NSApplicationDelegate {
         let settings = AppServices.settings
         let telemetry = AppServices.telemetry
         telemetry.configure(settings: settings)
-        statusMenu = StatusMenuController(settings: settings)
-        coordinator = AppCoordinator(settings: settings, telemetry: telemetry)
+        let recentTranscripts = AppServices.recentTranscripts
+        statusMenu = StatusMenuController(settings: settings, recentTranscripts: recentTranscripts)
+        coordinator = AppCoordinator(settings: settings, recentTranscripts: recentTranscripts, telemetry: telemetry)
         coordinator?.start()
         Task { @MainActor [weak self] in
             self?.onboardingWindow = IntroOnboardingPresenter.presentIfNeeded(settings: settings) { [weak self] in

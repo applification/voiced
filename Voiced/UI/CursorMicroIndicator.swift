@@ -109,6 +109,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         audioLevelModel.level = level
     }
 
+    @discardableResult
     func showReviewAtCursor(
         text: String,
         onCopy: @escaping (String) -> Void,
@@ -116,7 +117,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         onLoadReminderLists: @escaping (Bool) async -> [ReminderListOption],
         onExportToReminders: @escaping (String, String?) async -> ReminderExportResult,
         onDropRejected: @escaping () -> Void
-    ) {
+    ) -> String {
         followTask?.cancel()
         followTask = nil
 
@@ -163,6 +164,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         clearReviewFirstResponder(in: panel)
 
         installFocusDismissal()
+        return reviewModel.text
     }
 
     private func existingOrCreateReviewModel() -> CursorTranscriptReviewModel {
