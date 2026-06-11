@@ -17,7 +17,10 @@ protocol AppTranscribing: AnyObject {
 
     func loadModelIfNeeded() async throws
     func transcribeFile(at url: URL) async throws -> String
-    func startLiveTranscription(onUpdate: @escaping @MainActor (LiveTranscriptState) -> Void) async throws
+    func startLiveTranscription(
+        onUpdate: @escaping @MainActor (LiveTranscriptState) -> Void,
+        onAudioLevel: @escaping @MainActor (Double) -> Void
+    ) async throws
     func stopLiveTranscription() async -> String
 }
 
@@ -41,6 +44,7 @@ protocol ReminderExporting: AnyObject {
 @MainActor
 protocol IndicatorPresenting: AnyObject {
     func show(state: IndicatorState)
+    func updateAudioLevel(_ level: Double)
     func hide()
 }
 
@@ -51,6 +55,7 @@ protocol CursorIndicatorPresenting: AnyObject {
     func showTranscribingAtCursor()
     func showLiveTranscriptAtCursor(state: LiveTranscriptState, onCancel: @escaping () -> Void)
     func updateLiveTranscript(_ state: LiveTranscriptState)
+    func updateAudioLevel(_ level: Double)
     func showReviewAtCursor(
         text: String,
         onCopy: @escaping (String) -> Void,

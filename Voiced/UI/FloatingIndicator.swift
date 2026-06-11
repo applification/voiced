@@ -5,28 +5,36 @@ import SwiftUI
 final class FloatingIndicator {
     private var panel: NSPanel?
     private var notchGeometry: NotchGeometry?
+    private let model = IndicatorPresentationModel()
+    private var installedContentMode: IndicatorContentMode?
     private var isVisible = false
     private var visibilityGeneration = 0
 
     func show(state: IndicatorState) {
         visibilityGeneration += 1
+        model.state = state
+        if case .recording(let level) = state {
+            model.audioLevel.level = level
+        }
+
         let panel = existingOrCreatePanel()
         notchGeometry = Self.detectNotchGeometry()
         let isNotched = notchGeometry != nil
-        let rootView = isNotched
-            ? AnyView(NotchContentView(state: state, metrics: notchGeometry?.metrics ?? .fallback))
-            : AnyView(IndicatorView(state: state))
-        let hostingView = TransparentHostingView(rootView: rootView)
-        hostingView.wantsLayer = true
-        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
-        hostingView.layer?.isOpaque = false
-        panel.contentView = hostingView
+        let contentMode: IndicatorContentMode = isNotched ? .notch : .floating
+        if installedContentMode != contentMode || panel.contentView == nil {
+            installContent(in: panel, mode: contentMode)
+        }
         position(panel, visible: isVisible || !isNotched)
         panel.orderFrontRegardless()
         if isNotched && !isVisible {
             animateNotch(panel, visible: true)
         }
         isVisible = true
+    }
+
+    func updateAudioLevel(_ level: Double) {
+        guard isVisible else { return }
+        model.audioLevel.level = level
     }
 
     func hide() {
@@ -40,6 +48,18 @@ final class FloatingIndicator {
             panel.orderOut(nil)
         }
         tearDownContent(for: generation, panel: panel)
+    }
+
+    private func installContent(in panel: NSPanel, mode: IndicatorContentMode) {
+        let rootView = mode == .notch
+            ? AnyView(NotchContentView(model: model, metrics: notchGeometry?.metrics ?? .fallback))
+            : AnyView(IndicatorView(model: model))
+        let hostingView = TransparentHostingView(rootView: rootView)
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingView.layer?.isOpaque = false
+        panel.contentView = hostingView
+        installedContentMode = mode
     }
 
     private func existingOrCreatePanel() -> NSPanel {
@@ -104,6 +124,7 @@ final class FloatingIndicator {
         guard generation == visibilityGeneration, !isVisible else { return }
         panel.orderOut(nil)
         panel.contentView = nil
+        installedContentMode = nil
     }
 
     private func animateNotch(_ panel: NSPanel, visible: Bool) {

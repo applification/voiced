@@ -23,7 +23,9 @@ final class WhisperKitTranscriptionService: TranscriptionService {
     private var pendingLiveState: LiveTranscriptState?
     private var liveUpdateTask: Task<Void, Never>?
     private var lastLiveUpdateAt = Date.distantPast
+    private var lastAudioLevelUpdateAt = Date.distantPast
     private let liveUpdateInterval: TimeInterval = 0.08
+    private let audioLevelUpdateInterval: TimeInterval = 0.05
     private var livePreviousWords: [WordTiming] = []
     private var liveConfirmedWords: [WordTiming] = []
     private let liveWordConfirmationsNeeded = 2
@@ -235,7 +237,10 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         return text
     }
 
-    func startLiveTranscription(onUpdate: @escaping @MainActor (LiveTranscriptState) -> Void) async throws {
+    func startLiveTranscription(
+        onUpdate: @escaping @MainActor (LiveTranscriptState) -> Void,
+        onAudioLevel: @escaping @MainActor (Double) -> Void
+    ) async throws {
         try await loadModelIfNeeded()
         guard let whisperKit else {
             throw TranscriptionError.modelNotLoaded
@@ -250,6 +255,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         liveUpdateTask = nil
         pendingLiveState = nil
         lastLiveUpdateAt = .distantPast
+        lastAudioLevelUpdateAt = .distantPast
         latestLiveState = .idle
         livePreviousWords = []
         liveConfirmedWords = []
@@ -278,14 +284,17 @@ final class WhisperKitTranscriptionService: TranscriptionService {
                 let unconfirmedSegments = newState.unconfirmedSegments
                 let hypothesisWords = unconfirmedSegments.flatMap { $0.words ?? [] }
                 let isRecording = newState.isRecording
+                let audioLevel = Self.audioLevel(from: newState.bufferEnergy)
 
                 Task { @MainActor in
                     guard let self else { return }
+                    self.emitAudioLevel(audioLevel, onAudioLevel: onAudioLevel)
                     let state = self.liveTranscriptState(
                         confirmedSegments: confirmedSegments,
                         unconfirmedSegments: unconfirmedSegments,
                         hypothesisWords: hypothesisWords,
-                        isRecording: isRecording
+                        isRecording: isRecording,
+                        audioLevel: audioLevel
                     )
                     self.latestLiveState = state
                     self.emitLiveUpdate(state, onUpdate: onUpdate)
@@ -325,6 +334,13 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         livePreviousWords = []
         liveConfirmedWords = []
         return text
+    }
+
+    private func emitAudioLevel(_ level: Double, onAudioLevel: @escaping @MainActor (Double) -> Void) {
+        let elapsed = Date().timeIntervalSince(lastAudioLevelUpdateAt)
+        guard elapsed >= audioLevelUpdateInterval else { return }
+        lastAudioLevelUpdateAt = Date()
+        onAudioLevel(level)
     }
 
     private func emitLiveUpdate(_ state: LiveTranscriptState, onUpdate: @escaping @MainActor (LiveTranscriptState) -> Void) {
@@ -372,7 +388,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         confirmedSegments: [TranscriptionSegment],
         unconfirmedSegments: [TranscriptionSegment],
         hypothesisWords: [WordTiming],
-        isRecording: Bool
+        isRecording: Bool,
+        audioLevel: Double
     ) -> LiveTranscriptState {
         let shouldFinalizeProvisional = !isRecording
         if !confirmedSegments.isEmpty || hypothesisWords.isEmpty {
@@ -392,7 +409,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
                 return LiveTranscriptState(
                     committedText: committed,
                     provisionalText: unconfirmed,
-                    isRecording: isRecording
+                    isRecording: isRecording,
+                    audioLevel: audioLevel
                 )
             }
             return LiveTranscriptState(
@@ -400,7 +418,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
                     .filter { !$0.isEmpty }
                     .joined(separator: " "),
                 provisionalText: "",
-                isRecording: isRecording
+                isRecording: isRecording,
+                audioLevel: audioLevel
             )
         }
 
@@ -422,7 +441,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             return LiveTranscriptState(
                 committedText: committed,
                 provisionalText: provisional,
-                isRecording: isRecording
+                isRecording: isRecording,
+                audioLevel: audioLevel
             )
         }
         return LiveTranscriptState(
@@ -430,8 +450,16 @@ final class WhisperKitTranscriptionService: TranscriptionService {
                 .filter { !$0.isEmpty }
                 .joined(separator: " "),
             provisionalText: "",
-            isRecording: isRecording
+            isRecording: isRecording,
+            audioLevel: audioLevel
         )
+    }
+
+    private nonisolated static func audioLevel(from bufferEnergy: [Float]) -> Double {
+        let recentEnergy = bufferEnergy.suffix(4)
+        guard !recentEnergy.isEmpty else { return 0.12 }
+        let average = recentEnergy.reduce(Float(0), +) / Float(recentEnergy.count)
+        return Double(max(0.08, min(1, average)))
     }
 
     private nonisolated static func longestCommonWordPrefix(_ lhs: [WordTiming], _ rhs: [WordTiming]) -> [WordTiming] {

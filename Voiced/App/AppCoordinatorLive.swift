@@ -194,6 +194,9 @@ final class AppCoordinator {
                 try await self.transcriber.startLiveTranscription { [weak self] state in
                     guard let self else { return }
                     self.cursorIndicator.updateLiveTranscript(state)
+                } onAudioLevel: { [weak self] level in
+                    self?.indicator.updateAudioLevel(level)
+                    self?.cursorIndicator.updateAudioLevel(level)
                 }
                 self.telemetry.capture(.modelLoadSucceeded, properties: [
                     "reason": "live_transcription",

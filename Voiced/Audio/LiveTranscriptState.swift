@@ -4,11 +4,25 @@ struct LiveTranscriptState: Equatable {
     var committedText: String
     var provisionalText: String
     var isRecording: Bool
+    var audioLevel: Double
+
+    init(
+        committedText: String,
+        provisionalText: String,
+        isRecording: Bool,
+        audioLevel: Double = 0
+    ) {
+        self.committedText = committedText
+        self.provisionalText = provisionalText
+        self.isRecording = isRecording
+        self.audioLevel = audioLevel
+    }
 
     static let idle = LiveTranscriptState(
         committedText: "",
         provisionalText: "",
-        isRecording: false
+        isRecording: false,
+        audioLevel: 0
     )
 
     var combinedText: String {
@@ -57,6 +71,12 @@ struct LiveTranscriptState: Equatable {
             index = text.index(after: index)
         }
         return result
+    }
+
+    static func == (lhs: LiveTranscriptState, rhs: LiveTranscriptState) -> Bool {
+        lhs.committedText == rhs.committedText
+            && lhs.provisionalText == rhs.provisionalText
+            && lhs.isRecording == rhs.isRecording
     }
 
     private static let nonSpeechMarkers: Set<String> = [

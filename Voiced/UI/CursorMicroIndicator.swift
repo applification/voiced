@@ -11,6 +11,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
     private var liveTranscriptModel: CursorLiveTranscriptModel?
     private var lastLiveTranscriptState: LiveTranscriptState?
     private var reviewTranscriptModel: CursorTranscriptReviewModel?
+    private let audioLevelModel = AudioLevelModel()
     private var isShowingReview = false
     private var isShowingLiveTranscript = false
 
@@ -26,6 +27,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         liveCancelHandler = nil
         liveTranscriptModel = nil
         lastLiveTranscriptState = nil
+        audioLevelModel.level = 0
         panel.ignoresMouseEvents = true
         panel.contentView = TransparentHostingView(rootView: CursorMicroIndicatorView())
         position(panel, near: NSEvent.mouseLocation)
@@ -46,6 +48,8 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         let panel = existingOrCreatePanel()
         let liveTranscriptModel = CursorLiveTranscriptModel(state: state)
         let reviewModel = existingOrCreateReviewModel()
+        reviewModel.audioLevelModel = audioLevelModel
+        audioLevelModel.level = state.audioLevel
         reviewModel.mode = .listening(liveTranscriptModel)
         reviewModel.onCopy = { _ in }
         reviewModel.onDismiss = { [weak self] in
@@ -88,6 +92,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         } else {
             let liveTranscriptModel = CursorLiveTranscriptModel(state: state)
             let reviewModel = existingOrCreateReviewModel()
+            reviewModel.audioLevelModel = audioLevelModel
             reviewModel.mode = .listening(liveTranscriptModel)
             reviewModel.onCopy = { _ in }
             reviewModel.onDismiss = { [weak self] in
@@ -97,6 +102,11 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
             installTranscriptSurfaceIfNeeded(panel: panel, model: reviewModel)
         }
         positionReview(panel, near: reviewTranscriptModel?.anchorPoint ?? NSEvent.mouseLocation)
+    }
+
+    func updateAudioLevel(_ level: Double) {
+        guard isShowingLiveTranscript else { return }
+        audioLevelModel.level = level
     }
 
     func showReviewAtCursor(
@@ -132,6 +142,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         liveCancelHandler = nil
         liveTranscriptModel = nil
         lastLiveTranscriptState = nil
+        audioLevelModel.level = 0
         panel.ignoresMouseEvents = false
         let wasVisible = panel.isVisible && panel.alphaValue > 0
         installTranscriptSurfaceIfNeeded(panel: panel, model: reviewModel)
@@ -201,6 +212,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         liveTranscriptModel = nil
         lastLiveTranscriptState = nil
         reviewTranscriptModel = nil
+        audioLevelModel.level = 0
         removeFocusDismissal()
         followTask?.cancel()
         followTask = nil
@@ -225,6 +237,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         liveTranscriptModel = nil
         lastLiveTranscriptState = nil
         reviewTranscriptModel = nil
+        audioLevelModel.level = 0
         removeFocusDismissal()
         followTask?.cancel()
         followTask = nil
@@ -241,17 +254,6 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
                 guard let self, let panel, panel.isVisible else { break }
                 self.position(panel, near: NSEvent.mouseLocation)
                 try? await Task.sleep(nanoseconds: 50_000_000)
-            }
-        }
-    }
-
-    private func startFollowingLiveTranscript(_ panel: NSPanel) {
-        followTask?.cancel()
-        followTask = Task { @MainActor [weak self, weak panel] in
-            while !Task.isCancelled {
-                guard let self, let panel, panel.isVisible, self.isShowingLiveTranscript else { break }
-                self.positionLiveTranscript(panel, near: NSEvent.mouseLocation)
-                try? await Task.sleep(nanoseconds: 80_000_000)
             }
         }
     }
@@ -336,24 +338,6 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         panel.setFrameOrigin(origin)
     }
 
-    private func positionLiveTranscript(_ panel: NSPanel, near cursorLocation: NSPoint) {
-        let fittingSize = panel.contentView?.fittingSize ?? NSSize(width: 340, height: 104)
-        let size = NSSize(
-            width: min(max(fittingSize.width, 340), 460),
-            height: min(max(fittingSize.height, 88), 380)
-        )
-        if panel.frame.size != size {
-            panel.setContentSize(size)
-        }
-
-        let screen = NSScreen.screens.first { NSMouseInRect(cursorLocation, $0.frame, false) } ?? NSScreen.main
-        let visibleFrame = screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
-        let origin = NSPoint(
-            x: min(max(cursorLocation.x - size.width / 2, visibleFrame.minX + 8), visibleFrame.maxX - size.width - 8),
-            y: min(max(cursorLocation.y - size.height / 2, visibleFrame.minY + 8), visibleFrame.maxY - size.height - 8)
-        )
-        panel.setFrameOrigin(origin)
-    }
 }
 
 private final class CursorPanel: NSPanel {
@@ -419,166 +403,6 @@ private final class CursorLiveTranscriptModel {
     }
 }
 
-private struct CursorLiveTranscriptView: View {
-    let model: CursorLiveTranscriptModel
-    let onCancel: () -> Void
-
-    private let accent = Color(red: 0.48, green: 0.78, blue: 0.56)
-    private let confirmedInk = Color(red: 0.0, green: 0.48, blue: 0.2)
-    private let transcriptBottomID = "live-transcript-bottom"
-    private let transcriptMaxHeight: CGFloat = 220
-    private var state: LiveTranscriptState { model.state }
-    private var confirmedText: String { LiveTranscriptState.sanitizedText(state.committedText) }
-    private var provisionalText: String { LiveTranscriptState.sanitizedText(state.provisionalText) }
-    private var hasConfirmedText: Bool { !confirmedText.isEmpty }
-    private var hasProvisionalText: Bool { !provisionalText.isEmpty }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 8) {
-                HStack(alignment: .center, spacing: 6) {
-                    LiveTranscriptStatusIcon(
-                        isRecording: state.isRecording,
-                        hasConfirmedText: hasConfirmedText,
-                        hasProvisionalText: hasProvisionalText,
-                        accent: accent
-                    )
-                    Text(state.isRecording ? "Listening" : "Finishing")
-                        .font(.caption.weight(.semibold))
-                }
-
-                Spacer(minLength: 8)
-
-                Button(action: onCancel) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
-                .help("Cancel transcription")
-            }
-
-            liveTranscriptScroll
-        }
-        .padding(.horizontal, 32)
-        .padding(.vertical, 28)
-        .frame(width: 612, alignment: .center)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.regularMaterial)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.primary.opacity(0.12))
-        }
-        .shadow(color: .black.opacity(0.16), radius: 8, y: 3)
-    }
-
-    private var liveTranscriptScroll: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.vertical) {
-                VStack(alignment: .leading, spacing: 0) {
-                    transcriptContent
-                        .font(.callout)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
-
-                    Color.clear
-                        .frame(height: 1)
-                        .id(transcriptBottomID)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .scrollIndicators(.visible)
-            .frame(minHeight: 36, maxHeight: transcriptMaxHeight, alignment: .bottom)
-            .onAppear {
-                scrollToTranscriptBottom(proxy)
-            }
-            .onChange(of: confirmedText) { _, _ in
-                scrollToTranscriptBottom(proxy)
-            }
-            .onChange(of: provisionalText) { _, _ in
-                scrollToTranscriptBottom(proxy)
-            }
-        }
-    }
-
-    private func scrollToTranscriptBottom(_ proxy: ScrollViewProxy) {
-        DispatchQueue.main.async {
-            proxy.scrollTo(transcriptBottomID, anchor: .bottom)
-        }
-    }
-
-    private var transcriptContent: Text {
-        if !hasConfirmedText && !hasProvisionalText {
-            return Text("Listening...")
-                .foregroundStyle(.secondary)
-        }
-
-        var text = Text(confirmedText)
-            .foregroundStyle(confirmedInk)
-        if hasConfirmedText && hasProvisionalText {
-            text = text + Text(" ")
-        }
-        if hasProvisionalText {
-            let provisional = Text(provisionalText)
-                .foregroundStyle(.primary)
-                .fontWeight(.regular)
-            text = text + provisional
-        }
-        return text
-    }
-
-}
-
-private struct LiveTranscriptStatusIcon: View {
-    let isRecording: Bool
-    let hasConfirmedText: Bool
-    let hasProvisionalText: Bool
-    let accent: Color
-
-    var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            Image(systemName: "waveform.circle.fill")
-                .font(.system(size: 14, weight: .semibold))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(accent.opacity(hasProvisionalText ? 1 : 0.82))
-                .contentTransition(.symbolEffect(.replace))
-
-            if hasConfirmedText {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 7, weight: .bold))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(accent)
-                    .background(Circle().fill(Color(nsColor: .windowBackgroundColor)))
-                    .transition(.scale.combined(with: .opacity))
-            } else if isRecording && hasProvisionalText {
-                LivePulseDot(accent: accent)
-            }
-        }
-        .frame(width: 16, height: 16)
-    }
-}
-
-private struct LivePulseDot: View {
-    let accent: Color
-
-    @State private var isPulsing = false
-
-    var body: some View {
-        Circle()
-            .fill(accent)
-            .frame(width: 5, height: 5)
-            .scaleEffect(isPulsing ? 1.35 : 0.72)
-            .opacity(isPulsing ? 0.45 : 1)
-            .animation(.easeOut(duration: 0.62).repeatForever(autoreverses: true), value: isPulsing)
-            .onAppear {
-                isPulsing = true
-            }
-    }
-}
-
 @MainActor
 @Observable
 private final class CursorTranscriptReviewModel {
@@ -589,6 +413,7 @@ private final class CursorTranscriptReviewModel {
     var isLoadingReminderLists = false
     var reminderLists: [ReminderListOption] = []
     var reminderExportMessage: String?
+    @ObservationIgnored var audioLevelModel = AudioLevelModel()
     @ObservationIgnored var anchorPoint: NSPoint?
     @ObservationIgnored var onCopy: (String) -> Void = { _ in }
     @ObservationIgnored var onProcess: (TranscriptProcessingProfile, String) async -> String = { _, transcript in transcript }
@@ -665,6 +490,9 @@ private struct CursorTranscriptReviewView: View {
         LiveTranscriptState.sanitizedText(model.text)
             .split { $0.isWhitespace || $0.isNewline }
             .count
+    }
+    private var liveAudioLevelModel: AudioLevelModel {
+        model.audioLevelModel
     }
 
     private var panelFill: LinearGradient {
@@ -746,6 +574,7 @@ private struct CursorTranscriptReviewView: View {
                 CursorHeaderStatusIcon(
                     isListening: isListening,
                     isProcessing: isAIProcessing,
+                    audioLevelModel: liveAudioLevelModel,
                     accent: statusColor,
                     processingAccent: aiAccent
                 )
@@ -1312,6 +1141,7 @@ private struct CursorTranscriptReviewView: View {
 private struct CursorHeaderStatusIcon: View {
     let isListening: Bool
     let isProcessing: Bool
+    let audioLevelModel: AudioLevelModel
     let accent: Color
     let processingAccent: Color
 
@@ -1321,12 +1151,8 @@ private struct CursorHeaderStatusIcon: View {
                 .controlSize(.small)
                 .tint(processingAccent)
         } else if isListening {
-            HStack(alignment: .center, spacing: 2.5) {
-                ForEach(0..<5) { index in
-                    CursorWaveBar(color: accent, delay: Double(index) * 0.08)
-                }
-            }
-            .frame(width: 20, height: 16)
+            LevelWaveformView(level: audioLevelModel.level, color: accent)
+                .frame(width: 21, height: 16)
         } else {
             Image(systemName: "checkmark")
                 .font(.system(size: 15, weight: .bold))
