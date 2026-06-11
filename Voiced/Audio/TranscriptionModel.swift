@@ -2,7 +2,7 @@ import CoreML
 import SwiftUI
 import WhisperKit
 
-enum TranscriptionModel: String, CaseIterable, Identifiable {
+enum TranscriptionModel: String, CaseIterable, Identifiable, Sendable {
     case tiny
     case base
     case small

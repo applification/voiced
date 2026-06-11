@@ -15,7 +15,7 @@ enum IntroOnboardingPresenter {
     static func isSetupRequired(settings: SettingsStore) -> Bool {
         !settings.hasSeenIntroOnboarding
             || AVCaptureDevice.authorizationStatus(for: .audio) != .authorized
-            || !ModelStore(model: settings.transcriptionModel).isDownloaded
+            || !ModelStore(model: settings.transcriptionModel).statusSnapshot().isDownloaded
     }
 
     static func presentSetupGuide(settings: SettingsStore, onFinish: @escaping () -> Void = {}) -> NSWindow {
@@ -90,7 +90,7 @@ private struct IntroOnboardingView: View {
     }
 
     private var isSelectedModelDownloaded: Bool {
-        ModelStore(model: selectedModel).isDownloaded
+        ModelStatusCache.status(for: selectedModel).isDownloaded
     }
 
     private var isSelectedModelPrepared: Bool {
@@ -121,6 +121,7 @@ private struct IntroOnboardingView: View {
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.18))
         .onAppear {
             selectedModel = settings.transcriptionModel
+            ModelStatusCache.refresh(settings.transcriptionModel)
             refreshStatuses()
         }
         .onReceive(NotificationCenter.default.publisher(for: .voicedModelProgressChanged)) { notification in
@@ -255,7 +256,7 @@ private struct IntroOnboardingView: View {
 
     private func modelChoiceCard(_ model: TranscriptionModel) -> some View {
         let isSelected = selectedModel == model
-        let isDownloaded = ModelStore(model: model).isDownloaded
+        let isDownloaded = ModelStatusCache.status(for: model).isDownloaded
         let isPrepared = preparedModels.contains(model)
         let isActiveDownload = downloadingModel == model
         let tint = model.tintColor
@@ -318,6 +319,7 @@ private struct IntroOnboardingView: View {
             }
             selectedModel = model
             settings.transcriptionModel = model
+            ModelStatusCache.refresh(model)
             if downloadingModel == nil {
                 modelProgress = nil
             }
@@ -464,19 +466,20 @@ private struct IntroOnboardingView: View {
             preparedModels.insert(selectedModel)
         }
         if let downloadingModel,
-           ModelStore(model: downloadingModel).isDownloaded,
+           ModelStatusCache.status(for: downloadingModel).isDownloaded,
            modelProgress == nil {
             self.downloadingModel = nil
         }
     }
 
     private func reconcileModelState(afterStatusChangeFor model: TranscriptionModel) {
-        if ModelStore(model: model).isDownloaded,
+        let status = ModelStatusCache.status(for: model)
+        if status.isDownloaded,
            modelProgress?.phase == "Loaded" {
             preparedModels.insert(model)
         }
         guard downloadingModel == model else { return }
-        if preparedModels.contains(model) || !ModelStore(model: model).isDownloaded {
+        if preparedModels.contains(model) || !status.isDownloaded {
             downloadingModel = nil
             modelProgress = nil
         }

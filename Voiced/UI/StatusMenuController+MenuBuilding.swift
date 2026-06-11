@@ -126,15 +126,15 @@ extension StatusMenuController {
     }
 
     private func addModelMenu() {
-        let modelStore = ModelStore(model: settings.transcriptionModel)
+        let modelStatus = ModelStatusCache.status(for: settings.transcriptionModel)
         let modelMenu = NSMenu()
         modelMenu.addItem(infoItem(label: "Selected model",
                                    value: settings.transcriptionModel.menuTitle,
                                    symbolName: "brain",
                                    color: .controlAccentColor))
         modelMenu.addItem(infoItem(label: "Download size",
-                                   value: modelStore.formattedSize,
-                                   symbolName: modelStore.isDownloaded ? "internaldrive" : "icloud.and.arrow.down"))
+                                   value: modelStatus.formattedSize,
+                                   symbolName: modelStatus.isDownloaded ? "internaldrive" : "icloud.and.arrow.down"))
         if settings.modelDownloadsApproved {
             modelMenu.addItem(infoItem(label: "Downloads",
                                        value: "Approved",

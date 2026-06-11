@@ -9,6 +9,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
     private var resignActiveObserver: NSObjectProtocol?
     private var liveCancelHandler: (() -> Void)?
     private var liveTranscriptModel: CursorLiveTranscriptModel?
+    private var lastLiveTranscriptState: LiveTranscriptState?
     private var reviewTranscriptModel: CursorTranscriptReviewModel?
     private var isShowingReview = false
     private var isShowingLiveTranscript = false
@@ -24,6 +25,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         isShowingLiveTranscript = false
         liveCancelHandler = nil
         liveTranscriptModel = nil
+        lastLiveTranscriptState = nil
         panel.ignoresMouseEvents = true
         panel.contentView = TransparentHostingView(rootView: CursorMicroIndicatorView())
         position(panel, near: NSEvent.mouseLocation)
@@ -54,6 +56,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
             reviewModel.anchorPoint = NSPoint(x: panel.frame.midX, y: panel.frame.midY)
         }
         self.liveTranscriptModel = liveTranscriptModel
+        lastLiveTranscriptState = state
         isShowingReview = false
         isShowingLiveTranscript = true
         liveCancelHandler = onCancel
@@ -78,6 +81,8 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
 
     func updateLiveTranscript(_ state: LiveTranscriptState) {
         guard isShowingLiveTranscript, let panel else { return }
+        guard lastLiveTranscriptState != state else { return }
+        lastLiveTranscriptState = state
         if let liveTranscriptModel {
             liveTranscriptModel.state = state
         } else {
@@ -126,6 +131,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         isShowingLiveTranscript = false
         liveCancelHandler = nil
         liveTranscriptModel = nil
+        lastLiveTranscriptState = nil
         panel.ignoresMouseEvents = false
         let wasVisible = panel.isVisible && panel.alphaValue > 0
         installTranscriptSurfaceIfNeeded(panel: panel, model: reviewModel)
@@ -193,6 +199,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         isShowingLiveTranscript = false
         liveCancelHandler = nil
         liveTranscriptModel = nil
+        lastLiveTranscriptState = nil
         reviewTranscriptModel = nil
         removeFocusDismissal()
         followTask?.cancel()
@@ -216,6 +223,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         isShowingLiveTranscript = false
         liveCancelHandler = nil
         liveTranscriptModel = nil
+        lastLiveTranscriptState = nil
         reviewTranscriptModel = nil
         removeFocusDismissal()
         followTask?.cancel()
@@ -299,7 +307,9 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
 
     private func position(_ panel: NSPanel, near cursorLocation: NSPoint) {
         let size = NSSize(width: 30, height: 22)
-        panel.setContentSize(size)
+        if panel.frame.size != size {
+            panel.setContentSize(size)
+        }
 
         let screen = NSScreen.screens.first { NSMouseInRect(cursorLocation, $0.frame, false) } ?? NSScreen.main
         let visibleFrame = screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
@@ -313,7 +323,9 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
 
     private func positionReview(_ panel: NSPanel, near cursorLocation: NSPoint) {
         let size = panel.contentView?.fittingSize ?? NSSize(width: 320, height: 118)
-        panel.setContentSize(size)
+        if panel.frame.size != size {
+            panel.setContentSize(size)
+        }
 
         let screen = NSScreen.screens.first { NSMouseInRect(cursorLocation, $0.frame, false) } ?? NSScreen.main
         let visibleFrame = screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
@@ -330,7 +342,9 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
             width: min(max(fittingSize.width, 340), 460),
             height: min(max(fittingSize.height, 88), 380)
         )
-        panel.setContentSize(size)
+        if panel.frame.size != size {
+            panel.setContentSize(size)
+        }
 
         let screen = NSScreen.screens.first { NSMouseInRect(cursorLocation, $0.frame, false) } ?? NSScreen.main
         let visibleFrame = screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero

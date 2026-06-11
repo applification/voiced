@@ -20,6 +20,10 @@ final class WhisperKitTranscriptionService: TranscriptionService {
     private var streamTranscriber: AudioStreamTranscriber?
     private var streamTranscriptionTask: Task<Void, Never>?
     private var latestLiveState = LiveTranscriptState.idle
+    private var pendingLiveState: LiveTranscriptState?
+    private var liveUpdateTask: Task<Void, Never>?
+    private var lastLiveUpdateAt = Date.distantPast
+    private let liveUpdateInterval: TimeInterval = 0.08
     private var livePreviousWords: [WordTiming] = []
     private var liveConfirmedWords: [WordTiming] = []
     private let liveWordConfirmationsNeeded = 2
@@ -113,9 +117,15 @@ final class WhisperKitTranscriptionService: TranscriptionService {
     }
 
     private func resolveModelFolder(for selectedModel: TranscriptionModel, store: ModelStore) async throws -> URL {
-        try store.prepareStorageForDownload()
-        if store.isPlausiblyComplete {
-            try verifyDownloadedModel(store, selectedModel: selectedModel)
+        try await Task.detached(priority: .utility) {
+            try store.prepareStorageForDownload()
+        }.value
+        let initialStatus = await Task.detached(priority: .utility) {
+            store.statusSnapshot()
+        }.value
+        if initialStatus.isDownloaded {
+            try await verifyDownloadedModel(store, selectedModel: selectedModel)
+            ModelStatusCache.refresh(selectedModel)
             postModelProgress(model: selectedModel, phase: "Downloaded", fractionCompleted: 1)
             return store.localModelURL
         }
@@ -124,7 +134,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         postModelProgress(model: selectedModel, phase: "Downloading", fractionCompleted: 0)
         let progressPollingTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                self?.postModelProgressFromCacheSize(model: selectedModel, store: store)
+                await self?.postModelProgressFromCacheSize(model: selectedModel, store: store)
                 try? await Task.sleep(nanoseconds: 500_000_000)
             }
         }
@@ -147,25 +157,33 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             progressPollingTask.cancel()
         }
         let folder = try await remoteDownloadTask.value
-        try verifyDownloadedModel(store, selectedModel: selectedModel)
+        try await verifyDownloadedModel(store, selectedModel: selectedModel)
+        ModelStatusCache.refresh(selectedModel)
         postModelProgress(model: selectedModel, phase: "Downloaded", fractionCompleted: 1)
         return folder
     }
 
-    private func verifyDownloadedModel(_ store: ModelStore, selectedModel: TranscriptionModel) throws {
+    private func verifyDownloadedModel(_ store: ModelStore, selectedModel: TranscriptionModel) async throws {
         do {
-            try ModelIntegrity.verify(model: selectedModel, at: store.localModelURL)
+            try await Task.detached(priority: .utility) {
+                try ModelIntegrity.verify(model: selectedModel, at: store.localModelURL)
+            }.value
         } catch {
             logger.error("WhisperKit model integrity verification failed: \(String(describing: error), privacy: .public)")
-            try? store.deleteDownloadedModel()
+            try? await Task.detached(priority: .utility) {
+                try store.deleteDownloadedModel()
+            }.value
+            ModelStatusCache.refresh(selectedModel)
             throw TranscriptionError.modelIntegrityVerificationFailed(selectedModel.label)
         }
     }
 
-    private func postModelProgressFromCacheSize(model: TranscriptionModel, store: ModelStore) {
+    private func postModelProgressFromCacheSize(model: TranscriptionModel, store: ModelStore) async {
         let expectedBytes = model.expectedDownloadBytes
         guard expectedBytes > 0 else { return }
-        let bytes = store.downloadedBytes
+        let bytes = await Task.detached(priority: .utility) {
+            store.downloadedBytes
+        }.value
         guard bytes > 0 else { return }
         let fraction = Double(min(bytes, expectedBytes)) / Double(expectedBytes)
         postModelProgress(model: model, phase: "Downloading", fractionCompleted: fraction)
@@ -228,6 +246,10 @@ final class WhisperKitTranscriptionService: TranscriptionService {
 
         await streamTranscriber?.stopStreamTranscription()
         streamTranscriptionTask?.cancel()
+        liveUpdateTask?.cancel()
+        liveUpdateTask = nil
+        pendingLiveState = nil
+        lastLiveUpdateAt = .distantPast
         latestLiveState = .idle
         livePreviousWords = []
         liveConfirmedWords = []
@@ -266,7 +288,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
                         isRecording: isRecording
                     )
                     self.latestLiveState = state
-                    onUpdate(state)
+                    self.emitLiveUpdate(state, onUpdate: onUpdate)
                 }
             }
         )
@@ -292,6 +314,9 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         await streamTranscriber.stopStreamTranscription()
         await waitForLiveStreamFinalization()
         streamTranscriptionTask?.cancel()
+        liveUpdateTask?.cancel()
+        liveUpdateTask = nil
+        pendingLiveState = nil
         streamTranscriptionTask = nil
         self.streamTranscriber = nil
 
@@ -300,6 +325,33 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         livePreviousWords = []
         liveConfirmedWords = []
         return text
+    }
+
+    private func emitLiveUpdate(_ state: LiveTranscriptState, onUpdate: @escaping @MainActor (LiveTranscriptState) -> Void) {
+        guard state != pendingLiveState else { return }
+        let elapsed = Date().timeIntervalSince(lastLiveUpdateAt)
+        guard elapsed < liveUpdateInterval else {
+            pendingLiveState = nil
+            lastLiveUpdateAt = Date()
+            onUpdate(state)
+            return
+        }
+
+        pendingLiveState = state
+        guard liveUpdateTask == nil else { return }
+        let delay = UInt64(max(0, liveUpdateInterval - elapsed) * 1_000_000_000)
+        liveUpdateTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: delay)
+            guard let self else { return }
+            guard let state = self.pendingLiveState else {
+                self.liveUpdateTask = nil
+                return
+            }
+            self.pendingLiveState = nil
+            self.lastLiveUpdateAt = Date()
+            self.liveUpdateTask = nil
+            onUpdate(state)
+        }
     }
 
     private func waitForLiveStreamFinalization() async {
