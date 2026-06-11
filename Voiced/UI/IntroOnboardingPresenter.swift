@@ -32,8 +32,8 @@ enum IntroOnboardingPresenter {
         if mode == .firstRun {
             window.styleMask.remove(.closable)
         }
-        window.setContentSize(NSSize(width: 700, height: 460))
-        window.minSize = NSSize(width: 700, height: 460)
+        window.setContentSize(NSSize(width: 680, height: 500))
+        window.minSize = NSSize(width: 680, height: 500)
         window.isReleasedWhenClosed = false
         hostingController.rootView = IntroOnboardingView(settings: settings, mode: mode, window: window, onFinish: onFinish)
         window.center()
@@ -97,52 +97,31 @@ private struct IntroOnboardingView: View {
         preparedModels.contains(selectedModel)
     }
 
+    private var modelStatusColor: Color {
+        isSelectedModelPrepared ? .green : .secondary
+    }
+
+    private var microphoneStatusColor: Color {
+        microphoneStatus == .authorized ? .green : .secondary
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 18) {
             header
-
-            VStack(alignment: .leading, spacing: 12) {
-                setupRow(
-                    symbolName: "brain.head.profile",
-                    title: "Speech model",
-                    status: modelStatusText,
-                    statusColor: isSelectedModelPrepared ? .green : .orange,
-                    detail: "Choose a local model. Bigger models take longer to download but can improve accuracy."
-                ) {
-                    modelChoiceSection
-                }
-
-                Divider()
-
-                setupRow(
-                    symbolName: "mic.fill",
-                    title: "Microphone",
-                    status: microphoneStatusText,
-                    statusColor: microphoneStatus == .authorized ? .green : .orange,
-                    detail: "Required to record while push-to-talk is active."
-                ) {
-                    microphoneAction
-                }
-            }
-
-            Spacer(minLength: 4)
-
-            HStack {
-                Spacer()
-
-                Button(mode.finishButtonTitle) {
-                    onFinish()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!canFinish)
-            }
+            modelSection
+            Divider()
+            microphoneSection
+            Spacer(minLength: 0)
+            footer
         }
-        .padding(24)
-        .frame(width: 700, height: 460, alignment: .topLeading)
+        .padding(.horizontal, 28)
+        .padding(.top, 28)
+        .padding(.bottom, 18)
+        .frame(width: 680, height: 500, alignment: .topLeading)
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.18))
         .onAppear {
             refreshStatuses()
             selectedModel = settings.transcriptionModel
-            prepareSelectedModelIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: .voicedModelProgressChanged)) { notification in
             guard let progress = notification.object as? ModelLoadProgress else { return }
@@ -157,7 +136,8 @@ private struct IntroOnboardingView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .voicedModelStatusChanged)) { notification in
-            let changedModel = notification.object as? TranscriptionModel
+            guard let changedModel = notification.object as? TranscriptionModel else { return }
+            reconcileModelState(afterStatusChangeFor: changedModel)
             guard changedModel == selectedModel else { return }
             refreshStatuses()
         }
@@ -175,11 +155,16 @@ private struct IntroOnboardingView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             Image("VoicedHeaderIcon")
                 .resizable()
                 .interpolation(.high)
-                .frame(width: 42, height: 42)
+                .frame(width: 40, height: 40)
+                .padding(7)
+                .background {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(nsColor: .controlBackgroundColor).opacity(0.46))
+                }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(mode.heading)
@@ -192,7 +177,31 @@ private struct IntroOnboardingView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func setupRow<Actions: View>(
+    private var modelSection: some View {
+        setupSection(
+            symbolName: "brain.head.profile",
+            title: "Speech model",
+            status: modelStatusText,
+            statusColor: modelStatusColor,
+            detail: "Choose a local model. Download starts only when you ask for it."
+        ) {
+            modelChoiceSection
+        }
+    }
+
+    private var microphoneSection: some View {
+        setupSection(
+            symbolName: "mic.fill",
+            title: "Microphone",
+            status: microphoneStatusText,
+            statusColor: microphoneStatusColor,
+            detail: "Required while push-to-talk is active."
+        ) {
+            microphoneAction
+        }
+    }
+
+    private func setupSection<Actions: View>(
         symbolName: String,
         title: String,
         status: String,
@@ -200,20 +209,23 @@ private struct IntroOnboardingView: View {
         detail: String,
         @ViewBuilder actions: () -> Actions
     ) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 14) {
             Image(systemName: symbolName)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(statusColor)
-                .frame(width: 24, height: 24)
+                .font(.system(size: 17, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.secondary)
+                .frame(width: 34, height: 34)
+                .background {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color(nsColor: .controlBackgroundColor).opacity(0.48))
+                }
 
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(title)
-                        .font(.callout.weight(.semibold))
+                        .font(.headline.weight(.semibold))
                     Spacer()
-                    Text(status)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(statusColor)
+                    statusBadge(status, color: statusColor)
                 }
 
                 Text(detail)
@@ -227,37 +239,48 @@ private struct IntroOnboardingView: View {
     }
 
     private var modelChoiceSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), spacing: 10),
-                    GridItem(.flexible(), spacing: 10)
-                ],
-                spacing: 8
-            ) {
-                ForEach(TranscriptionModel.allCases) { model in
-                    modelChoiceCard(model)
-                }
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(minimum: 0), spacing: 10),
+                GridItem(.flexible(minimum: 0), spacing: 10)
+            ],
+            spacing: 10
+        ) {
+            ForEach(TranscriptionModel.allCases) { model in
+                modelChoiceCard(model)
             }
-
         }
+        .frame(minHeight: 134, alignment: .top)
     }
 
     private func modelChoiceCard(_ model: TranscriptionModel) -> some View {
         let isSelected = selectedModel == model
         let isDownloaded = ModelStore(model: model).isDownloaded
         let isPrepared = preparedModels.contains(model)
+        let isActiveDownload = downloadingModel == model
         let tint = model.tintColor
-        return VStack(alignment: .leading, spacing: 7) {
-            HStack(alignment: .top, spacing: 8) {
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 10) {
                 Image(systemName: model.symbolName)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(tint)
-                    .frame(width: 20, height: 20)
+                    .frame(width: 30, height: 30)
+                    .background {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(tint.opacity(0.12))
+                    }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(model.label)
-                        .font(.callout.weight(.semibold))
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(model.label)
+                            .font(.callout.weight(.semibold))
+                        if !isDownloaded {
+                            Text("(\(model.downloadSizeText))")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     Text(model.onboardingDetail)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -265,52 +288,29 @@ private struct IntroOnboardingView: View {
                         .minimumScaleFactor(0.85)
                 }
 
-                Spacer(minLength: 4)
+                Spacer(minLength: 6)
 
-                if isPrepared {
-                    Label("Ready", systemImage: "checkmark.circle.fill")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.green)
-                        .labelStyle(.titleAndIcon)
-                } else if isSelected && downloadingModel == nil {
-                    Button(isDownloaded ? "Prepare" : "Download (\(model.downloadSizeText))") {
-                        prepareSelectedModelIfNeeded()
-                    }
-                    .font(.caption.weight(.medium))
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                } else if downloadingModel == model {
-                    HStack(spacing: 6) {
-                        ProgressView()
-                            .controlSize(.small)
-                            .scaleEffect(0.65)
-                        Text(modelInlineProgressText)
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                    }
-                } else if isSelected && downloadingModel != nil {
-                    Text("Waiting")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                } else if isSelected {
-                    Image(systemName: "circle.fill")
-                        .font(.system(size: 8))
-                        .foregroundStyle(Color.accentColor)
-                        .frame(width: 16, height: 16)
-                }
+                modelCardAccessory(
+                    model: model,
+                    isSelected: isSelected,
+                    isDownloaded: isDownloaded,
+                    isPrepared: isPrepared,
+                    isActiveDownload: isActiveDownload
+                )
             }
         }
-        .padding(9)
-        .frame(maxWidth: .infinity, minHeight: 54, alignment: .topLeading)
-        .background(isSelected ? Color.accentColor.opacity(0.10) : Color(nsColor: .controlBackgroundColor).opacity(0.45))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(isSelected ? Color.accentColor : Color(nsColor: .separatorColor), lineWidth: isSelected ? 1.5 : 1)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(isSelected ? Color(nsColor: .controlAccentColor).opacity(0.08) : Color(nsColor: .controlBackgroundColor).opacity(0.34))
         }
-        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(isSelected ? Color(nsColor: .controlAccentColor).opacity(0.34) : Color.primary.opacity(0.09), lineWidth: isSelected ? 1 : 0.8)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .onTapGesture {
             guard downloadingModel == nil || downloadingModel == model else {
                 selectedModel = model
@@ -324,23 +324,41 @@ private struct IntroOnboardingView: View {
         }
     }
 
-    private func instructionStep(_ number: String, _ text: String) -> some View {
-        instructionStep(number) {
-            Text(text)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func instructionStep<Content: View>(_ number: String, @ViewBuilder content: () -> Content) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(number)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 16, height: 16)
-                .background(Circle().fill(Color.accentColor.opacity(0.12)))
-
-            content()
+    @ViewBuilder
+    private func modelCardAccessory(
+        model: TranscriptionModel,
+        isSelected: Bool,
+        isDownloaded: Bool,
+        isPrepared: Bool,
+        isActiveDownload: Bool
+    ) -> some View {
+        if isPrepared {
+            Label("Ready", systemImage: "checkmark.circle.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.green)
+                .labelStyle(.titleAndIcon)
+        } else if isActiveDownload {
+            HStack(spacing: 6) {
+                ProgressView()
+                    .controlSize(.small)
+                    .scaleEffect(0.65)
+                Text(modelInlineProgressText)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+        } else if isSelected && downloadingModel == nil {
+            Button(isDownloaded ? "Load Model" : "Download") {
+                prepareSelectedModelIfNeeded()
+            }
+            .font(.caption.weight(.semibold))
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        } else if isSelected {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(model.tintColor.opacity(0.85))
         }
     }
 
@@ -360,13 +378,63 @@ private struct IntroOnboardingView: View {
                     }
                 }
             }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
         case .denied, .restricted:
             Button("Open Microphone Settings") {
                 openPrivacyPane("Privacy_Microphone")
             }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
         @unknown default:
-            Button("Refresh status") { refreshStatuses() }
+            Button("Refresh Status") { refreshStatuses() }
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
         }
+    }
+
+    private var footer: some View {
+        HStack(alignment: .center) {
+            Text(footerStatusText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Button(mode.finishButtonTitle) {
+                onFinish()
+            }
+            .keyboardShortcut(.defaultAction)
+            .controlSize(.large)
+            .buttonStyle(.borderedProminent)
+            .disabled(!canFinish)
+        }
+        .padding(.top, 2)
+    }
+
+    private func statusBadge(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background {
+                Capsule()
+                    .fill(color.opacity(0.12))
+            }
+    }
+
+    private var footerStatusText: String {
+        if canStart {
+            return "Setup complete."
+        }
+        if !isSelectedModelPrepared {
+            return isSelectedModelDownloaded ? "Load the selected model to continue." : "Download the selected model to continue."
+        }
+        if microphoneStatus != .authorized {
+            return "Allow microphone access to continue."
+        }
+        return "Complete the required steps to continue."
     }
 
     private var microphoneStatusText: String {
@@ -379,17 +447,7 @@ private struct IntroOnboardingView: View {
     }
 
     private var modelStatusText: String {
-        if isSelectedModelPrepared {
-            return "Ready"
-        }
-        guard let modelProgress else {
-            if downloadingModel != nil { return "Starting" }
-            return isSelectedModelDownloaded ? "Prepare" : "Needed"
-        }
-        if modelProgress.phase == "Downloading" {
-            return "\(Int((modelProgress.fractionCompleted * 100).rounded()))%"
-        }
-        return modelProgress.phase
+        isSelectedModelPrepared ? "Ready" : "Needed"
     }
 
     private var modelInlineProgressText: String {
@@ -402,6 +460,23 @@ private struct IntroOnboardingView: View {
 
     private func refreshStatuses() {
         microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        if let downloadingModel,
+           ModelStore(model: downloadingModel).isDownloaded,
+           modelProgress == nil {
+            self.downloadingModel = nil
+        }
+    }
+
+    private func reconcileModelState(afterStatusChangeFor model: TranscriptionModel) {
+        if ModelStore(model: model).isDownloaded,
+           modelProgress?.phase == "Loaded" {
+            preparedModels.insert(model)
+        }
+        guard downloadingModel == model else { return }
+        if preparedModels.contains(model) || !ModelStore(model: model).isDownloaded {
+            downloadingModel = nil
+            modelProgress = nil
+        }
     }
 
     private func prepareSelectedModelIfNeeded() {
