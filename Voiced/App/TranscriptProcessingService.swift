@@ -41,39 +41,18 @@ final class TranscriptProcessingService {
             return transcript
         }
 
-        let response: LanguageModelSession.Response<String>
-        if #available(macOS 27.0, *) {
-            response = try await processWithDynamicProfile(transcript, profile: profile)
-        } else {
-            let session = LanguageModelSession(instructions: profile.instructions)
-            response = try await session.respond(
-                to: prompt(for: profile, transcript: transcript),
-                options: GenerationOptions(
-                    samplingMode: .greedy,
-                    temperature: profile.temperature,
-                    maximumResponseTokens: profile.maximumResponseTokens
-                )
-            )
-        }
-
-        let processedText = TranscriptOutputFormatter.normalizedText(response.content, profile: profile)
-        return processedText.isEmpty ? transcript : processedText
-    }
-
-    @available(macOS 27.0, *)
-    private func processWithDynamicProfile(
-        _ transcript: String,
-        profile: TranscriptProcessingProfile
-    ) async throws -> LanguageModelSession.Response<String> {
-        let session = LanguageModelSession(profile: VoicedTranscriptDynamicProfile(profile: profile))
-        return try await session.respond(
+        let session = LanguageModelSession(instructions: profile.instructions)
+        let response = try await session.respond(
             to: prompt(for: profile, transcript: transcript),
             options: GenerationOptions(
-                samplingMode: .greedy,
+                sampling: .greedy,
                 temperature: profile.temperature,
                 maximumResponseTokens: profile.maximumResponseTokens
             )
         )
+
+        let processedText = TranscriptOutputFormatter.normalizedText(response.content, profile: profile)
+        return processedText.isEmpty ? transcript : processedText
     }
 
     @available(macOS 26.0, *)
@@ -91,32 +70,6 @@ final class TranscriptProcessingService {
 }
 
 #if canImport(FoundationModels)
-@available(macOS 27.0, *)
-private struct VoicedTranscriptDynamicProfile: LanguageModelSession.DynamicProfile {
-    let profile: TranscriptProcessingProfile
-
-    var body: some LanguageModelSession.DynamicProfile {
-        switch profile {
-        case .cleanTranscript:
-            Profile {
-                Instructions {
-                    profile.instructions
-                }
-            }
-            .temperature(profile.temperature)
-            .maximumResponseTokens(profile.maximumResponseTokens)
-        case .executiveSummary, .todoList:
-            Profile {
-                Instructions {
-                    profile.instructions
-                }
-            }
-            .temperature(profile.temperature)
-            .maximumResponseTokens(profile.maximumResponseTokens)
-        }
-    }
-}
-
 @available(macOS 26.0, *)
 private extension TranscriptProcessingProfile {
     var instructions: String {
