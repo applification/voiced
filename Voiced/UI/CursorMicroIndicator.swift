@@ -642,6 +642,7 @@ private struct CursorTranscriptReviewView: View {
     private let accent = Color.primary
     private let aiAccent = Color(nsColor: .systemPurple)
     private let confirmedInk = Color.primary
+    private let statusAccent = Color(red: 0.48, green: 0.78, blue: 0.56)
     private let warningInk = Color(red: 0.78, green: 0.23, blue: 0.06)
     private let panelWidth: CGFloat = 624
     private let contentWidth: CGFloat = 560
@@ -742,16 +743,12 @@ private struct CursorTranscriptReviewView: View {
                 Circle()
                     .fill(statusFill)
                     .frame(width: 34, height: 34)
-                if isAIProcessing {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(aiAccent)
-                } else {
-                    Image(systemName: statusSymbolName)
-                        .font(.system(size: 15, weight: .semibold))
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(statusColor)
-                }
+                CursorHeaderStatusIcon(
+                    isListening: isListening,
+                    isProcessing: isAIProcessing,
+                    accent: statusColor,
+                    processingAccent: aiAccent
+                )
             }
 
             VStack(alignment: .leading, spacing: 1) {
@@ -1268,16 +1265,9 @@ private struct CursorTranscriptReviewView: View {
             return aiAccent
         }
         if isListening {
-            return Color.primary.opacity(0.72)
+            return statusAccent
         }
-        return confirmedInk.opacity(0.72)
-    }
-
-    private var statusSymbolName: String {
-        if isListening {
-            return "waveform"
-        }
-        return "checkmark"
+        return statusAccent
     }
 
     private var statusFill: Color {
@@ -1285,9 +1275,9 @@ private struct CursorTranscriptReviewView: View {
             return aiAccent.opacity(0.12)
         }
         if isListening {
-            return Color.primary.opacity(0.08)
+            return statusAccent.opacity(0.14)
         }
-        return Color.primary.opacity(0.07)
+        return statusAccent.opacity(0.12)
     }
 
     private var headerTitle: String {
@@ -1317,6 +1307,33 @@ private struct CursorTranscriptReviewView: View {
         return Color.primary.opacity(0.12)
     }
 
+}
+
+private struct CursorHeaderStatusIcon: View {
+    let isListening: Bool
+    let isProcessing: Bool
+    let accent: Color
+    let processingAccent: Color
+
+    var body: some View {
+        if isProcessing {
+            ProgressView()
+                .controlSize(.small)
+                .tint(processingAccent)
+        } else if isListening {
+            HStack(alignment: .center, spacing: 2.5) {
+                ForEach(0..<5) { index in
+                    CursorWaveBar(color: accent, delay: Double(index) * 0.08)
+                }
+            }
+            .frame(width: 20, height: 16)
+        } else {
+            Image(systemName: "checkmark")
+                .font(.system(size: 15, weight: .bold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(accent)
+        }
+    }
 }
 
 private struct WindowDragRegion: NSViewRepresentable {
