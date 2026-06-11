@@ -112,6 +112,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
     @discardableResult
     func showReviewAtCursor(
         text: String,
+        processingAvailability: TranscriptProcessingAvailability,
         onCopy: @escaping (String) -> Void,
         onProcess: @escaping (TranscriptProcessingProfile, String) async -> String,
         onLoadReminderLists: @escaping (Bool) async -> [ReminderListOption],
@@ -124,6 +125,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         let panel = existingOrCreatePanel()
         let reviewModel = existingOrUpdatedReviewModel(appending: text)
         reviewModel.mode = .editing
+        reviewModel.processingAvailability = processingAvailability
         reviewModel.onCopy = onCopy
         reviewModel.onProcess = onProcess
         reviewModel.onLoadReminderLists = onLoadReminderLists
@@ -395,6 +397,28 @@ private struct CursorWaveBar: View {
     }
 }
 
+private extension View {
+    @ViewBuilder
+    func voicedGlassPanel(cornerRadius: CGFloat, tint: LinearGradient) -> some View {
+        if #available(macOS 26.0, *) {
+            self
+                .background {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(tint)
+                }
+                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            self
+                .background {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(tint)
+                }
+        }
+    }
+}
+
 @MainActor
 @Observable
 private final class CursorLiveTranscriptModel {
@@ -411,6 +435,7 @@ private final class CursorTranscriptReviewModel {
     var text: String
     var mode: CursorTranscriptReviewMode = .editing
     var processingProfile: TranscriptProcessingProfile?
+    var processingAvailability: TranscriptProcessingAvailability = .available
     var isExportingToReminders = false
     var isLoadingReminderLists = false
     var reminderLists: [ReminderListOption] = []
@@ -480,7 +505,14 @@ private struct CursorTranscriptReviewView: View {
     private var isAIProcessing: Bool { isProcessing }
     private var isBusy: Bool { isAIProcessing || model.isExportingToReminders }
     private var canProcessTranscript: Bool {
-        !isListening && !isBusy && !LiveTranscriptState.sanitizedText(model.text).isEmpty
+        model.processingAvailability.isAvailable
+            && !isListening
+            && !isBusy
+            && !LiveTranscriptState.sanitizedText(model.text).isEmpty
+    }
+    private var processingUnavailableMessage: String? {
+        guard !isListening, !isBusy else { return nil }
+        return model.processingAvailability.unavailableMessage
     }
     private var reminderTaskCount: Int {
         ReminderChecklistParser.taskCount(in: model.text)
@@ -500,8 +532,8 @@ private struct CursorTranscriptReviewView: View {
     private var panelFill: LinearGradient {
         LinearGradient(
             colors: [
-                Color(nsColor: .windowBackgroundColor).opacity(0.99),
-                Color(nsColor: .controlBackgroundColor).opacity(0.96)
+                Color(nsColor: .windowBackgroundColor).opacity(isListening ? 0.34 : 0.42),
+                Color(nsColor: .controlBackgroundColor).opacity(isListening ? 0.20 : 0.28)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -518,10 +550,7 @@ private struct CursorTranscriptReviewView: View {
         .padding(.horizontal, 28)
         .padding(.vertical, 24)
         .frame(width: panelWidth, alignment: .center)
-        .background {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(panelFill)
-        }
+        .voicedGlassPanel(cornerRadius: 22, tint: panelFill)
         .overlay(alignment: .top) {
             WindowDragRegion(
                 onDragStarted: {
@@ -636,19 +665,7 @@ private struct CursorTranscriptReviewView: View {
             .frame(width: contentWidth - 22, height: editorHeight)
             .padding(.horizontal, 11)
             .padding(.vertical, 10)
-            .background {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(nsColor: .controlBackgroundColor).opacity(0.82),
-                                Color(nsColor: .windowBackgroundColor).opacity(0.64)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            }
+            .background(Color.clear)
             .overlay {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(editorStrokeColor, lineWidth: isEditorFocused ? 1.5 : 1)
@@ -694,14 +711,7 @@ private struct CursorTranscriptReviewView: View {
         .frame(width: contentWidth - 22, height: editorHeight, alignment: .topLeading)
         .padding(.horizontal, 11)
         .padding(.vertical, 10)
-        .background {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.42))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color(nsColor: .controlBackgroundColor).opacity(0.42), lineWidth: 1)
-        }
+        .background(Color.clear)
     }
 
     private var liveTranscriptScrollText: String {
@@ -826,6 +836,11 @@ private struct CursorTranscriptReviewView: View {
                     Capsule()
                         .fill(warningInk.opacity(0.12))
                 }
+        } else if let processingUnavailableMessage {
+            Label(processingUnavailableMessage, systemImage: "sparkles")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         } else {
             HStack(spacing: 6) {
                 Text("Paste with")
@@ -937,7 +952,7 @@ private struct CursorTranscriptReviewView: View {
         }
         .animation(.easeOut(duration: 0.14), value: hoveredTranscriptAction)
         .disabled(!canProcessTranscript)
-        .help(profile.detail)
+        .help(model.processingAvailability.unavailableMessage ?? profile.detail)
     }
 
     private func transcriptActionForeground(isHovered: Bool) -> Color {
@@ -958,7 +973,10 @@ private struct CursorTranscriptReviewView: View {
     }
 
     private func runTranscriptAction(_ profile: TranscriptProcessingProfile) {
-        guard canProcessTranscript else { return }
+        guard canProcessTranscript else {
+            model.reminderExportMessage = model.processingAvailability.unavailableMessage
+            return
+        }
         let sourceText = model.text
         model.processingProfile = profile
         model.reminderExportMessage = nil

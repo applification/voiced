@@ -31,6 +31,8 @@ protocol OutputPerforming: AnyObject {
 
 @MainActor
 protocol TranscriptProcessing: AnyObject {
+    var availability: TranscriptProcessingAvailability { get }
+
     func process(_ transcript: String, profile: TranscriptProcessingProfile) async throws -> String
 }
 
@@ -59,6 +61,7 @@ protocol CursorIndicatorPresenting: AnyObject {
     @discardableResult
     func showReviewAtCursor(
         text: String,
+        processingAvailability: TranscriptProcessingAvailability,
         onCopy: @escaping (String) -> Void,
         onProcess: @escaping (TranscriptProcessingProfile, String) async -> String,
         onLoadReminderLists: @escaping (Bool) async -> [ReminderListOption],

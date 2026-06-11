@@ -277,6 +277,7 @@ final class AppCoordinator {
                     if self.cursorIndicator.hasReviewText {
                         self.cursorIndicator.showReviewAtCursor(
                             text: "",
+                            processingAvailability: self.transcriptProcessor.availability,
                             onCopy: { [weak self] updatedText in
                                 self?.output.copyToClipboard(updatedText)
                             },
@@ -307,6 +308,7 @@ final class AppCoordinator {
                 let hadReviewText = self.cursorIndicator.hasReviewText
                 let reviewText = self.cursorIndicator.showReviewAtCursor(
                     text: text,
+                    processingAvailability: self.transcriptProcessor.availability,
                     onCopy: { [weak self] updatedText in
                         self?.output.copyToClipboard(updatedText)
                     },
@@ -373,6 +375,7 @@ final class AppCoordinator {
         cursorIndicator.hideImmediately()
         cursorIndicator.showReviewAtCursor(
             text: transcript.text,
+            processingAvailability: transcriptProcessor.availability,
             onCopy: { [weak self] updatedText in
                 self?.output.copyToClipboard(updatedText)
             },

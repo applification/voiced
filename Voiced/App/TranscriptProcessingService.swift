@@ -8,6 +8,23 @@ import FoundationModels
 final class TranscriptProcessingService {
     private let logger = Logger(subsystem: "net.applification.voiced", category: "transcript-processing")
 
+    var availability: TranscriptProcessingAvailability {
+        #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) {
+            let model = SystemLanguageModel.default
+            guard case .available = model.availability else {
+                return .unavailable("Apple Intelligence is unavailable")
+            }
+            guard model.supportsLocale() else {
+                return .unavailable("Apple Intelligence does not support this language")
+            }
+            return .available
+        }
+        #endif
+
+        return .unavailable("AI actions require macOS 26")
+    }
+
     func process(_ transcript: String, profile: TranscriptProcessingProfile) async throws -> String {
         let text = LiveTranscriptState.sanitizedText(transcript)
         guard !text.isEmpty else { return text }
@@ -82,6 +99,21 @@ final class TranscriptProcessingService {
         }
     }
     #endif
+}
+
+enum TranscriptProcessingAvailability: Equatable {
+    case available
+    case unavailable(String)
+
+    var isAvailable: Bool {
+        if case .available = self { return true }
+        return false
+    }
+
+    var unavailableMessage: String? {
+        if case .unavailable(let message) = self { return message }
+        return nil
+    }
 }
 
 #if canImport(FoundationModels)
