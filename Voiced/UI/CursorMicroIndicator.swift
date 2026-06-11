@@ -646,6 +646,7 @@ private struct CursorTranscriptReviewView: View {
     private let panelWidth: CGFloat = 624
     private let contentWidth: CGFloat = 560
     private let editorHeight: CGFloat = 172
+    private let liveTranscriptBottomID = "cursor-live-transcript-bottom"
     private var isListening: Bool { model.mode.isListening }
     private var isProcessing: Bool { model.processingProfile != nil }
     private var isAIProcessing: Bool { isProcessing }
@@ -836,16 +837,31 @@ private struct CursorTranscriptReviewView: View {
     }
 
     private var liveTranscriptDisplay: some View {
-        ScrollView(.vertical) {
-            liveTranscriptContent
-                .font(.system(.body, design: .default))
-                .lineSpacing(3)
-                .fixedSize(horizontal: false, vertical: true)
+        ScrollViewReader { proxy in
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 0) {
+                    liveTranscriptContent
+                        .font(.system(.body, design: .default))
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 5)
+                        .padding(.top, 0)
+                        .padding(.bottom, 10)
+                        .textSelection(.enabled)
+
+                    Color.clear
+                        .frame(height: 1)
+                        .id(liveTranscriptBottomID)
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 5)
-                .padding(.top, 0)
-                .padding(.bottom, 10)
-                .textSelection(.enabled)
+            }
+            .onAppear {
+                scrollLiveTranscriptToBottom(proxy)
+            }
+            .onChange(of: liveTranscriptScrollText) { _, _ in
+                scrollLiveTranscriptToBottom(proxy)
+            }
         }
         .frame(width: contentWidth - 22, height: editorHeight, alignment: .topLeading)
         .padding(.horizontal, 11)
@@ -857,6 +873,24 @@ private struct CursorTranscriptReviewView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(Color(nsColor: .controlBackgroundColor).opacity(0.42), lineWidth: 1)
+        }
+    }
+
+    private var liveTranscriptScrollText: String {
+        guard case .listening(let liveModel) = model.mode else {
+            return model.text
+        }
+
+        return [
+            LiveTranscriptState.sanitizedText(model.text),
+            LiveTranscriptState.sanitizedText(liveModel.state.committedText),
+            LiveTranscriptState.sanitizedText(liveModel.state.provisionalText)
+        ].joined(separator: " ")
+    }
+
+    private func scrollLiveTranscriptToBottom(_ proxy: ScrollViewProxy) {
+        DispatchQueue.main.async {
+            proxy.scrollTo(liveTranscriptBottomID, anchor: .bottom)
         }
     }
 
