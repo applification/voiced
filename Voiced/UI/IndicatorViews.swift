@@ -40,6 +40,13 @@ struct IndicatorView: View {
                 Text("Processing")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            case .success(let message):
+                Image(systemName: "checkmark")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(waveformColor)
+                Text(message)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
             case .error(let message):
                 Image(systemName: "exclamationmark")
                     .font(.caption.weight(.semibold))
@@ -109,6 +116,14 @@ struct NotchContentView: View {
                 .frame(width: metrics.dotSize, height: metrics.dotSize)
         case .transcribing, .processing:
             EmptyView()
+        case .success(let message):
+            Image(systemName: "checkmark")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(waveformColor)
+            Text(message)
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
         case .error(let message):
             Image(systemName: "exclamationmark")
                 .font(.caption.weight(.semibold))

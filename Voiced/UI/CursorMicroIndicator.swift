@@ -98,6 +98,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         text: String,
         onCopy: @escaping (String) -> Void,
         onProcess: @escaping (TranscriptProcessingProfile, String) async -> String,
+        onExportToReminders: @escaping (String) async -> ReminderExportResult,
         onDropRejected: @escaping () -> Void
     ) {
         followTask?.cancel()
@@ -108,6 +109,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         reviewModel.mode = .editing
         reviewModel.onCopy = onCopy
         reviewModel.onProcess = onProcess
+        reviewModel.onExportToReminders = onExportToReminders
         reviewModel.onDropRejected = onDropRejected
         reviewModel.onDismiss = { [weak self] in
             guard self?.isShowingReview == true else { return }
@@ -554,9 +556,12 @@ private final class CursorTranscriptReviewModel {
     var text: String
     var mode: CursorTranscriptReviewMode = .editing
     var processingProfile: TranscriptProcessingProfile?
+    var isExportingToReminders = false
+    var reminderExportMessage: String?
     @ObservationIgnored var anchorPoint: NSPoint?
     @ObservationIgnored var onCopy: (String) -> Void = { _ in }
     @ObservationIgnored var onProcess: (TranscriptProcessingProfile, String) async -> String = { _, transcript in transcript }
+    @ObservationIgnored var onExportToReminders: (String) async -> ReminderExportResult = { _ in .failure("Reminders export is unavailable.") }
     @ObservationIgnored var onDismiss: () -> Void = {}
     @ObservationIgnored var onDropRejected: () -> Void = {}
     @ObservationIgnored var onWindowMoved: () -> Void = {}
@@ -600,6 +605,7 @@ private struct CursorTranscriptReviewView: View {
     @State private var hasMouseEntered = false
     @State private var didRejectLastDrop = false
     @State private var hoveredTranscriptAction: TranscriptProcessingProfile?
+    @State private var isReminderExportHovered = false
 
     private let accent = Color.primary
     private let aiAccent = Color(nsColor: .systemPurple)
@@ -610,8 +616,15 @@ private struct CursorTranscriptReviewView: View {
     private let editorHeight: CGFloat = 172
     private var isListening: Bool { model.mode.isListening }
     private var isProcessing: Bool { model.processingProfile != nil }
+    private var isBusy: Bool { isProcessing || model.isExportingToReminders }
     private var canProcessTranscript: Bool {
-        !isListening && !isProcessing && !LiveTranscriptState.sanitizedText(model.text).isEmpty
+        !isListening && !isBusy && !LiveTranscriptState.sanitizedText(model.text).isEmpty
+    }
+    private var reminderTaskCount: Int {
+        ReminderChecklistParser.taskCount(in: model.text)
+    }
+    private var canExportToReminders: Bool {
+        !isListening && !isBusy && reminderTaskCount > 0
     }
     private var transcriptWordCount: Int {
         LiveTranscriptState.sanitizedText(model.text)
@@ -677,7 +690,7 @@ private struct CursorTranscriptReviewView: View {
         .onHover { hovering in
             if hovering {
                 hasMouseEntered = true
-            } else if hasMouseEntered && !isDragStarting && !isWindowDragging && !isListening && !isProcessing {
+            } else if hasMouseEntered && !isDragStarting && !isWindowDragging && !isListening && !isBusy {
                 model.onDismiss()
             }
         }
@@ -778,6 +791,7 @@ private struct CursorTranscriptReviewView: View {
                 isEditorFocused = true
             }
             .onChange(of: model.text) { _, newValue in
+                model.reminderExportMessage = nil
                 model.onCopy(newValue)
             }
     }
@@ -847,6 +861,9 @@ private struct CursorTranscriptReviewView: View {
                     transcriptActionButton(profile: .cleanTranscript, title: "Clean", symbolName: "wand.and.sparkles")
                     transcriptActionButton(profile: .executiveSummary, title: "Summarize", symbolName: "text.badge.checkmark")
                     transcriptActionButton(profile: .todoList, title: "To-do", symbolName: "checklist")
+                    if reminderTaskCount > 0 {
+                        remindersExportButton
+                    }
                 }
                 .padding(4)
                 .background {
@@ -893,7 +910,12 @@ private struct CursorTranscriptReviewView: View {
 
     @ViewBuilder
     private var transcriptStatus: some View {
-        if didRejectLastDrop {
+        if let reminderExportMessage = model.reminderExportMessage {
+            Label(reminderExportMessage, systemImage: reminderExportMessage.hasPrefix("Added") ? "checkmark.circle" : "exclamationmark.triangle")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(reminderExportMessage.hasPrefix("Added") ? .secondary : warningInk)
+                .lineLimit(1)
+        } else if didRejectLastDrop {
             Label("Press ⌘V", systemImage: "exclamationmark.triangle")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(warningInk)
@@ -909,6 +931,36 @@ private struct CursorTranscriptReviewView: View {
                 .foregroundStyle(.secondary)
                 .opacity(isListening ? 0.45 : 1)
         }
+    }
+
+    private var remindersExportButton: some View {
+        let isHovered = isReminderExportHovered && canExportToReminders
+        return Button {
+            exportToReminders()
+        } label: {
+            Label("Reminders", systemImage: model.isExportingToReminders ? "hourglass" : "list.bullet.clipboard")
+                .font(.caption.weight(.semibold))
+                .labelStyle(.titleAndIcon)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(canExportToReminders ? Color.primary : Color.secondary)
+        .background {
+            Capsule()
+                .fill(transcriptActionFill(isHovered: isHovered))
+        }
+        .overlay {
+            Capsule()
+                .strokeBorder(Color.primary.opacity(isHovered ? 0.16 : 0.08), lineWidth: 1)
+        }
+        .onHover { hovering in
+            isReminderExportHovered = hovering && canExportToReminders
+        }
+        .animation(.easeOut(duration: 0.12), value: isReminderExportHovered)
+        .disabled(!canExportToReminders)
+        .help("Export checklist items to Reminders")
     }
 
     private func transcriptActionButton(profile: TranscriptProcessingProfile, title: String, symbolName: String) -> some View {
@@ -950,6 +1002,7 @@ private struct CursorTranscriptReviewView: View {
         guard canProcessTranscript else { return }
         let sourceText = model.text
         model.processingProfile = profile
+        model.reminderExportMessage = nil
         isEditorFocused = false
         Task { @MainActor in
             let processedText = await model.onProcess(profile, sourceText)
@@ -957,6 +1010,25 @@ private struct CursorTranscriptReviewView: View {
             model.text = processedText
             model.onCopy(processedText)
             model.processingProfile = nil
+            isEditorFocused = true
+        }
+    }
+
+    private func exportToReminders() {
+        guard canExportToReminders else { return }
+        let sourceText = model.text
+        model.isExportingToReminders = true
+        model.reminderExportMessage = nil
+        isEditorFocused = false
+        Task { @MainActor in
+            let result = await model.onExportToReminders(sourceText)
+            switch result {
+            case .success(let count):
+                model.reminderExportMessage = count == 1 ? "Added 1 reminder" : "Added \(count) reminders"
+            case .failure(let message):
+                model.reminderExportMessage = message
+            }
+            model.isExportingToReminders = false
             isEditorFocused = true
         }
     }

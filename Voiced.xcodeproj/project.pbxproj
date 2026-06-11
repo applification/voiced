@@ -45,6 +45,7 @@
 		F29BE2812FDA8D4D002C59F7 /* TranscriptProcessingProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29BE2802FDA8D4D002C59F7 /* TranscriptProcessingProfile.swift */; };
 		F29BE2832FDA8D60002C59F7 /* TranscriptProcessingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29BE2822FDA8D60002C59F7 /* TranscriptProcessingService.swift */; };
 		F29BE2852FDA9B9C002C59F7 /* TranscriptOutputFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29BE2842FDA9B9C002C59F7 /* TranscriptOutputFormatter.swift */; };
+		F29BE2872FDAB060002C59F7 /* ReminderExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29BE2862FDAB060002C59F7 /* ReminderExportService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -84,6 +85,7 @@
 		F29BE2802FDA8D4D002C59F7 /* TranscriptProcessingProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptProcessingProfile.swift; sourceTree = "<group>"; };
 		F29BE2822FDA8D60002C59F7 /* TranscriptProcessingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptProcessingService.swift; sourceTree = "<group>"; };
 		F29BE2842FDA9B9C002C59F7 /* TranscriptOutputFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptOutputFormatter.swift; sourceTree = "<group>"; };
+		F29BE2862FDAB060002C59F7 /* ReminderExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderExportService.swift; sourceTree = "<group>"; };
 		F2DC7F659259C1147C0E793B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F52BF312BC256443226FD940 /* SoundCuePlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundCuePlayer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -157,6 +159,7 @@
 				F29BE2802FDA8D4D002C59F7 /* TranscriptProcessingProfile.swift */,
 				F29BE2822FDA8D60002C59F7 /* TranscriptProcessingService.swift */,
 				F29BE2842FDA9B9C002C59F7 /* TranscriptOutputFormatter.swift */,
+				F29BE2862FDAB060002C59F7 /* ReminderExportService.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -330,6 +333,7 @@
 				F29BE2832FDA8D60002C59F7 /* TranscriptProcessingService.swift in Sources */,
 				E41501F56C890F9B8F12E129 /* StatusMenuController+Actions.swift in Sources */,
 				D6E6C49354E2F3B06B037864 /* StatusMenuController+MenuBuilding.swift in Sources */,
+				F29BE2872FDAB060002C59F7 /* ReminderExportService.swift in Sources */,
 				0A8A20A33A6B5CC39238FB71 /* StatusMenuController.swift in Sources */,
 				F29BE2852FDA9B9C002C59F7 /* TranscriptOutputFormatter.swift in Sources */,
 				5533DDF7CD2F7C04A715F483 /* TelemetryService.swift in Sources */,
@@ -498,7 +502,7 @@
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
-				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = YES;
 				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
@@ -591,6 +595,16 @@
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = YES;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				INFOPLIST_FILE = Config/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -616,7 +630,7 @@
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
-				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = YES;
 				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;

@@ -32,6 +32,12 @@ protocol TranscriptProcessing: AnyObject {
 }
 
 @MainActor
+protocol ReminderExporting: AnyObject {
+    func checklistItemCount(in text: String) -> Int
+    func exportChecklist(from text: String) async throws -> Int
+}
+
+@MainActor
 protocol IndicatorPresenting: AnyObject {
     func show(state: IndicatorState)
     func hide()
@@ -48,6 +54,7 @@ protocol CursorIndicatorPresenting: AnyObject {
         text: String,
         onCopy: @escaping (String) -> Void,
         onProcess: @escaping (TranscriptProcessingProfile, String) async -> String,
+        onExportToReminders: @escaping (String) async -> ReminderExportResult,
         onDropRejected: @escaping () -> Void
     )
     func hide()
@@ -80,6 +87,7 @@ extension HotkeyManager: HotkeyListening {}
 extension WhisperKitTranscriptionService: AppTranscribing {}
 extension OutputManager: OutputPerforming {}
 extension TranscriptProcessingService: TranscriptProcessing {}
+extension ReminderExportService: ReminderExporting {}
 extension FloatingIndicator: IndicatorPresenting {}
 extension CursorMicroIndicator: CursorIndicatorPresenting {}
 extension MicrophonePermissionManager: MicrophonePermissionManaging {}

@@ -9,6 +9,7 @@ final class AppCoordinator {
     private var transcriber: any AppTranscribing
     private let output: any OutputPerforming
     private let transcriptProcessor: any TranscriptProcessing
+    private let reminderExporter: any ReminderExporting
     private let indicator: any IndicatorPresenting
     private let cursorIndicator: any CursorIndicatorPresenting
     private let permissions: any MicrophonePermissionManaging
@@ -28,6 +29,7 @@ final class AppCoordinator {
         transcriber: any AppTranscribing,
         output: any OutputPerforming = OutputManager(),
         transcriptProcessor: any TranscriptProcessing = TranscriptProcessingService(),
+        reminderExporter: any ReminderExporting = ReminderExportService(),
         indicator: any IndicatorPresenting = FloatingIndicator(),
         cursorIndicator: any CursorIndicatorPresenting = CursorMicroIndicator(),
         permissions: any MicrophonePermissionManaging = MicrophonePermissionManager(),
@@ -39,6 +41,7 @@ final class AppCoordinator {
         self.transcriber = transcriber
         self.output = output
         self.transcriptProcessor = transcriptProcessor
+        self.reminderExporter = reminderExporter
         self.indicator = indicator
         self.cursorIndicator = cursorIndicator
         self.permissions = permissions
@@ -258,6 +261,9 @@ final class AppCoordinator {
                             onProcess: { [weak self] profile, transcript in
                                 await self?.processTranscript(transcript, profile: profile) ?? transcript
                             },
+                            onExportToReminders: { [weak self] checklist in
+                                await self?.exportChecklistToReminders(checklist) ?? .failure("Reminders export is unavailable")
+                            },
                             onDropRejected: { [weak self] in
                                 self?.showDropRejectedIndicator()
                             }
@@ -280,6 +286,9 @@ final class AppCoordinator {
                     },
                     onProcess: { [weak self] profile, transcript in
                         await self?.processTranscript(transcript, profile: profile) ?? transcript
+                    },
+                    onExportToReminders: { [weak self] checklist in
+                        await self?.exportChecklistToReminders(checklist) ?? .failure("Reminders export is unavailable")
                     },
                     onDropRejected: { [weak self] in
                         self?.showDropRejectedIndicator()
@@ -341,10 +350,33 @@ final class AppCoordinator {
         }
     }
 
+    private func exportChecklistToReminders(_ checklist: String) async -> ReminderExportResult {
+        do {
+            let count = try await reminderExporter.exportChecklist(from: checklist)
+            telemetry.capture(.transcriptionSucceeded, properties: [
+                "reminder_count": count,
+                "output_mode": "reminders_export",
+                "mode": "live"
+            ])
+            let message = count == 1 ? "Added to Reminders" : "Added \(count) reminders"
+            showTemporaryIndicator(.success(message), duration: 1_500_000_000)
+            return .success(count: count)
+        } catch {
+            AppCoordinator.logger.error("Reminders export failed: \(String(describing: error), privacy: .public)")
+            let message = (error as? LocalizedError)?.errorDescription ?? "Could not add reminders"
+            showTemporaryIndicator(.error(message), duration: 1_800_000_000)
+            return .failure(message)
+        }
+    }
+
     private func showDropRejectedIndicator() {
-        indicator.show(state: .error("Drop not accepted. Press ⌘V"))
+        showTemporaryIndicator(.error("Drop not accepted. Press ⌘V"), duration: 1_500_000_000)
+    }
+
+    private func showTemporaryIndicator(_ state: IndicatorState, duration: UInt64) {
+        indicator.show(state: state)
         Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            try? await Task.sleep(nanoseconds: duration)
             self?.indicator.hide()
         }
     }

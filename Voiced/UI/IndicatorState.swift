@@ -2,13 +2,14 @@ enum IndicatorState {
     case recording(level: Double)
     case transcribing
     case processing
+    case success(String)
     case error(String)
 
     var isTextProgress: Bool {
         switch self {
         case .transcribing, .processing:
             true
-        case .recording, .error:
+        case .recording, .success, .error:
             false
         }
     }
@@ -19,7 +20,7 @@ enum IndicatorState {
             "Transcribing"
         case .processing:
             "Processing"
-        case .recording, .error:
+        case .recording, .success, .error:
             ""
         }
     }

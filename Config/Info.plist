@@ -18,21 +18,23 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Voiced records only while push-to-talk is active so it can transcribe your speech locally.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Voiced needs access to Reminders so it can export generated checklist items as reminders.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Voiced uses speech recognition to turn your push-to-talk recordings into text.</string>
 	<key>PostHogHost</key>
 	<string>$(POSTHOG_HOST)</string>
 	<key>PostHogProjectToken</key>
 	<string>$(POSTHOG_PROJECT_TOKEN)</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Voiced uses speech recognition to turn your push-to-talk recordings into text.</string>
 </dict>
 </plist>
