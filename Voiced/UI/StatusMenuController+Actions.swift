@@ -1,5 +1,6 @@
 import AppKit
 import AVFoundation
+import ServiceManagement
 import SwiftUI
 
 @MainActor
@@ -49,14 +50,32 @@ extension StatusMenuController {
         }
     }
 
+    @objc func toggleLaunchAtLogin() {
+        let shouldEnable = SMAppService.mainApp.status != .enabled
+        do {
+            if shouldEnable {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+            settings.launchAtLogin = shouldEnable
+            rebuildMenu()
+        } catch {
+            NSSound.beep()
+        }
+    }
+
     @objc func showSetupGuide() {
+        closeSettingsWindow()
+
         if let onboardingWindow {
             onboardingWindow.makeKeyAndOrderFront(nil)
         } else {
-            onboardingWindow = IntroOnboardingPresenter.presentSetupGuide(settings: settings) { [weak self] in
-                self?.onboardingWindow?.close()
-                self?.onboardingWindow = nil
+            let window = IntroOnboardingPresenter.presentSetupGuide(settings: settings) { [weak self] in
+                self?.closeOnboardingWindow()
             }
+            window.delegate = self
+            onboardingWindow = window
         }
     }
 
@@ -73,6 +92,8 @@ extension StatusMenuController {
     }
 
     func presentSettings(section: SettingsSection) {
+        closeOnboardingWindow()
+
         settingsNavigation.selectedSection = section
         if let settingsWindow {
             settingsWindow.makeKeyAndOrderFront(nil)
@@ -84,11 +105,31 @@ extension StatusMenuController {
             window.setContentSize(NSSize(width: 560, height: 360))
             window.minSize = NSSize(width: 560, height: 360)
             window.isReleasedWhenClosed = false
+            window.delegate = self
             window.center()
             settingsWindow = window
             window.makeKeyAndOrderFront(nil)
         }
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func closeSettingsWindow() {
+        settingsWindow?.close()
+        settingsWindow = nil
+    }
+
+    private func closeOnboardingWindow() {
+        onboardingWindow?.close()
+        onboardingWindow = nil
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        if window === settingsWindow {
+            settingsWindow = nil
+        } else if window === onboardingWindow {
+            onboardingWindow = nil
+        }
     }
 
     @objc func quit() {

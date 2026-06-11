@@ -154,7 +154,6 @@ extension StatusMenuController {
                                      color: .secondaryLabelColor))
 
         let modelItem = NSMenuItem(title: "Model", action: nil, keyEquivalent: "")
-        modelItem.image = menuIcon("brain.head.profile", color: .secondaryLabelColor)
         modelItem.submenu = modelMenu
         menu.addItem(modelItem)
     }
@@ -201,17 +200,18 @@ extension StatusMenuController {
     }
 
     private func addAppMenuItems() {
+        menu.addItem(actionItem(title: "Launch at Login",
+                                action: #selector(toggleLaunchAtLogin),
+                                symbolName: settings.launchAtLogin ? "checkmark" : nil,
+                                color: .secondaryLabelColor))
+
         let settingsItem = actionItem(title: "Settings...",
-                                      action: #selector(openSettings),
-                                      symbolName: "gearshape.fill",
-                                      color: .secondaryLabelColor)
+                                      action: #selector(openSettings))
         settingsItem.isEnabled = !IntroOnboardingPresenter.isSetupRequired(settings: settings)
         menu.addItem(settingsItem)
 
         let setupGuideItem = actionItem(title: "Setup Guide...",
-                                        action: #selector(showSetupGuide),
-                                        symbolName: "checklist",
-                                        color: .secondaryLabelColor)
+                                        action: #selector(showSetupGuide))
         menu.addItem(setupGuideItem)
 
         menu.addItem(actionItem(title: "Quit Voiced",

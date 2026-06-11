@@ -1,7 +1,7 @@
 import AppKit
 
 @MainActor
-final class StatusMenuController: NSObject, NSMenuDelegate {
+final class StatusMenuController: NSObject, NSMenuDelegate, NSWindowDelegate {
     let settings: SettingsStore
     let settingsNavigation: SettingsNavigation
     let output = OutputManager()

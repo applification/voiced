@@ -12,6 +12,10 @@ final class TranscriptProcessingService {
         let text = LiveTranscriptState.sanitizedText(transcript)
         guard !text.isEmpty else { return text }
 
+        return try await processWithAIIfAvailable(text, profile: profile)
+    }
+
+    private func processWithAIIfAvailable(_ text: String, profile: TranscriptProcessingProfile) async throws -> String {
         #if canImport(FoundationModels)
         if #available(macOS 26.0, *) {
             do {
@@ -41,15 +45,18 @@ final class TranscriptProcessingService {
             return transcript
         }
 
+        let start = ContinuousClock.now
         let session = LanguageModelSession(instructions: profile.instructions)
         let response = try await session.respond(
             to: prompt(for: profile, transcript: transcript),
             options: GenerationOptions(
-                sampling: .greedy,
+                samplingMode: .greedy,
                 temperature: profile.temperature,
                 maximumResponseTokens: profile.maximumResponseTokens
             )
         )
+        let duration = start.duration(to: .now)
+        logger.info("FoundationModels \(profile.rawValue, privacy: .public) completed in \(String(describing: duration), privacy: .public)")
 
         let processedText = TranscriptOutputFormatter.normalizedText(response.content, profile: profile)
         return processedText.isEmpty ? transcript : processedText
@@ -57,14 +64,22 @@ final class TranscriptProcessingService {
 
     @available(macOS 26.0, *)
     private func prompt(for profile: TranscriptProcessingProfile, transcript: String) -> String {
-        """
-        Input is a raw speech transcript.
-        Transform it using the active profile.
-        Do not invent facts not present in the transcript.
+        switch profile {
+        case .todoList:
+            """
+            Transcript:
+            \(transcript)
+            """
+        case .cleanTranscript, .executiveSummary:
+            """
+            Input is a raw speech transcript.
+            Transform it using the active profile.
+            Do not invent facts not present in the transcript.
 
-        Transcript:
-        \(transcript)
-        """
+            Transcript:
+            \(transcript)
+            """
+        }
     }
     #endif
 }
@@ -93,15 +108,9 @@ private extension TranscriptProcessingProfile {
             """
         case .todoList:
             """
-            Extract a practical to-do list from raw speech transcripts.
-            - Return only a markdown checklist.
-            - Use unchecked items in the form "- [ ] Task".
-            - Put each checklist item on its own line.
-            - Do not put multiple checklist items on one line.
-            - Keep each task concise and actionable.
-            - Include owner or due date only if explicitly stated.
-            - Do not invent tasks.
-            - If no tasks are present, return "- [ ] No clear tasks captured".
+            Extract explicit tasks from the transcript.
+            Return only unchecked markdown checklist lines: "- [ ] Task".
+            Keep tasks short. Do not invent tasks. If none, return "- [ ] No clear tasks captured".
             """
         }
     }
@@ -122,7 +131,7 @@ private extension TranscriptProcessingProfile {
         case .executiveSummary:
             220
         case .todoList:
-            260
+            160
         }
     }
 }

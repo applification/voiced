@@ -621,7 +621,8 @@ private struct CursorTranscriptReviewView: View {
     private let editorHeight: CGFloat = 172
     private var isListening: Bool { model.mode.isListening }
     private var isProcessing: Bool { model.processingProfile != nil }
-    private var isBusy: Bool { isProcessing || model.isExportingToReminders }
+    private var isAIProcessing: Bool { isProcessing }
+    private var isBusy: Bool { isAIProcessing || model.isExportingToReminders }
     private var canProcessTranscript: Bool {
         !isListening && !isBusy && !LiveTranscriptState.sanitizedText(model.text).isEmpty
     }
@@ -707,7 +708,7 @@ private struct CursorTranscriptReviewView: View {
                 Circle()
                     .fill(statusFill)
                     .frame(width: 34, height: 34)
-                if isProcessing {
+                if isAIProcessing {
                     ProgressView()
                         .controlSize(.small)
                         .tint(aiAccent)
@@ -767,7 +768,7 @@ private struct CursorTranscriptReviewView: View {
             .font(.system(.body, design: .default))
             .lineSpacing(3)
             .textEditorStyle(.plain)
-            .disabled(isProcessing)
+            .disabled(isAIProcessing)
             .scrollContentBackground(.hidden)
             .focused($isEditorFocused)
             .frame(width: contentWidth - 22, height: editorHeight)
@@ -790,8 +791,8 @@ private struct CursorTranscriptReviewView: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(editorStrokeColor, lineWidth: isEditorFocused ? 1.5 : 1)
             }
-            .opacity(isProcessing ? 0.58 : 1)
-            .animation(.easeOut(duration: 0.16), value: isProcessing)
+            .opacity(isAIProcessing ? 0.58 : 1)
+            .animation(.easeOut(duration: 0.16), value: isAIProcessing)
             .onTapGesture {
                 isEditorFocused = true
             }
@@ -886,18 +887,18 @@ private struct CursorTranscriptReviewView: View {
     }
 
     private var isDragHandleActive: Bool {
-        !isListening && !isProcessing && (isDragHandleHovered || isDragStarting)
+        !isListening && !isAIProcessing && (isDragHandleHovered || isDragStarting)
     }
 
     private var dragHandleForeground: Color {
-        if isListening || isProcessing {
+        if isListening || isAIProcessing {
             return .secondary.opacity(0.65)
         }
         return .primary
     }
 
     private var dragHandleFill: Color {
-        if isListening || isProcessing {
+        if isListening || isAIProcessing {
             return Color(nsColor: .controlBackgroundColor).opacity(0.58)
         }
         return isDragHandleActive
@@ -1113,19 +1114,19 @@ private struct CursorTranscriptReviewView: View {
                 .strokeBorder(dragHandleStroke, lineWidth: dragHandleStrokeWidth)
         }
         .contentShape(Capsule())
-        .scaleEffect(isDragHandleHovered && !isListening && !isProcessing ? 1.03 : 1)
+        .scaleEffect(isDragHandleHovered && !isListening && !isAIProcessing ? 1.03 : 1)
         .animation(.easeOut(duration: 0.12), value: isDragHandleHovered)
         .animation(.easeOut(duration: 0.12), value: isDragStarting)
         .onHover { hovering in
             isDragHandleHovered = hovering
-            if hovering && !isListening && !isProcessing {
+            if hovering && !isListening && !isAIProcessing {
                 NSCursor.openHand.push()
             } else {
                 NSCursor.pop()
             }
         }
         .overlay {
-            if !isListening && !isProcessing {
+            if !isListening && !isAIProcessing {
                 TextDragSourceView(
                     text: model.text,
                     onHoverChanged: { hovering in
@@ -1160,7 +1161,7 @@ private struct CursorTranscriptReviewView: View {
     }
 
     private var statusColor: Color {
-        if isProcessing {
+        if isAIProcessing {
             return aiAccent
         }
         if isListening {
@@ -1177,7 +1178,7 @@ private struct CursorTranscriptReviewView: View {
     }
 
     private var statusFill: Color {
-        if isProcessing {
+        if isAIProcessing {
             return aiAccent.opacity(0.12)
         }
         if isListening {
@@ -1194,7 +1195,7 @@ private struct CursorTranscriptReviewView: View {
     }
 
     private var headerSubtitle: String {
-        if isProcessing {
+        if isAIProcessing {
             return "On-device processing"
         }
         if isListening {
@@ -1204,7 +1205,7 @@ private struct CursorTranscriptReviewView: View {
     }
 
     private var editorStrokeColor: Color {
-        if isProcessing {
+        if isAIProcessing {
             return aiAccent.opacity(0.42)
         }
         if isEditorFocused {
