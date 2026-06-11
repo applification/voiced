@@ -1,26 +1,22 @@
 # Security Model
 
-Voiced is a local macOS dictation utility. Its main security boundary is the local user session: audio is recorded locally, transcribed locally, and emitted either to the clipboard or into the focused app.
+Voiced is a local macOS dictation utility. Its main security boundary is the local user session: audio is recorded locally, transcribed locally, and emitted to the clipboard with an on-screen review/drag surface.
 
 ## Required Privileges
 
-Voiced has two distribution profiles:
-
-- Direct distribution remains Developer ID signed, hardened, notarized, and intentionally unsandboxed.
-- App Store distribution uses the sandboxed `AppStore` configuration and `Config/Voiced-AppStore.entitlements`.
+Voiced ships through Xcode Cloud and App Store Connect using the sandboxed
+`AppStore` configuration and `Config/Voiced-AppStore.entitlements`.
 
 Voiced needs to:
 
 - listen for a global push-to-talk hotkey
 - listen for Escape to cancel an active capture
 - record microphone audio while push-to-talk is held
-- send Cmd+V to the focused app when paste output is enabled
 
-Microphone access is protected by macOS TCC and, in the App Store build, the `com.apple.security.device.audio-input` entitlement. Synthetic paste requires Accessibility permission. The sandboxed App Store build uses an `NSEvent` global monitor fallback for push-to-talk because `CGEvent.tapCreate` is not viable in the sandbox.
+Microphone access is protected by macOS TCC and, in the App Store build, the `com.apple.security.device.audio-input` entitlement. Accessibility or Input Monitoring may be required by macOS for global push-to-talk while another app is focused. The sandboxed App Store build uses an `NSEvent` global monitor fallback for push-to-talk because `CGEvent.tapCreate` is not viable in the sandbox.
 
 ## Compensating Controls
 
-- Direct-distribution releases should be Developer ID signed, use Hardened Runtime, and be notarized before public distribution.
 - App Store builds should remain sandboxed and limited to audio input plus outbound network access for explicit model downloads.
 - The app has no cloud transcription path.
 - Audio files are temporary and are deleted after transcription, cancellation, and error paths.
@@ -29,12 +25,10 @@ Microphone access is protected by macOS TCC and, in the App Store build, the `co
 - Model downloads are explicit and user initiated. Onboarding lets the user choose a model and discloses the selected model size before the first download.
 - Downloaded model files are verified against pinned SHA-256 manifests before WhisperKit loads them.
 - The hotkey layer ignores non-Escape key-down events and does not forward them to the coordinator.
-- Copy-only output mode is available for users who do not want Voiced to send synthetic keystrokes.
+- Voiced does not send synthetic paste keystrokes. Completed transcripts are copied to the clipboard and can be reviewed or dragged from the floating interface.
 
 ## Known Tradeoffs
 
-Paste mode temporarily writes the transcript to the system clipboard and sends Cmd+V using Accessibility permission. To preserve user experience, Voiced snapshots the existing pasteboard in memory and restores it after paste when possible. This avoids clobbering the user's clipboard, but means Voiced briefly handles the previous clipboard contents in memory.
+Voiced writes the completed transcript to the system clipboard. This can replace the user's previous clipboard contents, so the app avoids logging clipboard data and treats clipboard contents as sensitive local-only data.
 
-The direct distribution build is intentionally unsandboxed, so any vulnerability in the app or loaded runtime dependencies has more reach than it would in the App Store build. Keep dependencies pinned, keep model verification enabled, and treat release signing/notarization as mandatory for public direct-distribution builds.
-
-The App Store build still relies on sensitive user-granted capabilities. Review notes and onboarding must clearly explain that Accessibility is used for explicit push-to-talk and optional Auto Paste, while Clipboard Only remains available without the paste permission path.
+The App Store build still relies on sensitive user-granted capabilities. Review notes and onboarding must clearly explain that any Accessibility or Input Monitoring access is for explicit push-to-talk detection, not for automatic paste or arbitrary keystroke capture.

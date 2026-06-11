@@ -49,12 +49,6 @@ The App Store Connect API can read and manage version metadata, but it requires 
 
 Do not embed App Store Connect API keys or issuer IDs in the app bundle.
 
-## Direct Distribution Build
-
-This policy is for the App Store build. A separate direct-distribution build may use a normal self-update mechanism, such as Sparkle, if that build remains outside the Mac App Store and follows the direct-distribution signing and notarization path.
-
-Keep any direct-distribution updater compiled out of the `AppStore` configuration.
-
 ## Model Downloads Are Separate
 
 WhisperKit model downloads are data/model asset downloads, not app updates. They are acceptable only because they are explicitly user initiated, integrity checked, stored in the app's data area, and used for local transcription rather than executing code or bypassing App Review.

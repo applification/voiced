@@ -1,8 +1,8 @@
 # App Store And TestFlight Next Steps
 
-This plan moves Voiced from direct DMG distribution to a Mac App Store release path, starting with TestFlight.
+This plan tracks Voiced's Xcode Cloud and App Store Connect release path.
 
-This machine, `rufus`, intentionally does not have Apple Developer signing/upload permissions. Use it for repo preparation, local App Store configuration work, and non-upload validation. Run signing, archive export, and TestFlight upload steps on an Apple-authorized machine, then copy the results or failure output back into this plan as needed.
+This machine, `rufus`, intentionally does not have Apple Developer signing/upload permissions. Use it for repo preparation, local App Store configuration work, and non-upload validation. Xcode Cloud handles signing, archive export, and TestFlight upload.
 
 ## Current State
 
@@ -11,16 +11,15 @@ Voiced already has the important repo-side building blocks for App Store distrib
 - `AppStore` Xcode configuration in `project.yml`.
 - Sandboxed App Store entitlements in `Config/Voiced-AppStore.entitlements`.
 - App Store Connect export options in `Config/ExportOptions-AppStoreConnect.plist`.
-- Archive and upload helpers in `script/archive_app_store.sh` and `script/upload_testflight.sh`.
 - Clean-slate local App Store runner in `script/run_app_store.sh`.
 - Review notes and local sandbox proofs in `docs/app-store-readiness.md` and `docs/app-store-testflight.md`.
 
-The direct distribution path can remain available for now, but it should be treated as separate from the App Store path. Direct distribution can keep the signed/notarized DMG flow; the App Store build must be sandboxed and must receive updates only through the Mac App Store.
+The App Store build must be sandboxed and must receive updates only through the Mac App Store.
 
 ## Main Review Risks
 
-1. Accessibility permission.
-   Voiced needs to explain that Accessibility is used only for explicit push-to-talk detection while another app is focused and optional Auto Paste. Clipboard Only must remain a clear non-Accessibility fallback.
+1. Global push-to-talk privacy permission.
+   Voiced needs to explain that Accessibility or Input Monitoring is used only for explicit push-to-talk detection while another app is focused. The app does not use these permissions to send paste keystrokes.
 
 2. Model downloads.
    Voiced downloads WhisperKit/Core ML model assets after explicit user choice. App Review notes and privacy metadata must say that the network request is for model download only, while audio and transcripts remain local.
@@ -31,14 +30,14 @@ The direct distribution path can remain available for now, but it should be trea
    Current first-upload state: the TestFlight build should include PostHog diagnostics, so App Store privacy answers and public privacy copy must disclose the basic usage and crash diagnostics collected.
 
 4. Menu bar app reviewability.
-   Because `LSUIElement` is true, review notes need a very direct test script so reviewers can find onboarding, Settings, model download, output mode, and TextEdit verification without guessing.
+   Because `LSUIElement` is true, review notes need a very direct test script so reviewers can find onboarding, Settings, model download, transcript review, and TextEdit verification without guessing.
 
 ## Phase 1: Apple Account And App Store Connect Setup
 
 - Confirm the Apple Developer team is `GY6Q9L4423`. Done.
 - Create or confirm the App Store Connect app record for bundle ID `net.applification.voiced`.
 - Reserve the App Store listing name, category `Productivity`, and supported platform `macOS`. The plain `Voiced` listing name is unavailable; use `Voiced Dictation` unless a better available listing name is chosen.
-- On the Apple-authorized machine, confirm Xcode has access to App Store distribution signing for the team, or prepare App Store Connect API authentication for CI/release automation. Done: `./script/archive_app_store.sh` completed successfully on the authorized machine.
+- Confirm Xcode Cloud has App Store distribution signing and upload access for the team.
 - Create internal TestFlight tester group with the core team.
 - Prepare external TestFlight group only after the internal build has passed smoke testing.
 
@@ -60,9 +59,9 @@ Apple references:
   - menu bar status/menu
   - onboarding model choice
   - download confirmation/progress
-  - output mode choice
+  - transcript review/drag surface
   - Settings > Models attribution and model management
-  - successful dictation into TextEdit
+  - successful dictation copied, pasted, or dragged into TextEdit
 - Complete App Privacy answers in App Store Connect.
   - Audio and transcripts should be disclosed as not collected if they stay local and are not sent off-device.
   - Model downloads should be explained as network access to download local transcription assets.
@@ -84,9 +83,8 @@ Validate the full first-run path:
 - Selected model downloads only after explicit user action.
 - Downloaded model integrity verification succeeds.
 - Microphone permission prompt appears and recording works.
-- Clipboard Only mode works without Accessibility permission.
-- Auto Paste mode explains Accessibility before opening System Settings.
-- Auto Paste works in TextEdit after Accessibility is granted to the exact built app.
+- Completed transcript is copied to the clipboard.
+- Transcript review/drag controls work in TextEdit.
 - Escape cancels active capture.
 - The app relaunches offline and uses the cached model.
 - Logs do not include transcript text or audio content.
@@ -116,19 +114,7 @@ Expected App Store entitlements:
 
 ## Phase 4: First TestFlight Upload
 
-Run this phase on the Apple-authorized machine, not on `rufus`.
-
-Archive and upload:
-
-```sh
-./script/upload_testflight.sh
-```
-
-If a fresh archive already exists:
-
-```sh
-./script/upload_testflight.sh --skip-archive
-```
+Run this phase in Xcode Cloud.
 
 After upload:
 
@@ -137,17 +123,12 @@ After upload:
 - Add export compliance answers if prompted.
 - Attach internal testing notes with the review/test script.
 - Release to internal testers first.
-- Collect logs and feedback specifically around onboarding, model download, Accessibility, Auto Paste, and offline relaunch.
+- Collect logs and feedback specifically around onboarding, model download, push-to-talk permissions, clipboard output, transcript drag/review, and offline relaunch.
 - Report any archive, export, upload, processing, signing, provisioning, or Beta App Review failures back into the repo so they can be fixed on `rufus` without adding Apple Developer credentials here.
 
-Current upload attempt:
-
-- `./script/upload_testflight.sh --skip-archive` reached `xcodebuild -exportArchive` on `rufus` but failed before upload with `exportArchive Failed to Use Accounts`.
-- Xcode reported invalid keychain credentials for an Apple Developer account: `missing Xcode-Username`.
-- Upload was then retried on the Apple-authorized machine and succeeded. The uploaded build is visible in App Store Connect > TestFlight.
-- App Encryption Documentation was completed with no app-implemented encryption algorithms. The build reached `Ready to Submit`.
-- Internal TestFlight distribution was enabled manually, and the TestFlight-installed app is working well.
-- Keep `rufus` as a repo/prep machine unless its Xcode account credentials are intentionally refreshed later.
+Previous local upload attempts failed on `rufus` because it does not have Apple
+Developer upload credentials. Keep `rufus` as a repo/prep machine unless its
+Xcode account credentials are intentionally refreshed later.
 
 ## Phase 5: External TestFlight
 
@@ -167,14 +148,10 @@ Before submitting for public App Review:
 - Confirm App Store screenshots and metadata match current onboarding and Settings UI.
 - Confirm App Store update behavior does not include a self-updater.
 - Confirm the App Store build still has only the expected sandbox entitlements.
-- Confirm direct distribution docs and website do not imply the DMG is the only or preferred production channel once the App Store version is live.
 - Submit with the review notes from `docs/app-store-testflight.md`.
 
 ## Repo Follow-Ups
 
-- Add a release checklist script or Make target that runs the App Store build, archive, entitlement inspection, and upload steps in order.
 - Consider adding a small `script/inspect_app_store_build.sh` helper for repeatable entitlement and bundle metadata checks.
-- Consider adding a short "authorized machine handoff" checklist that lists the exact scripts to run elsewhere and the output to report back.
 - Keep PostHog diagnostics disclosure aligned across App Store privacy answers, `docs/app-store-metadata.md`, the public privacy page, and in-app Settings copy.
 - Add a versioning note for App Store build numbers, because App Store Connect requires every uploaded build number to be unique.
-- Update `README.md` once App Store distribution is active so direct DMG distribution is no longer presented as the main release path.

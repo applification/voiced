@@ -45,7 +45,7 @@ The preferred model is a free app with a one-time in-app purchase to unlock the 
 Suggested structure:
 
 - Free: Tiny model, local push-to-talk dictation, basic output
-- Paid lifetime unlock: more accurate models, richer output modes, future local features
+- Paid lifetime unlock: more accurate models, richer review/export workflows, future local features
 
 Candidate prices:
 
@@ -140,7 +140,7 @@ The strongest free tier proposal is:
 - Tiny model only
 - local transcription
 - push-to-talk recording
-- basic clipboard or paste output
+- basic clipboard output and transcript review
 - generous or unlimited usage
 
 Because Voiced has no server-side inference cost, usage limits are not required for cost control. The upgrade pressure should come from accuracy and workflow quality rather than artificial scarcity.
@@ -166,7 +166,7 @@ Likely paid unlocks:
 
 - Base, Small, and Large v3 transcription models
 - more accurate transcription
-- direct paste/output modes
+- richer review, drag, and export workflows
 - custom vocabulary, if implemented
 - local transcript history, if implemented
 - prompt/message/email cleanup modes, if implemented locally

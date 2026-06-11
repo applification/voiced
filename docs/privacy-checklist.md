@@ -23,12 +23,6 @@ In the App Store sandbox build, WhisperKit caches downloaded model files under:
 ~/Library/Containers/net.applification.voiced/Data/Documents/huggingface/models/argmaxinc/whisperkit-coreml
 ```
 
-In the direct distribution build, WhisperKit may cache downloaded model files under:
-
-```text
-~/Documents/huggingface/models/argmaxinc/whisperkit-coreml
-```
-
 The Voiced menu shows the model name, local cache size, and lets you reveal or delete that model folder. Downloaded model files are verified against pinned SHA-256 manifests before WhisperKit loads them.
 
 After the model is downloaded, WhisperKit should resolve from the local cache before attempting a download. To test offline behavior:

@@ -1,6 +1,11 @@
-# Voiced Local Build
+# Voiced Local Development Build
 
-Voiced is a local macOS menu bar app. For reliable Accessibility permissions, run a signed app bundle from a stable path.
+Voiced is a local macOS menu bar app. This note is for development and
+permission testing only; distribution builds are produced by Xcode Cloud and
+delivered through App Store Connect.
+
+For reliable macOS privacy permissions during local testing, run a signed app
+bundle from a stable path.
 
 ## Build
 
@@ -33,7 +38,7 @@ Install the built app to `dist/Voiced.app` and launch it from that stable path:
 
 ## Signing
 
-Synthetic paste requires Accessibility permission. macOS TCC tracks that permission by app identity, so ad-hoc debug builds may not stay trusted.
+Global push-to-talk may require Accessibility or Input Monitoring permission. macOS TCC tracks those permissions by app identity, so ad-hoc debug builds may not stay trusted.
 
 Recommended local setup:
 
@@ -42,10 +47,10 @@ Recommended local setup:
 3. Set `Signing & Capabilities` to your team.
 4. Build once.
 5. Run `./script/build_and_run.sh install-run`.
-6. In the Voiced menu, open Accessibility settings and enable Voiced.
+6. In the Voiced menu, open the relevant privacy settings and enable Voiced if prompted.
 7. Quit and relaunch `dist/Voiced.app`.
 
-The telemetry log should show `accessibilityTrusted=true` before paste is attempted.
+The telemetry log should show the expected push-to-talk permission state before global capture is tested.
 
 `script/build_and_run.sh` builds normally, copies the app to `dist/Voiced.app`, and auto-detects the first available `Apple Development` signing identity to sign that stable copy. To force a specific identity:
 
@@ -58,7 +63,7 @@ VOICED_CODE_SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./script/build
 Voiced needs:
 
 - Microphone: record only while push-to-talk is held.
-- Accessibility: post `Cmd+V` into the focused app for paste mode.
+- Accessibility/Input Monitoring: detect the explicit push-to-talk key while another app is focused, where macOS requires it.
 
 Input Monitoring may be needed on some systems for event taps. Voiced falls back to `NSEvent` monitors when event taps are unavailable.
 

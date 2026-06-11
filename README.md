@@ -4,7 +4,7 @@
 
 # Voiced
 
-Voiced is a quiet, native macOS dictation companion for fast capture and clean transcription. It runs as a local menu bar app, records only while push-to-talk is held, transcribes speech locally with WhisperKit, and outputs the result either by copying it to the clipboard or pasting it into the focused app.
+Voiced is a quiet, native macOS dictation companion for fast capture and clean transcription. It runs as a local menu bar app, records only while push-to-talk is held, transcribes speech locally with WhisperKit, and makes the result available from the clipboard and a review/drag surface.
 
 The project also includes a small Next.js website for the public product/download surface.
 
@@ -12,7 +12,7 @@ The project also includes a small Next.js website for the public product/downloa
 
 - Global push-to-talk capture for quick dictation from anywhere on macOS.
 - Local speech transcription through WhisperKit and Argmax OSS models.
-- Clipboard-only and paste modes, with paste mode preserving and restoring the previous clipboard when possible.
+- Clipboard output with an on-screen review surface for checking or dragging the completed transcript where needed.
 - Model download approval, progress reporting, and SHA-256 integrity verification before loading.
 - Status menu controls for recording state, permissions, model selection, output behavior, and settings.
 - Floating/cursor recording indicators and optional sound cues.
@@ -24,14 +24,14 @@ The project also includes a small Next.js website for the public product/downloa
 - `Voiced/App/` - app coordination, services, settings, and shared state.
 - `Voiced/Audio/` - recording, transcription models, and WhisperKit transcription.
 - `Voiced/Models/` - local model storage, progress, and integrity verification.
-- `Voiced/Output/` - clipboard, paste, and last-capture output behavior.
+- `Voiced/Output/` - clipboard and last-capture output behavior.
 - `Voiced/Permissions/` - microphone, Accessibility, hotkey, and event monitoring support.
 - `Voiced/UI/` - settings, status menu, indicators, and supporting view code.
 - `Voiced/Support/` - notifications, telemetry, and sound cues.
 - `Config/` - app entitlements, Info.plist, and asset catalogs.
 - `Voiced.xcodeproj/` - generated Xcode project.
 - `project.yml` - XcodeGen project definition.
-- `script/` - build, run, model manifest, and release packaging scripts.
+- `script/` - local build, run, and model manifest scripts.
 - `docs/` - local build, security, privacy, and release notes.
 - `website/` - the Next.js marketing/download site.
 - `DESIGN.md` - product and visual design system notes.
@@ -70,16 +70,16 @@ Running from `dist/Voiced.app` is recommended because macOS tracks Accessibility
 Voiced needs:
 
 - Microphone access to record audio while push-to-talk is held.
-- Accessibility access to send `Cmd+V` in paste mode.
+- Accessibility/Input Monitoring access where macOS requires it for global push-to-talk while another app is focused.
 - Input Monitoring on some systems for global event taps.
 
-Copy-only mode is available for users who prefer not to grant Accessibility permission.
+Completed transcripts are copied to the clipboard; Voiced does not synthesize paste keystrokes.
 
 ## Privacy And Security
 
 Voiced is designed around local capture and local transcription. The app has no cloud transcription path, does not log transcript text, and deletes temporary audio files after transcription, cancellation, and error paths.
 
-Downloaded transcription models are verified against pinned SHA-256 manifests before WhisperKit loads them. Public releases should be Developer ID signed, hardened, and notarized.
+Downloaded transcription models are verified against pinned SHA-256 manifests before WhisperKit loads them. Public releases ship through Xcode Cloud and App Store Connect.
 
 See [docs/security-model.md](docs/security-model.md) and [docs/privacy-checklist.md](docs/privacy-checklist.md) for more detail.
 
@@ -96,9 +96,9 @@ Then open `http://localhost:3000`.
 
 Deployment notes live in [docs/website-deployment.md](docs/website-deployment.md).
 
-## Release Packaging
+## Release
 
-Release packaging notes live in [docs/release-packaging.md](docs/release-packaging.md). The repository includes helper scripts for creating the local app bundle and release artifacts, but distribution builds should be signed and notarized before publication.
+Distribution builds are produced by Xcode Cloud and delivered through App Store Connect. Local scripts are for development and clean-slate App Store configuration checks only.
 
 ## License
 

@@ -1,8 +1,9 @@
 # App Store Readiness
 
-Voiced's direct distribution build remains Developer ID signed, hardened, notarized, and intentionally unsandboxed.
-
-The App Store build uses the `AppStore` Xcode configuration and `Config/Voiced-AppStore.entitlements`. It is sandboxed and has a separate runtime path for global push-to-talk and model storage.
+Voiced ships through Xcode Cloud and App Store Connect using the `AppStore`
+Xcode configuration and `Config/Voiced-AppStore.entitlements`. It is sandboxed
+and has a runtime path for global push-to-talk and model storage that is
+compatible with App Store distribution.
 
 ## Current App Store Entitlements
 
@@ -31,11 +32,7 @@ xcodebuild \
   build
 ```
 
-Archive for App Store Connect:
-
-```sh
-./script/archive_app_store.sh
-```
+Archive and upload are handled by Xcode Cloud.
 
 ## Runtime Compatibility Checks
 
@@ -48,7 +45,7 @@ Before submitting, verify the sandboxed build can still:
 - receive global push-to-talk via the sandbox-compatible `NSEvent` fallback
 - cancel active capture with Escape
 - copy transcript text to the pasteboard
-- paste transcript text only after Accessibility permission is granted
+- show completed transcript text in the review/drag interface
 
 ## Global Push-To-Talk Proof
 
@@ -62,7 +59,7 @@ The `NSEvent` global monitor fallback can still receive the configured right-sid
 - key release produced `handleKeyUp()`
 - recording stopped and transcription began
 
-This keeps global push-to-talk viable for App Store distribution. Review notes should clearly explain why Voiced asks for Accessibility: it needs to detect the user's explicit push-to-talk key while another app is focused, and Auto Paste uses the same consent to send `Cmd+V` after transcription.
+This keeps global push-to-talk viable for App Store distribution. Review notes should clearly explain why Voiced asks for Accessibility or Input Monitoring: it needs to detect the user's explicit push-to-talk key while another app is focused. Voiced does not use that consent to send paste keystrokes.
 
 ## Model Download Proof
 
@@ -78,28 +75,18 @@ The same model choices remain available later from Settings > Models.
 
 Settings > Models includes visible attribution for WhisperKit and OpenAI Whisper. The repository also includes `THIRD_PARTY_NOTICES.md` with MIT license notices for the WhisperKit dependency and OpenAI Whisper model lineage.
 
-## Auto Paste Proof
+## Clipboard And Review Proof
 
-Auto paste has been proven in the App Store sandbox build when the user grants Accessibility permission to the exact app identity.
+Current builds copy completed transcripts to the clipboard and show them in the floating review surface. Users can paste manually or drag the transcript into another app.
 
-On 2026-06-07, the sandboxed `AppStore` build at `build-appstore/Build/Products/AppStore/Voiced.app` was added to Accessibility settings. With TextEdit focused, real dictated transcripts pasted into the document after release of the push-to-talk key.
-
-The confirming logs were:
-
-- `Prepared transcript paste; target=none frontmost=TextEdit accessibilityTrusted=true wroteTranscript=true ...`
-- `Posting synthetic Cmd+V; target=frontmost frontmost=TextEdit`
-- `Posted synthetic Cmd+V to frontmost`
-- `Restored previous pasteboard after transcript paste`
-
-To repeat the proof:
+To verify the current output path:
 
 1. Launch the `AppStore` build from `build-appstore/Build/Products/AppStore/Voiced.app`.
-2. Complete onboarding: choose and download a model, allow Microphone, and choose Auto Paste.
-3. Grant Accessibility permission to that exact app identity when prompted by the Auto Paste instructions.
+2. Complete onboarding: choose and download a model, then allow Microphone access.
+3. Grant any requested push-to-talk privacy permission to that exact app identity.
 4. Focus a blank TextEdit document or other editable text field.
 5. Hold Right Command, speak a short phrase, and release.
-6. Confirm the transcript appears in the focused text field.
+6. Confirm the transcript is copied to the clipboard and appears in Voiced's review surface.
+7. Paste manually or drag the transcript into the focused text field.
 
-After one successful transcription, the menu item `Paste Last Transcript` can repeat the same paste-path proof with real transcript text.
-
-If `accessibilityTrusted=false`, Voiced is behaving correctly by leaving the transcript on the clipboard instead of attempting synthetic paste.
+If push-to-talk permission is unavailable, Voiced should still avoid attempting synthetic paste.

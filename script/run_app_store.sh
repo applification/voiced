@@ -20,7 +20,7 @@ usage: $0 [run|reset-run|build|launch|stop|logs|reset-logs|reset-permissions|res
 
 Builds and runs the sandboxed AppStore configuration for local App Store
 compatibility testing. This is intentionally separate from build_and_run.sh,
-which runs the direct-distribution Debug build.
+which runs the local Debug build.
 
 Modes:
   run                Stop, build, and launch the AppStore build.

@@ -186,7 +186,7 @@ final class RecentTranscriptTitleGenerator: RecentTranscriptTitleGenerating {
             let response = try await session.respond(
                 to: "Transcript:\n\(transcript)",
                 options: GenerationOptions(
-                    samplingMode: .greedy,
+                    sampling: .greedy,
                     temperature: 0.1,
                     maximumResponseTokens: 24
                 )

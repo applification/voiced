@@ -1,28 +1,26 @@
 # App Store TestFlight
 
-## Review Risk: Accessibility And Auto Paste
+## Review Risk: Global Push-To-Talk Permissions
 
-Apple can accept macOS apps that request Accessibility permission, but it is reviewer-sensitive. Voiced must be submitted with clear review notes because paste mode intentionally writes the transcript to the pasteboard and sends `Cmd+V` to the user's focused app after explicit Accessibility consent.
+Apple can accept macOS apps that request Accessibility or Input Monitoring permission, but these permissions are reviewer-sensitive. Voiced must be submitted with clear review notes because global push-to-talk needs to detect the user's explicit hotkey while another app is focused.
 
 Suggested review notes:
 
 ```text
-Voiced is a local-only macOS dictation utility. It records only while the user holds the configured push-to-talk key, transcribes locally, and inserts the transcript into the currently focused text field.
+Voiced is a local-only macOS dictation utility. It records only while the user holds the configured push-to-talk key, transcribes locally, copies the completed transcript to the clipboard, and shows a review surface that can be dragged into another app.
 
 On first run, Voiced lets the user choose a local transcription model and shows the approximate download size before starting. The download is handled by WhisperKit/Hugging Face, stored in the app sandbox container, and verified against pinned byte counts and SHA-256 hashes before loading. The same local model choices remain available later in Settings.
 
-The app requests Accessibility permission only for two user-initiated features:
-1. Detecting the explicit global push-to-talk key while another app is focused.
-2. Sending Cmd+V to paste the completed transcript into the focused app when Paste mode is selected.
+The app requests Accessibility or Input Monitoring permission only to detect the explicit global push-to-talk key while another app is focused.
 
-Voiced does not record arbitrary keystrokes, does not upload audio or transcript text, and offers Clipboard Only mode for users who do not want to grant Accessibility permission.
+Voiced does not record arbitrary keystrokes, does not send synthetic paste commands, and does not upload audio or transcript text.
 
 Suggested reviewer test:
 1. Launch Voiced and complete onboarding.
 2. Choose a model, press its download button, then allow Microphone access.
-3. Choose either Auto Paste and grant Accessibility, or choose Clipboard Only.
+3. Allow any requested push-to-talk privacy permission.
 4. Open TextEdit, hold Right Command, speak a short phrase, and release.
-5. Confirm the transcript is pasted automatically in Auto Paste mode, or copied for manual paste in Clipboard Only mode.
+5. Confirm the transcript is copied to the clipboard and appears in Voiced's review surface; paste or drag it into TextEdit.
 ```
 
 This is not a guaranteed approval. It is a reasonable App Store argument because the app is sandboxed, the permission is user-granted, the behavior is core to the app, and the reviewer has a direct way to test it.
@@ -50,24 +48,10 @@ If stale Voiced rows remain in System Settings > Privacy & Security > Accessibil
 
 ## Upload To TestFlight
 
-The repository includes:
+Xcode Cloud archives, signs, exports, and uploads distribution builds to App
+Store Connect. Keep local validation focused on the clean-slate App Store run
+helper above, then use the Xcode Cloud build result for TestFlight.
 
-- `Config/ExportOptions-AppStoreConnect.plist`
-- `script/archive_app_store.sh`
-- `script/upload_testflight.sh`
-
-Upload command:
-
-```sh
-./script/upload_testflight.sh
-```
-
-If you already have a fresh archive:
-
-```sh
-./script/upload_testflight.sh --skip-archive
-```
-
-The upload requires an Apple Developer account in Xcode or App Store Connect API authentication, an App Store Connect app record for `net.applification.voiced`, and App Store distribution signing for Apple Developer team `GY6Q9L4423`.
-
-After upload, Apple processes the build before it appears under App Store Connect > Voiced > TestFlight.
+The App Store Connect app record uses bundle ID `net.applification.voiced` and
+Apple Developer team `GY6Q9L4423`. After Xcode Cloud uploads a build, Apple
+processes it before it appears under App Store Connect > Voiced > TestFlight.
