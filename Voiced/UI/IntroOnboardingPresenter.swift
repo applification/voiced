@@ -120,8 +120,8 @@ private struct IntroOnboardingView: View {
         .frame(width: 680, height: 500, alignment: .topLeading)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.18))
         .onAppear {
-            refreshStatuses()
             selectedModel = settings.transcriptionModel
+            refreshStatuses()
         }
         .onReceive(NotificationCenter.default.publisher(for: .voicedModelProgressChanged)) { notification in
             guard let progress = notification.object as? ModelLoadProgress else { return }
@@ -333,7 +333,7 @@ private struct IntroOnboardingView: View {
         isActiveDownload: Bool
     ) -> some View {
         if isPrepared {
-            Label("Ready", systemImage: "checkmark.circle.fill")
+            Label(isSelected ? "Selected" : "Ready", systemImage: "checkmark.circle.fill")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.green)
                 .labelStyle(.titleAndIcon)
@@ -460,6 +460,9 @@ private struct IntroOnboardingView: View {
 
     private func refreshStatuses() {
         microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        if LoadedModelState.isLoaded(selectedModel) {
+            preparedModels.insert(selectedModel)
+        }
         if let downloadingModel,
            ModelStore(model: downloadingModel).isDownloaded,
            modelProgress == nil {

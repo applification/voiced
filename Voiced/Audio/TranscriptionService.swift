@@ -38,7 +38,11 @@ final class WhisperKitTranscriptionService: TranscriptionService {
 
     func loadModelIfNeeded() async throws {
         let selectedModel = settings.transcriptionModel
-        guard whisperKit == nil || loadedModel != selectedModel else { return }
+        guard whisperKit == nil || loadedModel != selectedModel else {
+            LoadedModelState.markLoaded(selectedModel)
+            postModelProgress(model: selectedModel, phase: "Loaded", fractionCompleted: 1)
+            return
+        }
         if let loadTask {
             try await loadTask.value
             guard loadedModel == selectedModel else {
@@ -52,6 +56,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
 
         whisperKit = nil
         loadedModel = nil
+        LoadedModelState.markUnloaded()
 
         let task = Task { @MainActor [selectedModel] in
             let store = ModelStore(model: selectedModel)
@@ -76,6 +81,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             try await whisperKit.loadModels()
             self.whisperKit = whisperKit
             self.loadedModel = selectedModel
+            LoadedModelState.markLoaded(selectedModel)
+            self.postModelProgress(model: selectedModel, phase: "Loaded", fractionCompleted: 1)
         }
         loadTask = task
         do {
@@ -84,6 +91,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         } catch {
             loadTask = nil
             task.cancel()
+            LoadedModelState.markUnloaded()
             throw error
         }
     }
