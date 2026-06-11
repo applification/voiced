@@ -142,6 +142,8 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
                 panel.animator().alphaValue = 1
             }
         }
+        resetReviewCursor()
+        clearReviewFirstResponder(in: panel)
 
         installFocusDismissal()
     }
@@ -166,6 +168,17 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         hostingView.layer?.cornerRadius = 22
         hostingView.layer?.masksToBounds = true
         panel.contentView = hostingView
+    }
+
+    private func resetReviewCursor() {
+        NSCursor.arrow.set()
+    }
+
+    private func clearReviewFirstResponder(in panel: NSPanel) {
+        DispatchQueue.main.async { [weak panel] in
+            panel?.makeFirstResponder(nil)
+            NSCursor.arrow.set()
+        }
     }
 
     private func existingOrUpdatedReviewModel(appending text: String) -> CursorTranscriptReviewModel {
@@ -689,13 +702,19 @@ private struct CursorTranscriptReviewView: View {
         .shadow(color: .black.opacity(0.12), radius: 76, y: 46)
         .contentShape(Rectangle())
         .onAppear {
-            DispatchQueue.main.async {
-                isEditorFocused = !isListening
+            isEditorFocused = false
+        }
+        .onChange(of: isListening) { _, listening in
+            if listening {
+                isEditorFocused = false
             }
         }
         .onHover { hovering in
             if hovering {
                 hasMouseEntered = true
+                if !isEditorFocused && !isDragHandleHovered && !isDragStarting {
+                    NSCursor.arrow.set()
+                }
             } else if hasMouseEntered && !isDragStarting && !isWindowDragging && !isListening && !isBusy {
                 model.onDismiss()
             }
@@ -932,10 +951,29 @@ private struct CursorTranscriptReviewView: View {
                         .fill(warningInk.opacity(0.12))
                 }
         } else {
-            Label("⌘V", systemImage: "command")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-                .opacity(isListening ? 0.45 : 1)
+            HStack(spacing: 6) {
+                Text("Paste with")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 2) {
+                    Text("⌘")
+                    Text("V")
+                }
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.primary.opacity(0.82))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background {
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(Color.primary.opacity(0.07))
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+                }
+            }
+            .opacity(isListening ? 0.45 : 1)
         }
     }
 
@@ -1004,26 +1042,43 @@ private struct CursorTranscriptReviewView: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(canProcessTranscript ? Color.primary : Color.secondary)
+        .foregroundStyle(transcriptActionForeground(isHovered: isHovered))
         .background {
             Capsule()
                 .fill(transcriptActionFill(isHovered: isHovered))
         }
         .overlay {
             Capsule()
-                .strokeBorder(Color.primary.opacity(isHovered && canProcessTranscript ? 0.16 : 0.08), lineWidth: 1)
+                .strokeBorder(transcriptActionStroke(isHovered: isHovered), lineWidth: 1)
         }
+        .shadow(
+            color: Color.black.opacity(isHovered && canProcessTranscript ? 0.22 : 0),
+            radius: isHovered && canProcessTranscript ? 6 : 0,
+            y: isHovered && canProcessTranscript ? 2 : 0
+        )
         .onHover { hovering in
             hoveredTranscriptAction = hovering && canProcessTranscript ? profile : nil
         }
-        .animation(.easeOut(duration: 0.12), value: hoveredTranscriptAction)
+        .animation(.easeOut(duration: 0.14), value: hoveredTranscriptAction)
         .disabled(!canProcessTranscript)
         .help(profile.detail)
     }
 
+    private func transcriptActionForeground(isHovered: Bool) -> Color {
+        guard canProcessTranscript else { return Color.secondary }
+        return isHovered ? Color.primary : Color.primary.opacity(0.86)
+    }
+
     private func transcriptActionFill(isHovered: Bool) -> Color {
         guard canProcessTranscript else { return Color.clear }
-        return Color(nsColor: .controlBackgroundColor).opacity(isHovered ? 0.92 : 0.70)
+        return isHovered
+            ? Color(nsColor: .controlBackgroundColor).opacity(1.0)
+            : Color(nsColor: .controlBackgroundColor).opacity(0.70)
+    }
+
+    private func transcriptActionStroke(isHovered: Bool) -> Color {
+        guard canProcessTranscript else { return Color.primary.opacity(0.08) }
+        return Color.primary.opacity(isHovered ? 0.26 : 0.08)
     }
 
     private func runTranscriptAction(_ profile: TranscriptProcessingProfile) {
