@@ -21,12 +21,6 @@ final class SettingsStore {
         }
     }
 
-    var transcriptProcessingProfile: TranscriptProcessingProfile {
-        didSet {
-            userDefaults.set(transcriptProcessingProfile.rawValue, forKey: Keys.transcriptProcessingProfile)
-        }
-    }
-
     var activationSound: SoundCue {
         didSet {
             userDefaults.set(activationSound.rawValue, forKey: Keys.activationSound)
@@ -71,10 +65,6 @@ final class SettingsStore {
 
         launchAtLogin = userDefaults.bool(forKey: Keys.launchAtLogin)
 
-        let storedTranscriptProcessingProfile = userDefaults.string(forKey: Keys.transcriptProcessingProfile)
-            .flatMap(TranscriptProcessingProfile.init(rawValue:))
-        transcriptProcessingProfile = storedTranscriptProcessingProfile ?? .cleanTranscript
-
         let storedActivationSound = userDefaults.string(forKey: Keys.activationSound)
             .flatMap(SoundCue.init(rawValue:))
         activationSound = storedActivationSound ?? .pop
@@ -111,7 +101,6 @@ private enum Keys {
     static let whisperTinyModelApproved = "whisperTinyModelApproved"
     static let transcriptionModel = "transcriptionModel"
     static let launchAtLogin = "launchAtLogin"
-    static let transcriptProcessingProfile = "transcriptProcessingProfile"
     static let activationSound = "activationSound"
     static let deactivationSound = "deactivationSound"
     static let pushToTalkHotkey = "pushToTalkHotkey"

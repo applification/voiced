@@ -150,8 +150,7 @@ extension StatusMenuController {
         modelMenu.addItem(.separator())
         modelMenu.addItem(actionItem(title: "Model Settings...",
                                      action: #selector(openModelSettings),
-                                     symbolName: "gearshape",
-                                     color: .secondaryLabelColor))
+                                     symbolName: "gearshape"))
 
         let modelItem = NSMenuItem(title: "Model", action: nil, keyEquivalent: "")
         modelItem.submenu = modelMenu
@@ -202,8 +201,7 @@ extension StatusMenuController {
     private func addAppMenuItems() {
         menu.addItem(actionItem(title: "Launch at Login",
                                 action: #selector(toggleLaunchAtLogin),
-                                symbolName: settings.launchAtLogin ? "checkmark" : nil,
-                                color: .secondaryLabelColor))
+                                symbolName: settings.launchAtLogin ? "checkmark" : nil))
 
         let settingsItem = actionItem(title: "Settings...",
                                       action: #selector(openSettings))
@@ -217,7 +215,6 @@ extension StatusMenuController {
         menu.addItem(actionItem(title: "Quit Voiced",
                                 action: #selector(quit),
                                 keyEquivalent: "q",
-                                symbolName: "power",
-                                color: .secondaryLabelColor))
+                                symbolName: "power"))
     }
 }

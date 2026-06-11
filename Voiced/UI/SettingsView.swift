@@ -262,24 +262,15 @@ struct SettingsView: View {
     }
 
     private var aiSettings: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 14) {
-                GridRow {
-                    Text("Transcript output")
-                        .foregroundStyle(.secondary)
-                    Picker("Transcript output", selection: Bindable(settings).transcriptProcessingProfile) {
-                        ForEach(TranscriptProcessingProfile.allCases) { profile in
-                            Text(profile.menuTitle).tag(profile)
-                        }
-                    }
-                    .labelsHidden()
-                }
+        VStack(alignment: .leading, spacing: 14) {
+            Text("After dictation, use these actions in the review panel to reshape the captured text before pasting.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-                GridRow {
-                    Text("Result")
-                        .foregroundStyle(.secondary)
-                    Text(settings.transcriptProcessingProfile.detail)
-                        .fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: 8) {
+                ForEach(TranscriptProcessingProfile.allCases) { profile in
+                    TranscriptProcessingInfoRow(profile: profile)
                 }
             }
 
@@ -358,12 +349,17 @@ struct SettingsView: View {
 
     private var appVersionText: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
 
-        return switch version {
-        case let .some(version):
-            "Version \(version)"
-        default:
-            "Version unavailable"
+        switch (version?.isEmpty == false ? version : nil, build?.isEmpty == false ? build : nil) {
+        case let (.some(version), .some(build)):
+            return "Version \(version) (\(build))"
+        case let (.some(version), nil):
+            return "Version \(version)"
+        case let (nil, .some(build)):
+            return "Build \(build)"
+        case (nil, nil):
+            return "Version unavailable"
         }
     }
 
@@ -424,6 +420,57 @@ struct SettingsView: View {
             NotificationCenter.default.post(name: .voicedModelStatusChanged, object: settings.transcriptionModel)
         } catch {
             modelManagementError = error.localizedDescription
+        }
+    }
+}
+
+private struct TranscriptProcessingInfoRow: View {
+    let profile: TranscriptProcessingProfile
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: profile.settingsSymbolName)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 24, height: 24)
+                .padding(.top, 1)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(profile.label)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(profile.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.58))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private extension TranscriptProcessingProfile {
+    var settingsSymbolName: String {
+        switch self {
+        case .cleanTranscript:
+            "wand.and.sparkles"
+        case .executiveSummary:
+            "text.badge.checkmark"
+        case .todoList:
+            "checklist"
         }
     }
 }
