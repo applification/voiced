@@ -8,6 +8,7 @@ final class AppCoordinator {
     private let hotkeys: any HotkeyListening
     private var transcriber: any AppTranscribing
     private let output: any OutputPerforming
+    private let transcriptProcessor: any TranscriptProcessing
     private let indicator: any IndicatorPresenting
     private let cursorIndicator: any CursorIndicatorPresenting
     private let permissions: any MicrophonePermissionManaging
@@ -26,6 +27,7 @@ final class AppCoordinator {
         hotkeys: any HotkeyListening = HotkeyManager(),
         transcriber: any AppTranscribing,
         output: any OutputPerforming = OutputManager(),
+        transcriptProcessor: any TranscriptProcessing = TranscriptProcessingService(),
         indicator: any IndicatorPresenting = FloatingIndicator(),
         cursorIndicator: any CursorIndicatorPresenting = CursorMicroIndicator(),
         permissions: any MicrophonePermissionManaging = MicrophonePermissionManager(),
@@ -36,6 +38,7 @@ final class AppCoordinator {
         self.hotkeys = hotkeys
         self.transcriber = transcriber
         self.output = output
+        self.transcriptProcessor = transcriptProcessor
         self.indicator = indicator
         self.cursorIndicator = cursorIndicator
         self.permissions = permissions
@@ -252,6 +255,9 @@ final class AppCoordinator {
                             onCopy: { [weak self] updatedText in
                                 self?.output.copyToClipboard(updatedText)
                             },
+                            onProcess: { [weak self] profile, transcript in
+                                await self?.processTranscript(transcript, profile: profile) ?? transcript
+                            },
                             onDropRejected: { [weak self] in
                                 self?.showDropRejectedIndicator()
                             }
@@ -271,6 +277,9 @@ final class AppCoordinator {
                     text: text,
                     onCopy: { [weak self] updatedText in
                         self?.output.copyToClipboard(updatedText)
+                    },
+                    onProcess: { [weak self] profile, transcript in
+                        await self?.processTranscript(transcript, profile: profile) ?? transcript
                     },
                     onDropRejected: { [weak self] in
                         self?.showDropRejectedIndicator()
@@ -309,6 +318,26 @@ final class AppCoordinator {
             }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             self.indicator.hide()
+        }
+    }
+
+    private func processTranscript(_ transcript: String, profile: TranscriptProcessingProfile) async -> String {
+        do {
+            let processedText = try await transcriptProcessor.process(transcript, profile: profile)
+            telemetry.capture(.transcriptionSucceeded, properties: [
+                "transcript_length": lengthBucket(transcript.count),
+                "processed_length": lengthBucket(processedText.count),
+                "transcript_profile": profile.rawValue,
+                "model": settings.transcriptionModel.rawValue,
+                "output_mode": "review_action",
+                "mode": "live"
+            ])
+            return processedText
+        } catch is CancellationError {
+            return transcript
+        } catch {
+            AppCoordinator.logger.error("Transcript processing action failed: \(String(describing: error), privacy: .public)")
+            return transcript
         }
     }
 

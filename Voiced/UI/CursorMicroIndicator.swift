@@ -94,7 +94,12 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         positionReview(panel, near: reviewTranscriptModel?.anchorPoint ?? NSEvent.mouseLocation)
     }
 
-    func showReviewAtCursor(text: String, onCopy: @escaping (String) -> Void, onDropRejected: @escaping () -> Void) {
+    func showReviewAtCursor(
+        text: String,
+        onCopy: @escaping (String) -> Void,
+        onProcess: @escaping (TranscriptProcessingProfile, String) async -> String,
+        onDropRejected: @escaping () -> Void
+    ) {
         followTask?.cancel()
         followTask = nil
 
@@ -102,6 +107,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         let reviewModel = existingOrUpdatedReviewModel(appending: text)
         reviewModel.mode = .editing
         reviewModel.onCopy = onCopy
+        reviewModel.onProcess = onProcess
         reviewModel.onDropRejected = onDropRejected
         reviewModel.onDismiss = { [weak self] in
             guard self?.isShowingReview == true else { return }
@@ -151,7 +157,11 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
             return
         }
 
-        panel.contentView = TransparentHostingView(rootView: CursorTranscriptReviewView(model: model))
+        let hostingView = TransparentHostingView(rootView: CursorTranscriptReviewView(model: model))
+        hostingView.wantsLayer = true
+        hostingView.layer?.cornerRadius = 22
+        hostingView.layer?.masksToBounds = true
+        panel.contentView = hostingView
     }
 
     private func existingOrUpdatedReviewModel(appending text: String) -> CursorTranscriptReviewModel {
@@ -233,7 +243,7 @@ final class CursorMicroIndicator: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = false
+        panel.hasShadow = true
         panel.ignoresMouseEvents = true
         panel.delegate = self
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
@@ -543,8 +553,10 @@ private struct LivePulseDot: View {
 private final class CursorTranscriptReviewModel {
     var text: String
     var mode: CursorTranscriptReviewMode = .editing
+    var processingProfile: TranscriptProcessingProfile?
     @ObservationIgnored var anchorPoint: NSPoint?
     @ObservationIgnored var onCopy: (String) -> Void = { _ in }
+    @ObservationIgnored var onProcess: (TranscriptProcessingProfile, String) async -> String = { _, transcript in transcript }
     @ObservationIgnored var onDismiss: () -> Void = {}
     @ObservationIgnored var onDropRejected: () -> Void = {}
     @ObservationIgnored var onWindowMoved: () -> Void = {}
@@ -587,94 +599,50 @@ private struct CursorTranscriptReviewView: View {
     @State private var isWindowDragging = false
     @State private var hasMouseEntered = false
     @State private var didRejectLastDrop = false
+    @State private var hoveredTranscriptAction: TranscriptProcessingProfile?
 
-    private let accent = Color(red: 0.48, green: 0.78, blue: 0.56)
-    private let confirmedInk = Color(red: 0.0, green: 0.48, blue: 0.2)
+    private let accent = Color.primary
+    private let aiAccent = Color(nsColor: .systemPurple)
+    private let confirmedInk = Color.primary
     private let warningInk = Color(red: 0.78, green: 0.23, blue: 0.06)
+    private let panelWidth: CGFloat = 624
+    private let contentWidth: CGFloat = 560
+    private let editorHeight: CGFloat = 172
     private var isListening: Bool { model.mode.isListening }
+    private var isProcessing: Bool { model.processingProfile != nil }
+    private var canProcessTranscript: Bool {
+        !isListening && !isProcessing && !LiveTranscriptState.sanitizedText(model.text).isEmpty
+    }
+    private var transcriptWordCount: Int {
+        LiveTranscriptState.sanitizedText(model.text)
+            .split { $0.isWhitespace || $0.isNewline }
+            .count
+    }
+
+    private var panelFill: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(nsColor: .windowBackgroundColor).opacity(0.99),
+                Color(nsColor: .controlBackgroundColor).opacity(0.96)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 
     var body: some View {
-        VStack(alignment: .center, spacing: 10) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .center, spacing: 8) {
-                    Image(systemName: isListening ? "waveform.circle.fill" : "checkmark.circle.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(accent)
-                    Text(isListening ? "Listening" : "Ready")
-                        .font(.callout.weight(.semibold))
-                }
-                .frame(width: 536, height: 28, alignment: .leading)
-
-                VStack(alignment: .leading, spacing: 6) {
-                Text("Transcript")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-
-                if isListening {
-                    liveTranscriptDisplay
-                } else {
-                    TextEditor(text: $model.text)
-                        .font(.callout)
-                        .textEditorStyle(.plain)
-                        .scrollContentBackground(.hidden)
-                        .focused($isEditorFocused)
-                        .frame(width: 520, height: 148)
-                        .padding(8)
-                        .background {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.68))
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .strokeBorder(isEditorFocused ? accent.opacity(0.72) : Color.primary.opacity(0.16), lineWidth: 1)
-                        }
-                        .onTapGesture {
-                            isEditorFocused = true
-                        }
-                        .onChange(of: model.text) { _, newValue in
-                            model.onCopy(newValue)
-                        }
-                }
-            }
-
-            HStack(spacing: 8) {
-                dragHandle
-
-                Spacer(minLength: 8)
-
-                if didRejectLastDrop {
-                    Label("Drop not accepted. Press ⌘V", systemImage: "exclamationmark.triangle")
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(warningInk)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background {
-                            Capsule()
-                                .fill(warningInk.opacity(0.12))
-                        }
-                        .overlay {
-                            Capsule()
-                                .strokeBorder(warningInk.opacity(0.28), lineWidth: 1)
-                        }
-                } else {
-                    Label("Command-V", systemImage: "command")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .opacity(isListening ? 0.45 : 1)
-                }
-            }
-            .frame(width: 536, alignment: .leading)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+        VStack(alignment: .leading, spacing: 16) {
+            panelHeader
+            transcriptSurface
+            commandBar
         }
-        }
-        .frame(width: 536, alignment: .leading)
-        .padding(.horizontal, 32)
-        .padding(.vertical, 28)
-        .frame(width: 612, alignment: .center)
+        .frame(width: contentWidth, alignment: .leading)
+        .padding(.horizontal, 28)
+        .padding(.vertical, 24)
+        .frame(width: panelWidth, alignment: .center)
         .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.regularMaterial)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(panelFill)
         }
         .overlay(alignment: .top) {
             WindowDragRegion(
@@ -689,14 +657,17 @@ private struct CursorTranscriptReviewView: View {
                     }
                 }
             )
-            .frame(maxWidth: .infinity, minHeight: 76, maxHeight: 76)
+            .frame(maxWidth: .infinity, minHeight: 70, maxHeight: 70)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.primary.opacity(0.12))
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.045), lineWidth: 0.5)
                 .allowsHitTesting(false)
         }
-        .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+        .shadow(color: .black.opacity(0.06), radius: 2, y: 1)
+        .shadow(color: .black.opacity(0.16), radius: 36, y: 30)
+        .shadow(color: .black.opacity(0.12), radius: 76, y: 46)
         .contentShape(Rectangle())
         .onAppear {
             DispatchQueue.main.async {
@@ -706,29 +677,133 @@ private struct CursorTranscriptReviewView: View {
         .onHover { hovering in
             if hovering {
                 hasMouseEntered = true
-            } else if hasMouseEntered && !isDragStarting && !isWindowDragging && !isListening {
+            } else if hasMouseEntered && !isDragStarting && !isWindowDragging && !isListening && !isProcessing {
                 model.onDismiss()
             }
         }
     }
 
+    private var panelHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(statusFill)
+                    .frame(width: 34, height: 34)
+                if isProcessing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(aiAccent)
+                } else {
+                    Image(systemName: statusSymbolName)
+                        .font(.system(size: 15, weight: .semibold))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(statusColor)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(headerTitle)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(headerSubtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 12)
+
+            if !isListening {
+                Text(transcriptWordCount == 1 ? "1 word" : "\(transcriptWordCount) words")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background {
+                        Capsule()
+                            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.54))
+                    }
+            }
+        }
+        .frame(width: contentWidth, height: 38, alignment: .leading)
+    }
+
+    private var transcriptSurface: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Transcript")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            ZStack(alignment: .topLeading) {
+                if isListening {
+                    liveTranscriptDisplay
+                } else {
+                    transcriptEditor
+                }
+            }
+        }
+    }
+
+    private var transcriptEditor: some View {
+        TextEditor(text: $model.text)
+            .font(.system(.body, design: .default))
+            .lineSpacing(3)
+            .textEditorStyle(.plain)
+            .disabled(isProcessing)
+            .scrollContentBackground(.hidden)
+            .focused($isEditorFocused)
+            .frame(width: contentWidth - 22, height: editorHeight)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 10)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(nsColor: .controlBackgroundColor).opacity(0.82),
+                                Color(nsColor: .windowBackgroundColor).opacity(0.64)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(editorStrokeColor, lineWidth: isEditorFocused ? 1.5 : 1)
+            }
+            .opacity(isProcessing ? 0.58 : 1)
+            .animation(.easeOut(duration: 0.16), value: isProcessing)
+            .onTapGesture {
+                isEditorFocused = true
+            }
+            .onChange(of: model.text) { _, newValue in
+                model.onCopy(newValue)
+            }
+    }
+
     private var liveTranscriptDisplay: some View {
         ScrollView(.vertical) {
             liveTranscriptContent
-                .font(.callout)
+                .font(.system(.body, design: .default))
+                .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 5)
+                .padding(.top, 0)
+                .padding(.bottom, 10)
                 .textSelection(.enabled)
         }
-        .frame(width: 520, height: 148, alignment: .topLeading)
-        .padding(8)
+        .frame(width: contentWidth - 22, height: editorHeight, alignment: .topLeading)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 10)
         .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(0.035))
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.42))
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color(nsColor: .controlBackgroundColor).opacity(0.42), lineWidth: 1)
         }
     }
 
@@ -759,49 +834,156 @@ private struct CursorTranscriptReviewView: View {
         }
         if !provisionalText.isEmpty {
             text = text + Text(provisionalText)
-                .foregroundStyle(.primary)
+                .foregroundStyle(.secondary)
+                .italic()
         }
         return text
     }
 
+    private var commandBar: some View {
+        HStack(alignment: .center, spacing: 10) {
+            if !isListening {
+                HStack(spacing: 6) {
+                    transcriptActionButton(profile: .cleanTranscript, title: "Clean", symbolName: "wand.and.sparkles")
+                    transcriptActionButton(profile: .executiveSummary, title: "Summarize", symbolName: "text.badge.checkmark")
+                    transcriptActionButton(profile: .todoList, title: "To-do", symbolName: "checklist")
+                }
+                .padding(4)
+                .background {
+                    Capsule()
+                        .fill(Color.primary.opacity(0.055))
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            transcriptStatus
+            dragHandle
+        }
+        .frame(width: contentWidth, height: 42, alignment: .center)
+    }
+
     private var isDragHandleActive: Bool {
-        !isListening && (isDragHandleHovered || isDragStarting)
+        !isListening && !isProcessing && (isDragHandleHovered || isDragStarting)
     }
 
     private var dragHandleForeground: Color {
-        if isListening {
+        if isListening || isProcessing {
             return .secondary.opacity(0.65)
         }
-        return isDragHandleActive ? .white : .secondary
+        return .primary
     }
 
     private var dragHandleFill: Color {
-        if isListening {
-            return Color(nsColor: .controlBackgroundColor).opacity(0.55)
+        if isListening || isProcessing {
+            return Color(nsColor: .controlBackgroundColor).opacity(0.58)
         }
-        return isDragHandleActive ? accent : Color(nsColor: .controlBackgroundColor).opacity(0.82)
+        return isDragHandleActive
+            ? Color(nsColor: .controlBackgroundColor).opacity(0.86)
+            : Color(nsColor: .controlBackgroundColor).opacity(0.68)
     }
 
     private var dragHandleStroke: Color {
-        isDragHandleActive ? accent.opacity(0.82) : Color.primary.opacity(0.10)
+        isDragHandleActive ? Color.primary.opacity(0.20) : Color.primary.opacity(0.10)
     }
 
     private var dragHandleStrokeWidth: CGFloat {
         isDragHandleActive ? 1.5 : 1
     }
 
+    @ViewBuilder
+    private var transcriptStatus: some View {
+        if didRejectLastDrop {
+            Label("Press ⌘V", systemImage: "exclamationmark.triangle")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(warningInk)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background {
+                    Capsule()
+                        .fill(warningInk.opacity(0.12))
+                }
+        } else {
+            Label("⌘V", systemImage: "command")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+                .opacity(isListening ? 0.45 : 1)
+        }
+    }
+
+    private func transcriptActionButton(profile: TranscriptProcessingProfile, title: String, symbolName: String) -> some View {
+        let isHovered = hoveredTranscriptAction == profile
+        return Button {
+            runTranscriptAction(profile)
+        } label: {
+            Label(title, systemImage: symbolName)
+                .font(.caption.weight(.semibold))
+                .labelStyle(.titleAndIcon)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(canProcessTranscript ? Color.primary : Color.secondary)
+        .background {
+            Capsule()
+                .fill(transcriptActionFill(isHovered: isHovered))
+        }
+        .overlay {
+            Capsule()
+                .strokeBorder(Color.primary.opacity(isHovered && canProcessTranscript ? 0.16 : 0.08), lineWidth: 1)
+        }
+        .onHover { hovering in
+            hoveredTranscriptAction = hovering && canProcessTranscript ? profile : nil
+        }
+        .animation(.easeOut(duration: 0.12), value: hoveredTranscriptAction)
+        .disabled(!canProcessTranscript)
+        .help(profile.detail)
+    }
+
+    private func transcriptActionFill(isHovered: Bool) -> Color {
+        guard canProcessTranscript else { return Color.clear }
+        return Color(nsColor: .controlBackgroundColor).opacity(isHovered ? 0.92 : 0.70)
+    }
+
+    private func runTranscriptAction(_ profile: TranscriptProcessingProfile) {
+        guard canProcessTranscript else { return }
+        let sourceText = model.text
+        model.processingProfile = profile
+        isEditorFocused = false
+        Task { @MainActor in
+            let processedText = await model.onProcess(profile, sourceText)
+            guard model.processingProfile == profile else { return }
+            model.text = processedText
+            model.onCopy(processedText)
+            model.processingProfile = nil
+            isEditorFocused = true
+        }
+    }
+
+    private func processingTitle(for profile: TranscriptProcessingProfile) -> String {
+        switch profile {
+        case .cleanTranscript:
+            "Cleaning"
+        case .executiveSummary:
+            "Summarizing"
+        case .todoList:
+            "Creating to-do list"
+        }
+    }
+
     private var dragHandle: some View {
         HStack(spacing: 8) {
             Image(systemName: "hand.draw")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
 
-            Text("Drag to paste")
+            Text("Drag")
                 .font(.callout.weight(.semibold))
         }
         .foregroundStyle(dragHandleForeground)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
         .background {
             Capsule()
                 .fill(dragHandleFill)
@@ -811,19 +993,19 @@ private struct CursorTranscriptReviewView: View {
                 .strokeBorder(dragHandleStroke, lineWidth: dragHandleStrokeWidth)
         }
         .contentShape(Capsule())
-        .scaleEffect(isDragHandleHovered && !isListening ? 1.03 : 1)
+        .scaleEffect(isDragHandleHovered && !isListening && !isProcessing ? 1.03 : 1)
         .animation(.easeOut(duration: 0.12), value: isDragHandleHovered)
         .animation(.easeOut(duration: 0.12), value: isDragStarting)
         .onHover { hovering in
             isDragHandleHovered = hovering
-            if hovering && !isListening {
+            if hovering && !isListening && !isProcessing {
                 NSCursor.openHand.push()
             } else {
                 NSCursor.pop()
             }
         }
         .overlay {
-            if !isListening {
+            if !isListening && !isProcessing {
                 TextDragSourceView(
                     text: model.text,
                     onHoverChanged: { hovering in
@@ -854,6 +1036,61 @@ private struct CursorTranscriptReviewView: View {
                 )
             }
         }
+        .help("Drag transcript to another app")
+    }
+
+    private var statusColor: Color {
+        if isProcessing {
+            return aiAccent
+        }
+        if isListening {
+            return Color.primary.opacity(0.72)
+        }
+        return confirmedInk.opacity(0.72)
+    }
+
+    private var statusSymbolName: String {
+        if isListening {
+            return "waveform"
+        }
+        return "checkmark"
+    }
+
+    private var statusFill: Color {
+        if isProcessing {
+            return aiAccent.opacity(0.12)
+        }
+        if isListening {
+            return Color.primary.opacity(0.08)
+        }
+        return Color.primary.opacity(0.07)
+    }
+
+    private var headerTitle: String {
+        if let processingProfile = model.processingProfile {
+            return processingTitle(for: processingProfile)
+        }
+        return isListening ? "Listening" : "Review"
+    }
+
+    private var headerSubtitle: String {
+        if isProcessing {
+            return "On-device processing"
+        }
+        if isListening {
+            return "Live transcript"
+        }
+        return "Copied to clipboard"
+    }
+
+    private var editorStrokeColor: Color {
+        if isProcessing {
+            return aiAccent.opacity(0.42)
+        }
+        if isEditorFocused {
+            return Color.primary.opacity(0.28)
+        }
+        return Color.primary.opacity(0.12)
     }
 
 }

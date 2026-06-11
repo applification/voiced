@@ -42,6 +42,9 @@
 		E7E4DC9DBB5AFDE410055958 /* TranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71CD0C2ABDE2A1A0D7510C80 /* TranscriptionService.swift */; };
 		E81EAE8038B63A2C03EE5AC1 /* AppCoordinatorLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AE923A0E8BCA98872BE2CD /* AppCoordinatorLive.swift */; };
 		F29BE27E2FD9A11B002C59F7 /* LiveDictationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29BE27D2FD9A11B002C59F7 /* LiveDictationSession.swift */; };
+		F29BE2812FDA8D4D002C59F7 /* TranscriptProcessingProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29BE2802FDA8D4D002C59F7 /* TranscriptProcessingProfile.swift */; };
+		F29BE2832FDA8D60002C59F7 /* TranscriptProcessingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29BE2822FDA8D60002C59F7 /* TranscriptProcessingService.swift */; };
+		F29BE2852FDA9B9C002C59F7 /* TranscriptOutputFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29BE2842FDA9B9C002C59F7 /* TranscriptOutputFormatter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -77,6 +80,10 @@
 		E48B37645D9C844833348A15 /* ModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelStore.swift; sourceTree = "<group>"; };
 		EBAB4339DC33FE1AB6423836 /* TransparentHostingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransparentHostingView.swift; sourceTree = "<group>"; };
 		F29BE27D2FD9A11B002C59F7 /* LiveDictationSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDictationSession.swift; sourceTree = "<group>"; };
+		F29BE27F2FDA8796002C59F7 /* TranscriptionProfiles.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TranscriptionProfiles.md; sourceTree = "<group>"; };
+		F29BE2802FDA8D4D002C59F7 /* TranscriptProcessingProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptProcessingProfile.swift; sourceTree = "<group>"; };
+		F29BE2822FDA8D60002C59F7 /* TranscriptProcessingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptProcessingService.swift; sourceTree = "<group>"; };
+		F29BE2842FDA9B9C002C59F7 /* TranscriptOutputFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptOutputFormatter.swift; sourceTree = "<group>"; };
 		F2DC7F659259C1147C0E793B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F52BF312BC256443226FD940 /* SoundCuePlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundCuePlayer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -147,6 +154,9 @@
 				1758DB251BBDA9BDC1FEACDC /* ServiceProtocols.swift */,
 				0F535DB58AC80A210E0A99E0 /* SettingsStore.swift */,
 				F29BE27D2FD9A11B002C59F7 /* LiveDictationSession.swift */,
+				F29BE2802FDA8D4D002C59F7 /* TranscriptProcessingProfile.swift */,
+				F29BE2822FDA8D60002C59F7 /* TranscriptProcessingService.swift */,
+				F29BE2842FDA9B9C002C59F7 /* TranscriptOutputFormatter.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -195,6 +205,7 @@
 				56D75467D3375D3C901D8544 /* Config */,
 				3F145B619008250D85AFD359 /* Voiced */,
 				D395D53349EC9706E8F09D88 /* Products */,
+				F29BE27F2FDA8796002C59F7 /* TranscriptionProfiles.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -294,6 +305,7 @@
 			files = (
 				E81EAE8038B63A2C03EE5AC1 /* AppCoordinatorLive.swift in Sources */,
 				E3E609F4078E7BB43C4AC1D1 /* AppNotifications.swift in Sources */,
+				F29BE2812FDA8D4D002C59F7 /* TranscriptProcessingProfile.swift in Sources */,
 				0A435CCF524E7C54DDA2B6B0 /* AppServices.swift in Sources */,
 				CFCE55C5EC4589DDC784B797 /* CaptureState.swift in Sources */,
 				4C79262405E0E4515A0DD8DE /* CursorMicroIndicator.swift in Sources */,
@@ -315,9 +327,11 @@
 				1DC894F3E46F300DF0E8EA61 /* SettingsView.swift in Sources */,
 				60262FDDA10703AEF146B816 /* SoundCue.swift in Sources */,
 				C5F0664BDF2F4C0C7989121E /* SoundCuePlayer.swift in Sources */,
+				F29BE2832FDA8D60002C59F7 /* TranscriptProcessingService.swift in Sources */,
 				E41501F56C890F9B8F12E129 /* StatusMenuController+Actions.swift in Sources */,
 				D6E6C49354E2F3B06B037864 /* StatusMenuController+MenuBuilding.swift in Sources */,
 				0A8A20A33A6B5CC39238FB71 /* StatusMenuController.swift in Sources */,
+				F29BE2852FDA9B9C002C59F7 /* TranscriptOutputFormatter.swift in Sources */,
 				5533DDF7CD2F7C04A715F483 /* TelemetryService.swift in Sources */,
 				AC2D31B72FD9356A00C866C4 /* LiveTranscriptState.swift in Sources */,
 				A9F041342BB91FAF0F8BBD37 /* TranscriptionModel.swift in Sources */,

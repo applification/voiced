@@ -27,6 +27,11 @@ protocol OutputPerforming: AnyObject {
 }
 
 @MainActor
+protocol TranscriptProcessing: AnyObject {
+    func process(_ transcript: String, profile: TranscriptProcessingProfile) async throws -> String
+}
+
+@MainActor
 protocol IndicatorPresenting: AnyObject {
     func show(state: IndicatorState)
     func hide()
@@ -39,7 +44,12 @@ protocol CursorIndicatorPresenting: AnyObject {
     func showTranscribingAtCursor()
     func showLiveTranscriptAtCursor(state: LiveTranscriptState, onCancel: @escaping () -> Void)
     func updateLiveTranscript(_ state: LiveTranscriptState)
-    func showReviewAtCursor(text: String, onCopy: @escaping (String) -> Void, onDropRejected: @escaping () -> Void)
+    func showReviewAtCursor(
+        text: String,
+        onCopy: @escaping (String) -> Void,
+        onProcess: @escaping (TranscriptProcessingProfile, String) async -> String,
+        onDropRejected: @escaping () -> Void
+    )
     func hide()
     func hideImmediately()
 }
@@ -69,6 +79,7 @@ protocol TelemetryReporting: AnyObject {
 extension HotkeyManager: HotkeyListening {}
 extension WhisperKitTranscriptionService: AppTranscribing {}
 extension OutputManager: OutputPerforming {}
+extension TranscriptProcessingService: TranscriptProcessing {}
 extension FloatingIndicator: IndicatorPresenting {}
 extension CursorMicroIndicator: CursorIndicatorPresenting {}
 extension MicrophonePermissionManager: MicrophonePermissionManaging {}

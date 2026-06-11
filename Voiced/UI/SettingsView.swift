@@ -5,6 +5,7 @@ import SwiftUI
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
     case models
+    case ai
     case privacy
 
     var id: Self { self }
@@ -13,6 +14,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: "General"
         case .models: "Models"
+        case .ai: "AI"
         case .privacy: "Privacy"
         }
     }
@@ -51,6 +53,10 @@ struct SettingsView: View {
                 case .models:
                     centeredSettingsContent {
                         modelSettings
+                    }
+                case .ai:
+                    centeredSettingsContent {
+                        aiSettings
                     }
                 case .privacy:
                     centeredSettingsContent {
@@ -252,6 +258,40 @@ struct SettingsView: View {
             Spacer(minLength: 0)
         }
         .id(modelStatusRevision)
+        .padding(.top, 10)
+    }
+
+    private var aiSettings: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 14) {
+                GridRow {
+                    Text("Transcript output")
+                        .foregroundStyle(.secondary)
+                    Picker("Transcript output", selection: Bindable(settings).transcriptProcessingProfile) {
+                        ForEach(TranscriptProcessingProfile.allCases) { profile in
+                            Text(profile.menuTitle).tag(profile)
+                        }
+                    }
+                    .labelsHidden()
+                }
+
+                GridRow {
+                    Text("Result")
+                        .foregroundStyle(.secondary)
+                    Text(settings.transcriptProcessingProfile.detail)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Divider()
+
+            Text("Uses Apple Intelligence on device when available. If the model is not ready, unsupported, or unavailable, Voiced keeps the raw transcript.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+        }
         .padding(.top, 10)
     }
 

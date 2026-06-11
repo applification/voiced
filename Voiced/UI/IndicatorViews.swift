@@ -36,6 +36,10 @@ struct IndicatorView: View {
                 Text("Transcribing")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            case .processing:
+                Text("Processing")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             case .error(let message):
                 Image(systemName: "exclamationmark")
                     .font(.caption.weight(.semibold))
@@ -56,10 +60,10 @@ struct NotchContentView: View {
 
     var body: some View {
         Group {
-            if case .transcribing = state {
+            if state.isTextProgress {
                 HStack(spacing: 8) {
                     NotchTranscribingIcon(color: waveformColor)
-                    Text("Transcribing")
+                    Text(state.progressTitle)
                         .font(.caption)
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -103,7 +107,7 @@ struct NotchContentView: View {
             Circle()
                 .fill(waveformColor)
                 .frame(width: metrics.dotSize, height: metrics.dotSize)
-        case .transcribing:
+        case .transcribing, .processing:
             EmptyView()
         case .error(let message):
             Image(systemName: "exclamationmark")
