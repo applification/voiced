@@ -35,21 +35,64 @@ Relevant existing seams:
 
 The existing protocol is the right migration boundary. Avoid spreading Apple Speech framework calls into the coordinator or UI.
 
-## Native Apple Option
+## Native Apple Options
 
 Use:
 
 - `SpeechAnalyzer`
 - `SpeechTranscriber`
+- `DictationTranscriber`
+- `CaptureInputSequenceProvider`
+- `AnalyzerInputConverter`
+- `AssetInputSequenceProvider`
 - `AssetInventory` for required speech asset availability/downloads
-- `DictationTranscriber` only as a compatibility fallback if it satisfies product requirements
 
 Target availability:
 
 - macOS 26+ for `SpeechAnalyzer` / `SpeechTranscriber`.
-- Keep WhisperKit for earlier macOS versions and unsupported locales.
+- macOS 26+ for `DictationTranscriber`.
+- macOS 27+ for the supported live microphone helpers:
+  - `CaptureInputSequenceProvider`
+  - `AnalyzerInputConverter`
+- Keep WhisperKit for earlier macOS versions, unsupported locales, and any live-microphone use case below macOS 27.
+
+The important product implication is that Apple Speech should be treated as a macOS 27+ live dictation backend. macOS 26 may still be useful for file-based experiments, asset readiness work, and offline transcription through the analyzer APIs, but the clean supported live microphone bridge lands in macOS 27.
 
 WWDC26 generated subtitles are not the primary migration target. They are aimed at AVKit media subtitle generation and should only be considered for playback/captioning features, not Voiced's dictation pipeline.
+
+## New Capabilities To Evaluate
+
+Apple's beta Speech APIs unlock more than a like-for-like transcription engine swap. Evaluate these explicitly:
+
+- `CaptureInputSequenceProvider`
+  - Reads from `AVCaptureDevice` sources such as the default or external microphone.
+  - Can configure a new `AVCaptureSession` or integrate with an app-provided session.
+  - Produces analyzer-ready `AsyncSequence<AnalyzerInput>` values.
+  - Reduces custom audio tap, buffer routing, and format-conversion code on macOS 27+.
+- `AnalyzerInputConverter`
+  - Converts app-owned `AVAudioBuffer` / `AVAudioPCMBuffer` streams into analyzer-ready input.
+  - Preserves Voiced's existing capture/metering/recording pipeline while swapping the transcription engine.
+  - Supports `flush()` at stop time so pending converted audio is finalized.
+- `AssetInputSequenceProvider`
+  - Reads audio files or specific `AVAssetTrack` values as analyzer-ready input.
+  - Enables clean benchmarking against fixed audio fixtures.
+  - Enables a possible "retry/reprocess with Apple Speech" path for the last captured recording.
+- `SpeechTranscriber`
+  - General-purpose speech-to-text model designed for long-form, conversational, distant, and live use cases.
+  - Supports volatile and finalized result delivery.
+  - Can provide audio time-range attributes for transcript/playback sync.
+- `DictationTranscriber`
+  - Provides dictation-specific presets such as progressive short/long dictation.
+  - Supports content hints such as short-form, far-field, atypical speech, and customized language.
+  - Can use `SFCustomLanguageModelData` / `SFSpeechLanguageModel` to bias recognition toward product and developer vocabulary.
+
+For Voiced, the highest-value feature experiments are:
+
+1. Apple live dictation on macOS 27 using `CaptureInputSequenceProvider`.
+2. Apple live dictation on macOS 27 using Voiced's existing capture pipeline plus `AnalyzerInputConverter`.
+3. Apple file transcription on macOS 26+ using `AssetInputSequenceProvider`.
+4. `SpeechTranscriber` versus `DictationTranscriber` accuracy for developer vocabulary.
+5. Custom language model data for terms such as "Voiced", "WhisperKit", "Contexture", "Applification", "SwiftUI", "Xcode", and other frequent technical terms.
 
 ## Phase 1: Compatibility Spike
 
@@ -58,23 +101,52 @@ Create a small isolated Apple transcription service before changing product defa
 Tasks:
 
 1. Add `AppleSpeechTranscriptionService` in `Voiced/Audio/`.
-2. Gate the implementation with `@available(macOS 26.0, *)`.
+2. Gate live microphone support with `@available(macOS 27.0, *)`.
 3. Keep it behind `AppTranscribing` or a new narrower internal protocol if the current protocol needs minor adjustments.
 4. Implement model/asset readiness using Apple's supported-locale and asset inventory APIs.
-5. Implement live transcription from microphone audio using the same push-to-talk lifecycle as the current service.
-6. Implement file transcription if still needed for tests, recovery, or fallback flows.
-7. Return `LiveTranscriptState` with:
+5. Implement file transcription first on macOS 26+ using `AssetInputSequenceProvider` or `SpeechAnalyzer` file APIs.
+6. Implement live transcription on macOS 27+ using `CaptureInputSequenceProvider`.
+7. Add a second live prototype using Voiced's existing capture pipeline plus `AnalyzerInputConverter` if preserving audio metering/temp-file behavior is simpler than adopting `AVCaptureSession`.
+8. Return `LiveTranscriptState` with:
    - finalized transcript text
    - volatile/current transcript text
-   - audio level if Apple APIs expose enough signal, otherwise keep the existing audio-level calculation in Voiced's capture layer
+   - audio level from Voiced's existing capture layer, unless the Apple provider path replaces that layer completely
+   - optional segment timing metadata if the Apple result attributes prove useful
 
 Acceptance criteria:
 
-- The app builds on the current Xcode 26 toolchain.
+- The app builds on the current Xcode beta toolchain.
 - The service can be selected in debug builds.
-- Recording starts and stops without changing `AppCoordinatorLive` behavior.
+- File transcription works on macOS 26+ where Apple Speech assets and locales are available.
+- Live recording starts and stops on macOS 27+ without changing `AppCoordinatorLive` behavior.
 - Final text reaches the existing review surface.
 - Unsupported OS and unsupported locale failures are explicit and recoverable.
+
+## Phase 1b: Transcriber Comparison Spike
+
+Compare `SpeechTranscriber` and `DictationTranscriber` before choosing the Apple backend shape.
+
+Tasks:
+
+1. Implement a `SpeechTranscriber` mode using progressive reporting where available.
+2. Implement a `DictationTranscriber` mode using `progressiveLongDictation`.
+3. Add optional `DictationTranscriber.ContentHint` variants for:
+   - short-form dictation
+   - far-field microphone input
+   - atypical speech
+   - customized language
+4. Generate a small `SFCustomLanguageModelData` training fixture for Voiced/developer vocabulary.
+5. Benchmark both Apple transcribers against the same audio fixtures and the current WhisperKit backend.
+
+Acceptance criteria:
+
+- The comparison can be run without changing production defaults.
+- Results identify whether `SpeechTranscriber`, `DictationTranscriber`, or WhisperKit is best for:
+  - short push-to-talk dictation
+  - long notes
+  - developer vocabulary
+  - external microphone input
+  - noisy/far-field laptop microphone input
 
 ## Phase 2: Backend Selection
 
@@ -93,11 +165,12 @@ enum TranscriptionBackend: String, Codable, CaseIterable {
 Selection behavior:
 
 - `automatic`
-  - Use Apple Speech on macOS 26+ when the selected locale is supported and required assets are available or downloadable.
+  - Use Apple Speech live transcription on macOS 27+ when the selected locale is supported and required assets are available or downloadable.
+  - Use Apple Speech file transcription only for explicit file/reprocess workflows on macOS 26+.
   - Fall back to WhisperKit otherwise.
 - `appleSpeech`
   - Require Apple Speech.
-  - Show an actionable error if unavailable.
+  - Show an actionable error if unavailable for the requested mode.
 - `whisperKit`
   - Preserve current behavior.
 
@@ -109,7 +182,8 @@ Tasks:
    - "Automatic"
    - "Apple Speech"
    - "WhisperKit"
-4. Hide Apple Speech option on unsupported macOS versions, or show it disabled with a clear macOS 26+ requirement.
+4. Hide Apple Speech live option on unsupported macOS versions, or show it disabled with a clear macOS 27+ requirement.
+5. If a file/reprocess Apple Speech mode ships separately, label it distinctly from live dictation.
 
 Acceptance criteria:
 
@@ -127,6 +201,7 @@ Apple Speech path:
 - Check required speech assets through Apple APIs.
 - Prompt before downloading Apple speech assets if a download is required.
 - Explain that audio and transcript remain local.
+- Explain when Apple Speech is unavailable because live microphone support requires macOS 27+.
 
 WhisperKit path:
 
@@ -141,6 +216,7 @@ Tasks:
    - needs download
    - downloading
    - unsupported locale
+   - file transcription available, live transcription requires macOS 27+
    - unavailable on this macOS version
    - failed
 4. Update App Store metadata and privacy docs if Apple Speech becomes default.
@@ -170,6 +246,9 @@ Measure:
 - Energy impact.
 - Word error rate against hand-corrected samples.
 - Punctuation and capitalization quality.
+- Accuracy with and without `DictationTranscriber` custom language data.
+- Accuracy with content hints such as short-form, far-field, and atypical speech where relevant.
+- Segment timing quality if audio time-range attributes are enabled.
 - Behavior with silence, false starts, room noise, accents, and technical vocabulary.
 - Stability over repeated push-to-talk sessions.
 
@@ -190,6 +269,7 @@ Acceptance criteria for making Apple Speech the default:
 - Finalization latency after release is equal or better.
 - Memory and energy are materially better, or accuracy is materially better.
 - Accuracy is not worse on product vocabulary and developer dictation.
+- If `DictationTranscriber` custom language data is used, it measurably improves targeted terms without harming normal prose.
 - Failure modes are clearer than WhisperKit or recover cleanly through fallback.
 
 ## Phase 5: Default Rollout
@@ -198,12 +278,12 @@ Roll out in layers.
 
 1. Debug-only backend selector.
 2. Internal/TestFlight backend selector.
-3. `automatic` default for new installs on macOS 26+.
+3. `automatic` default for new installs on macOS 27+ if live benchmarks are favorable.
 4. Prompt existing users to try Apple Speech if benchmarks are favorable.
 5. Make Apple Speech default for all eligible users.
 6. Consider removing WhisperKit only after:
    - Apple Speech covers required locales.
-   - Older macOS support is no longer required.
+   - Older macOS support below 27 is no longer required, or WhisperKit remains as the legacy live backend.
    - App Store/network/model-download tradeoffs are no longer worth maintaining.
 
 Acceptance criteria:
@@ -227,22 +307,35 @@ protocol TranscriptionServiceFactory {
 Use `@available` wrappers to prevent accidental runtime crashes:
 
 ```swift
-if #available(macOS 26.0, *) {
+if #available(macOS 27.0, *) {
     return AppleSpeechTranscriptionService(settings: settings)
 } else {
     return WhisperKitTranscriptionService(settings: settings)
 }
 ```
 
+If file-only Apple Speech functionality is introduced, keep it separate from the live backend check:
+
+```swift
+if #available(macOS 26.0, *) {
+    return AppleSpeechFileTranscriptionService(settings: settings)
+}
+```
+
 Avoid changing `LiveTranscriptState` until the Apple implementation proves it needs extra fields. If confidence, timestamps, or segment metadata become useful, add them as optional fields and keep the UI tolerant of missing values.
+
+When testing `DictationTranscriber`, keep custom language model assets small and explicit. The goal is targeted vocabulary bias, not a broad replacement language model.
 
 ## Risks
 
 - Apple Speech language coverage may not match WhisperKit.
-- APIs may still change across macOS 26 beta releases.
+- APIs may still change across macOS 27 beta releases.
+- The supported live microphone path is macOS 27+, not macOS 26+.
 - Asset download and availability behavior may be less controllable than WhisperKit's explicit model store.
-- Custom vocabulary/contextual biasing may be weaker or unavailable compared with current or future WhisperKit tuning.
+- `DictationTranscriber` custom vocabulary/context hints may help technical terms, but may also over-bias normal prose.
 - Live transcript semantics may differ from WhisperKit's partial result behavior.
+- `CaptureInputSequenceProvider` may conflict with Voiced's existing audio capture/metering assumptions if it replaces the current capture path.
+- `AnalyzerInputConverter` may preserve the current capture path, but still requires macOS 27+ in the current SDK.
 - App Store review copy must distinguish Apple-managed speech assets from third-party model downloads.
 
 ## Rollback Plan
@@ -254,6 +347,7 @@ Rollback triggers:
 - Higher crash rate in Apple Speech sessions.
 - Worse finalization latency after push-to-talk release.
 - Accuracy regressions in common Voiced dictation.
+- Custom language model regressions in ordinary prose.
 - Asset download failures that users cannot recover from.
 - macOS beta API breakage.
 
@@ -266,11 +360,18 @@ Rollback action:
 ## Open Questions
 
 - Which locales must Voiced support for vNext?
-- Does Apple Speech expose enough timing/segment data for future transcript highlighting or editing features?
-- Does Apple Speech support custom vocabulary or contextual strings comparable to legacy `SFSpeechRecognizer` hints?
+- Is `SpeechTranscriber` or `DictationTranscriber` better for Voiced's short push-to-talk dictation?
+- Does `DictationTranscriber` custom language data materially improve developer vocabulary?
+- Does Apple Speech's timing/segment data justify future transcript highlighting or editing features?
+- Should Voiced adopt `CaptureInputSequenceProvider`, or keep the existing capture pipeline and use `AnalyzerInputConverter`?
 - Can Voiced remove the network entitlement if Apple Speech becomes the only production backend?
 - Should Apple Speech be a Pro/default quality feature, or simply the default native path where available?
 
 ## Recommended Next Step
 
-Build the macOS 26-gated `AppleSpeechTranscriptionService` spike and wire it into a debug-only backend selector. Then run a small benchmark set before touching onboarding, App Store copy, or default behavior.
+Build two debug-only spikes:
+
+1. A macOS 26+ file-transcription spike using fixed audio fixtures and Apple Speech assets.
+2. A macOS 27+ live-transcription spike comparing `SpeechTranscriber`, `DictationTranscriber`, `CaptureInputSequenceProvider`, and `AnalyzerInputConverter`.
+
+Then run the small benchmark set before touching onboarding, App Store copy, or default behavior.
