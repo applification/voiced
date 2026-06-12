@@ -18,49 +18,49 @@ const height = 1800;
 
 const shots = [
   {
-    file: "/Users/davehudson/Desktop/Screenshot 2026-06-07 at 16.52.05.png",
+    file: path.join(root, "website/public/screenshots/setup-guide.png"),
     output: "01-onboarding-review-setup.png",
-    title: "Set up local dictation in minutes",
+    title: "Set up local dictation",
     subtitle:
-      "Choose a speech model, grant microphone access, and decide how transcripts are delivered.",
+      "Choose a speech model, grant microphone access, and start with a review-first workflow.",
     maxImageWidth: 1680,
     maxImageHeight: 1040,
   },
   {
-    file: "/Users/davehudson/Desktop/Screenshot 2026-06-07 at 16.52.13.png",
-    output: "02-settings-general.png",
-    title: "Tune capture to your workflow",
+    file: path.join(root, "website/public/screenshots/review-panel.png"),
+    output: "02-review-window.png",
+    title: "Review every transcript",
     subtitle:
-      "Pick your push-to-talk key, output mode, startup behavior, and completion sounds.",
-    maxImageWidth: 1420,
+      "Check the text, copy it, or drag it into another Mac app.",
+    maxImageWidth: 1840,
     maxImageHeight: 1040,
   },
   {
-    file: "/Users/davehudson/Desktop/Screenshot 2026-06-07 at 16.52.18.png",
-    output: "03-local-models.png",
-    title: "Local speech models, managed clearly",
+    file: path.join(root, "website/public/screenshots/review-todo-reminders.png"),
+    output: "03-apple-intelligence-actions.png",
+    title: "Turn speech into action",
     subtitle:
-      "Download, inspect, and remove transcription models from a simple native settings panel.",
-    maxImageWidth: 1420,
+      "Use Apple Intelligence actions when available to clean, summarize, or make tasks.",
+    maxImageWidth: 1840,
     maxImageHeight: 1040,
   },
   {
-    file: "/Users/davehudson/Desktop/Screenshot 2026-06-07 at 16.52.20.png",
-    output: "04-privacy-controls.png",
-    title: "Plain privacy controls",
+    file: path.join(root, "website/public/screenshots/menu-model.png"),
+    output: "04-model-status-menu.png",
+    title: "Know what is running",
     subtitle:
-      "Diagnostics are optional, and Voiced never sends audio, transcripts, or clipboard contents.",
-    maxImageWidth: 1420,
-    maxImageHeight: 1040,
+      "See the selected local model, download approval, and recent transcripts from the menu bar.",
+    maxImageWidth: 1840,
+    maxImageHeight: 900,
   },
   {
-    file: "/Users/davehudson/Desktop/Screenshot 2026-06-07 at 16.52.30.png",
-    output: "05-menu-bar.png",
-    title: "Always ready from the menu bar",
+    file: path.join(root, "website/public/screenshots/settings-general.png"),
+    output: "05-settings-general.png",
+    title: "Tune capture to your voice",
     subtitle:
-      "Copy, paste, change output mode, or open settings without leaving the app you are using.",
-    maxImageWidth: 920,
-    maxImageHeight: 920,
+      "Pick your push-to-talk key, startup behavior, and completion sounds.",
+    maxImageWidth: 1220,
+    maxImageHeight: 1040,
   },
 ];
 

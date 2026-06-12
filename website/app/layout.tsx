@@ -25,11 +25,11 @@ const overpassMono = Overpass_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://voiced.applification.net"),
   title: {
-    default: "Voiced - Private Dictation for macOS",
+    default: "Voiced - Review-First Dictation for macOS",
     template: "%s - Voiced",
   },
   description:
-    "Voiced is a focused Mac dictation app that turns push-to-talk recordings into clean text with local transcription.",
+    "Voiced is a focused Mac dictation app that turns push-to-talk recordings into local transcripts you can review, clean, copy, and drag.",
   applicationName: "Voiced",
   authors: [{ name: "Applification" }],
   creator: "Applification",
@@ -40,6 +40,8 @@ export const metadata: Metadata = {
     "private transcription",
     "local transcription",
     "push to talk",
+    "Apple Intelligence",
+    "Foundation Models",
     "Mac productivity app",
   ],
   category: "productivity",
@@ -52,9 +54,9 @@ export const metadata: Metadata = {
     shortcut: [{ url: "/voiced-icon.png", type: "image/png" }],
   },
   openGraph: {
-    title: "Voiced - Private Dictation for macOS",
+    title: "Voiced - Review-First Dictation for macOS",
     description:
-      "A focused Mac dictation app for turning speech into clean text with local transcription.",
+      "A focused Mac dictation app for turning speech into local transcripts you can review, clean, copy, and drag.",
     url: "/",
     siteName: "Voiced",
     images: [
@@ -70,9 +72,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "Voiced - Private Dictation for macOS",
+    title: "Voiced - Review-First Dictation for macOS",
     description:
-      "Push-to-talk dictation for Mac, with local transcription after model download.",
+      "Push-to-talk dictation for Mac, with local transcription and review-window actions.",
     images: ["/voiced-icon.png"],
   },
   appleWebApp: {

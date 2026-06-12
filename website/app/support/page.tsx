@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Support",
   description:
-    "Support information for Voiced Dictation, including privacy, permissions, and issue reporting.",
+    "Support information for Voiced Dictation, including transcription, review actions, permissions, and issue reporting.",
   alternates: {
     canonical: "/support",
   },
@@ -16,12 +16,16 @@ const supportTopics = [
     text: "Voiced needs microphone access to record while push-to-talk is active. You can review this in macOS System Settings under Privacy & Security.",
   },
   {
-    title: "Accessibility permission",
-    text: "Auto Paste needs Accessibility permission to send Command-V to the focused app. Clipboard Only mode works without Auto Paste.",
+    title: "Hotkey privacy permission",
+    text: "macOS may ask for Accessibility or Input Monitoring so Voiced can detect your push-to-talk key while another app is focused. Voiced does not use that access to paste automatically.",
   },
   {
     title: "Model downloads",
     text: "The first local transcription model download can be large. After download and verification, Voiced uses the cached model from the app container.",
+  },
+  {
+    title: "Review actions",
+    text: "Clean transcript, executive summary, and to-do list actions use Apple Intelligence on compatible Macs. If Apple Intelligence is unavailable, the raw transcript remains ready to copy or drag.",
   },
 ];
 
@@ -41,8 +45,9 @@ export default function SupportPage() {
             Support
           </h1>
           <p className="mt-5 text-pretty text-lg leading-8 text-[#c5d6ca]">
-            If Voiced is not recording, downloading a model, or pasting where
-            you expect, start with the macOS permissions below.
+            If Voiced is not recording, downloading a model, or showing the
+            review window where you expect, start with the macOS permissions
+            below.
           </p>
         </header>
 
@@ -71,8 +76,9 @@ export default function SupportPage() {
             >
               voiced@applification.net
             </a>
-            . Include your macOS version, Voiced version, output mode, and
-            whether the issue happens before or after model download.
+            . Include your macOS version, Voiced version, selected model, and
+            whether the issue happens before recording, during transcription, or
+            in the review window.
           </p>
         </section>
 

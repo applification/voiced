@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "Privacy details for Voiced Dictation, including local transcription, model downloads, and optional diagnostics.",
+    "Privacy details for Voiced Dictation, including local transcription, review actions, model downloads, and optional diagnostics.",
   alternates: {
     canonical: "/privacy",
   },
@@ -16,7 +16,7 @@ const diagnosticsIncluded = [
   "recording starts and cancellations",
   "transcription success or failure",
   "model load success or failure",
-  "output failures and broad error categories",
+  "review action success or failure and broad error categories",
 ];
 
 const diagnosticsExcluded = [
@@ -77,9 +77,9 @@ export default function PrivacyPage() {
             Privacy Policy
           </h1>
           <p className="mt-5 text-pretty text-lg leading-8 text-[#c5d6ca]">
-            Voiced Dictation is built for local speech transcription on your
-            Mac. Audio and transcript text are not uploaded to Applification or
-            to a cloud transcription service.
+            Voiced Dictation is built for local speech transcription and
+            review on your Mac. Audio and transcript text are not uploaded to
+            Applification or to a cloud transcription service.
           </p>
         </header>
 
@@ -87,8 +87,9 @@ export default function PrivacyPage() {
           <p>
             Voiced records only while push-to-talk is active. Temporary audio is
             used for local transcription, then deleted after processing,
-            including error paths. Transcript text is copied or pasted according
-            to your output setting and is not stored by Voiced after that flow.
+            including error paths. Transcript text is shown in the review
+            window, copied or dragged only when you choose, and is not written
+            to disk by Voiced.
           </p>
         </Section>
 
@@ -102,14 +103,31 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="Clipboard and Accessibility">
+        <Section title="Review window and clipboard">
           <p>
-            Clipboard Only mode places the transcript on the clipboard for you
-            to paste manually. Auto Paste mode temporarily writes the transcript
-            to the clipboard and sends Command-V to the focused app after you
-            grant macOS Accessibility permission. Voiced restores the previous
-            clipboard contents when possible and does not collect clipboard
-            contents.
+            Completed transcripts appear in a floating review window. You can
+            copy the transcript to the clipboard, drag it into another app, or
+            use an available review action. Voiced does not send synthetic
+            paste keystrokes and does not collect clipboard contents.
+          </p>
+        </Section>
+
+        <Section title="Apple Intelligence review actions">
+          <p>
+            On compatible Macs, Voiced can use Apple Intelligence through
+            Foundation Models to clean a transcript, summarize it, or turn
+            spoken tasks into a checklist. These actions run after
+            transcription from the review window. If Apple Intelligence is not
+            available, Voiced keeps the raw transcript.
+          </p>
+        </Section>
+
+        <Section title="Hotkey privacy permissions">
+          <p>
+            macOS may require Accessibility or Input Monitoring permission for
+            Voiced to detect your explicit push-to-talk key while another app is
+            focused. Voiced uses that permission for hotkey detection, not for
+            automatic paste or arbitrary keystroke capture.
           </p>
         </Section>
 

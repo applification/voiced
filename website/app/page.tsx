@@ -4,18 +4,16 @@ import {
   ArrowDownToLine,
   Check,
   Clipboard,
-  Command,
+  FileText,
   HardDriveDownload,
   Keyboard,
   Lock,
   Mic,
   Monitor,
-  MousePointer2,
   Radio,
   ShieldCheck,
 } from "lucide-react";
 
-const waveformBars = [34, 64, 88, 112, 76, 104, 70, 92, 42, 68, 96, 52];
 const downloadUrl = "/download";
 const brandLabel =
   "font-[family-name:var(--font-overpass)] font-semibold tracking-[0.01em]";
@@ -48,9 +46,14 @@ const workflow = [
     text: "A small indicator follows the recording state, with optional sounds for start and stop.",
   },
   {
+    icon: FileText,
+    title: "Review the result",
+    text: "The transcript appears in a floating review panel before you copy, drag, or reshape it.",
+  },
+  {
     icon: Clipboard,
-    title: "Paste or copy",
-    text: "Voiced can paste into the focused app or leave the transcript on your clipboard.",
+    title: "Use it anywhere",
+    text: "Copy to the clipboard, drag into another app, or run an Apple Intelligence action when available.",
   },
 ];
 
@@ -62,8 +65,8 @@ const trustPoints = [
   },
   {
     icon: ShieldCheck,
-    title: "Plain privacy boundaries",
-    text: "Privacy, diagnostics, model downloads, and permissions are explained before they matter.",
+    title: "Sensitive permissions explained",
+    text: "Microphone, model downloads, and any hotkey privacy permission are explained before they matter.",
   },
   {
     icon: Lock,
@@ -82,11 +85,15 @@ const modelFacts = [
 const privacyFacts = [
   "No cloud transcription path",
   "Temporary audio deleted after transcription",
-  "Last transcript recovery is memory-only",
-  "Copy-only mode avoids Accessibility paste",
+  "Recent transcripts stay memory-only",
+  "No synthetic paste keystrokes",
 ];
 
-const ctaFacts = ["macOS 14 or newer", "Default hotkey: Right Command", "Local transcription"];
+const ctaFacts = [
+  "macOS 14 or newer",
+  "Default hotkey: Right Command",
+  "Review-first output",
+];
 
 function StatusDot({ className = "" }: { className?: string }) {
   return (
@@ -112,122 +119,38 @@ function FactList({ items }: { items: string[] }) {
   );
 }
 
-function RecorderPreview() {
+function ScreenshotFrame({
+  src,
+  alt,
+  width,
+  height,
+  priority = false,
+  className = "",
+}: {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  priority?: boolean;
+  className?: string;
+}) {
   return (
-    <div className="relative mx-auto w-full max-w-[500px] lg:mx-0 lg:justify-self-end">
-      <div className="absolute -inset-5 rounded-[18px] bg-[#88d0a0]/10 blur-3xl" />
-      <div className="relative rounded-[18px] border border-[#e8ece8]/18 bg-[#101818] p-4 shadow-[0_14px_40px_rgba(0,8,8,0.22)]">
-        <div className="rounded-[14px] bg-[#000808] p-5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Image
-                src="/voiced-icon.png"
-                alt=""
-                width={54}
-                height={54}
-                className="rounded-[12px]"
-              />
-              <div>
-                <p className={`text-sm text-[#e8ece8] ${brandLabel}`}>Voiced</p>
-                <p className="text-sm text-[#80b890]">Menu bar capture</p>
-              </div>
-            </div>
-            <span
-              className={`inline-flex items-center gap-2 rounded-full bg-[#88d0a0] px-3 py-1 text-xs text-[#000808] ${brandLabel}`}
-            >
-              <StatusDot className="bg-[#000808]" />
-              Recording
-            </span>
-          </div>
-
-          <div className="mt-10 flex h-32 items-center justify-center gap-2 rounded-full bg-[#181c1c] px-7 sm:gap-3">
-            {waveformBars.map((height, index) => (
-              <span
-                key={`${height}-${index}`}
-                className="w-3 rounded-full bg-[#88d0a0] sm:w-4"
-                style={{ height }}
-              />
-            ))}
-          </div>
-
-          <div className="mt-7 grid gap-3 sm:grid-cols-[0.9fr_1.1fr]">
-            <div className="rounded-[12px] border border-[#e8ece8]/14 bg-[#101818] p-4">
-              <p className="text-xs text-[#80b890]">Output mode</p>
-              <p className="mt-2 text-sm font-medium text-[#e8ece8]">
-                Paste, then restore clipboard
-              </p>
-            </div>
-            <div className="rounded-[12px] border border-[#e8ece8]/14 bg-[#101818] p-4">
-              <p className="text-xs text-[#80b890]">Model</p>
-              <p className="mt-2 text-sm font-medium text-[#e8ece8]">
-                WhisperKit tiny, verified
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-3 rounded-[12px] border border-[#e8ece8]/14 bg-[#101818] p-4">
-            <p className="text-sm leading-6 text-[#e8ece8]/84">
-              &quot;Draft the release note. Mention macOS only, local
-              transcription, and that copy-only mode is available.&quot;
-            </p>
-            <div className="mt-4 h-px bg-[#e8ece8]/12" />
-            <p className="mt-4 text-sm leading-6 text-[#80b890]">
-              Transcribed locally, ready for the focused app.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function WorkflowDiagram() {
-  return (
-    <div className="rounded-[18px] bg-[#000808] p-4 text-[#e8ece8]">
-      <div className="rounded-[14px] border border-[#e8ece8]/14 bg-[#101818] p-4">
-        <div className="flex items-center justify-between gap-4">
-          <span
-            className={`inline-flex items-center gap-2 rounded-full bg-[#181c1c] px-3 py-1.5 text-sm text-[#e8ece8] ${monoLabel}`}
-          >
-            <Command aria-hidden className="size-4 text-[#88d0a0]" />
-            Right Command
-          </span>
-          <span className="text-sm text-[#80b890]">held</span>
-        </div>
-        <div className="mt-5 h-2 rounded-full bg-[#181c1c]">
-          <div className="h-full w-2/3 rounded-full bg-[#88d0a0]" />
-        </div>
-      </div>
-
-      <div className="my-3 flex justify-center">
-        <div className="h-8 w-px bg-[#e8ece8]/18" />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-[14px] border border-[#e8ece8]/14 bg-[#101818] p-4">
-          <Radio aria-hidden className="size-5 text-[#88d0a0]" />
-          <p className="mt-4 text-sm font-medium">Floating indicator</p>
-          <p className="mt-2 text-sm leading-6 text-[#e8ece8]/70">
-            Recording, transcribing, model loading, and error states stay
-            visible without opening a window.
-          </p>
-        </div>
-        <div className="rounded-[14px] border border-[#e8ece8]/14 bg-[#101818] p-4">
-          <MousePointer2 aria-hidden className="size-5 text-[#88d0a0]" />
-          <p className="mt-4 text-sm font-medium">Focused-app output</p>
-          <p className="mt-2 text-sm leading-6 text-[#e8ece8]/70">
-            Paste mode sends Cmd+V with Accessibility permission. Copy-only
-            mode skips synthetic keystrokes.
-          </p>
-        </div>
-      </div>
+    <div className={`relative ${className}`}>
+      <Image
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        priority={priority}
+        className="h-auto w-full rounded-[18px]"
+      />
     </div>
   );
 }
 
 function ModelPanel() {
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+    <div className="grid gap-6 min-[960px]:grid-cols-2">
       <section className="rounded-[18px] bg-[#e7efea] p-5 sm:p-6">
         <div className="flex items-center justify-between gap-4">
           <HardDriveDownload aria-hidden className="size-6 text-[#101818]" />
@@ -237,13 +160,13 @@ function ModelPanel() {
             one-time setup
           </span>
         </div>
-        <h3 className="mt-8 max-w-md text-2xl font-semibold tracking-[-0.02em]">
+        <h3 className="mt-7 max-w-md text-2xl font-semibold tracking-[-0.02em]">
           Models are downloaded deliberately.
         </h3>
         <p className="mt-4 max-w-lg text-sm leading-6 text-[#385040]">
           Voiced asks before loading the local transcription model. It shows
-          progress, verifies downloaded files against pinned hashes, and exposes
-          model storage controls in settings.
+          progress, verifies downloaded files, and exposes model storage
+          controls in settings.
         </p>
         <div className="mt-7">
           <FactList items={modelFacts} />
@@ -259,13 +182,13 @@ function ModelPanel() {
             local-first
           </span>
         </div>
-        <h3 className="mt-8 max-w-md text-2xl font-semibold tracking-[-0.02em]">
-          Capture has visible limits.
+        <h3 className="mt-7 max-w-md text-2xl font-semibold tracking-[-0.02em]">
+          Capture and review have visible limits.
         </h3>
         <p className="mt-4 max-w-lg text-sm leading-6 text-[#e8ece8]/74">
           After setup, speech is recorded locally, transcribed locally, then
-          emitted as text. Temporary audio is cleaned up, and transcript content
-          is not stored as history.
+          shown for review. Temporary audio is cleaned up, and recent
+          transcripts are kept in memory only.
         </p>
         <ul className="mt-7 space-y-3">
           {privacyFacts.map((item) => (
@@ -283,11 +206,39 @@ function ModelPanel() {
   );
 }
 
+function IntelligenceSection() {
+  return (
+    <section className="bg-[#e7efea] px-5 py-16 sm:px-8 lg:px-10">
+      <div className="mx-auto grid max-w-7xl gap-10 xl:grid-cols-[0.9fr_1.1fr] xl:items-center">
+        <div>
+          <h2 className="max-w-2xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
+            Clean up the transcript before it leaves Voiced.
+          </h2>
+          <p className="mt-5 max-w-xl text-pretty text-base leading-7 text-muted-foreground">
+            On compatible Macs, Voiced can use Apple Intelligence through
+            Foundation Models to tidy spoken text, summarize a capture, or turn
+            tasks into a checklist. If Apple Intelligence is unavailable,
+            Voiced keeps the raw transcript ready to use.
+          </p>
+        </div>
+
+        <ScreenshotFrame
+          src="/screenshots/review-todo-reminders.png"
+          alt="Voiced review window showing a to-do list created from speech, plus clean, summarize, to-do, reminders, copy, and drag controls."
+          width={1340}
+          height={910}
+          className="mx-auto w-full max-w-[760px]"
+        />
+      </div>
+    </section>
+  );
+}
+
 function Hero() {
   return (
     <section className="relative isolate overflow-hidden bg-[#000808] text-[#e8ece8]">
       <div className="absolute inset-x-0 top-0 h-px bg-[#e8ece8]/20" />
-      <div className="mx-auto flex min-h-[86vh] w-full max-w-7xl flex-col px-5 py-5 sm:px-8 lg:px-10">
+      <div className="mx-auto flex min-h-[86vh] w-full max-w-[1760px] flex-col px-5 py-5 sm:px-8 lg:px-10">
         <header className="flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-3 text-sm font-medium">
             <Image
@@ -316,32 +267,33 @@ function Hero() {
           </nav>
         </header>
 
-        <div className="grid flex-1 items-center gap-12 py-10 lg:grid-cols-[minmax(0,1.02fr)_minmax(360px,0.78fr)] lg:py-12">
-          <div className="max-w-4xl">
+        <div className="hero-grid grid flex-1 items-center gap-12 py-10 lg:gap-14 lg:py-12">
+          <div className="hero-copy max-w-6xl">
             <div
               className={`mb-8 inline-flex items-center gap-2 rounded-full border border-[#e8ece8]/18 bg-[#101818] px-3 py-1.5 text-sm text-[#80b890] ${brandLabel}`}
             >
               <Radio aria-hidden className="size-4" />
-              Push-to-talk dictation for macOS
+              Review-first dictation for macOS
             </div>
-            <h1 className="max-w-4xl text-balance text-5xl font-semibold leading-[0.96] tracking-[-0.025em] sm:text-6xl lg:text-[5.5rem]">
-              Dictate anywhere your Mac can type.
+            <h1 className="hero-title max-w-6xl text-balance font-semibold leading-[0.96] tracking-[-0.025em]">
+              Turn speech into text you can trust.
             </h1>
             <p className="mt-7 max-w-2xl text-pretty text-lg leading-8 text-[#e8ece8]/76 sm:text-xl">
               Voiced records while you hold a key, transcribes locally with
-              WhisperKit, then copies or pastes clean text back into your Mac.
+              WhisperKit, then opens a review window where you can check,
+              clean, copy, or drag the text into your work.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
               <a
                 href={downloadUrl}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-[#80b890] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+                className="inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-[#80b890] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
               >
                 <ArrowDownToLine aria-hidden className="size-4" />
                 Download for macOS
               </a>
               <Link
                 href="/privacy"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[#e8ece8]/18 bg-[#101818] px-5 text-sm font-semibold text-[#e8ece8] transition hover:bg-[#181c1c] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+                className="inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[#e8ece8]/18 bg-[#101818] px-5 text-sm font-semibold text-[#e8ece8] transition hover:bg-[#181c1c] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
               >
                 <ShieldCheck aria-hidden className="size-4" />
                 Read privacy notes
@@ -355,15 +307,22 @@ function Hero() {
                 Local transcription
               </span>
               <span className={`rounded-full bg-[#101818] px-3 py-1.5 ${brandLabel}`}>
-                Clipboard-preserving paste
+                Review window
               </span>
               <span className={`rounded-full bg-[#101818] px-3 py-1.5 ${brandLabel}`}>
-                App Store beta
+                Apple Intelligence actions
               </span>
             </div>
           </div>
 
-          <RecorderPreview />
+          <ScreenshotFrame
+            src="/screenshots/review-panel.png"
+            alt="Voiced review window with transcript text, clean, summarize, to-do, copy, and drag controls."
+            width={1340}
+            height={838}
+            priority
+            className="hero-shot mx-auto w-full max-w-[960px]"
+          />
         </div>
       </div>
     </section>
@@ -373,15 +332,15 @@ function Hero() {
 function WorkflowSection() {
   return (
     <section id="workflow" className="bg-background px-5 py-18 sm:px-8 lg:px-10">
-      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
+      <div className="mx-auto grid max-w-7xl gap-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
         <div>
           <h2 className="max-w-2xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
             Dictation that stays out of the way.
           </h2>
           <p className="mt-5 max-w-xl text-pretty text-base leading-7 text-muted-foreground">
             The whole loop is designed for the moment between thinking and
-            typing: hold a key, speak, release, then let Voiced put the text
-            where you need it.
+            typing: hold a key, speak, release, then review the text before it
+            enters another app.
           </p>
           <div className="mt-9 grid gap-6">
             {workflow.map(({ icon: Icon, title, text }) => (
@@ -401,7 +360,13 @@ function WorkflowSection() {
             ))}
           </div>
         </div>
-        <WorkflowDiagram />
+        <ScreenshotFrame
+          src="/screenshots/setup-guide.png"
+          alt="Voiced setup guide showing local speech model choices and microphone readiness."
+          width={1584}
+          height={1288}
+          className="mx-auto w-full max-w-[740px]"
+        />
       </div>
     </section>
   );
@@ -421,7 +386,16 @@ function ModelSection() {
             from the local cache.
           </p>
         </div>
-        <ModelPanel />
+        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(300px,0.56fr)] xl:items-center">
+          <ScreenshotFrame
+            src="/screenshots/menu-model.png"
+            alt="Voiced menu bar status menu with selected local model, download size, approval state, recent transcripts, and settings."
+            width={1222}
+            height={588}
+            className="mx-auto w-full max-w-[520px] xl:order-2 xl:justify-self-end"
+          />
+          <ModelPanel />
+        </div>
       </div>
     </section>
   );
@@ -433,7 +407,7 @@ function TrustSection() {
       id="privacy"
       className="border-y border-border bg-[#f7faf8] px-5 py-16 sm:px-8 lg:px-10"
     >
-      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.8fr_1.2fr]">
+      <div className="mx-auto grid max-w-7xl gap-10 xl:grid-cols-[0.8fr_1.2fr]">
         <div>
           <h2 className="max-w-xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
             A small tool with explicit boundaries.
@@ -441,8 +415,17 @@ function TrustSection() {
           <p className="mt-5 max-w-xl text-pretty text-base leading-7 text-muted-foreground">
             Voiced is built around a simple bargain: record only while
             push-to-talk is active, transcribe locally after model setup, and
-            keep the output path under your control.
+            keep the output path visible until you choose what happens next.
           </p>
+          <div className="mt-8 max-w-lg overflow-hidden rounded-[18px] border border-border bg-[#000808]">
+            <Image
+              src="/screenshots/settings-general.png"
+              alt="Voiced Settings window with push-to-talk, launch at login, activation sound, and deactivation sound controls."
+              width={1344}
+              height={1468}
+              className="h-auto w-full -translate-y-[1%] scale-[1.02]"
+            />
+          </div>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
           {trustPoints.map(({ icon: Icon, title, text }) => (
@@ -471,7 +454,7 @@ function DownloadCta() {
             Ready when your model is
           </p>
           <h2 className="mt-3 max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
-            Download Voiced and keep dictation close to the work.
+            Download Voiced and keep your words under review.
           </h2>
           <div className="mt-7 flex flex-wrap gap-2">
             {ctaFacts.map((fact) => (
@@ -486,7 +469,7 @@ function DownloadCta() {
         </div>
         <a
           href={downloadUrl}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-[#80b890] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+          className="inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-[#80b890] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
         >
           <ArrowDownToLine aria-hidden className="size-4" />
           Download for macOS
@@ -528,6 +511,7 @@ export default function Home() {
       <Hero />
       <WorkflowSection />
       <ModelSection />
+      <IntelligenceSection />
       <TrustSection />
       <DownloadCta />
       <Footer />

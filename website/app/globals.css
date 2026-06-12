@@ -128,3 +128,55 @@
     @apply font-sans;
   }
 }
+
+@layer components {
+  .hero-title {
+    font-size: clamp(3.25rem, 6.4vw, 5.25rem);
+  }
+
+  .hero-shot {
+    max-width: min(960px, 100%);
+  }
+
+  @media (min-width: 1180px) {
+    .hero-grid {
+      grid-template-columns: minmax(0, 0.82fr) minmax(520px, 0.9fr);
+      gap: clamp(3rem, 5vw, 6rem);
+    }
+
+    .hero-copy {
+      max-width: 46rem;
+    }
+
+    .hero-title {
+      max-width: 46rem;
+      font-size: clamp(4.5rem, 5.35vw, 5.75rem);
+    }
+
+    .hero-shot {
+      justify-self: end;
+      margin-left: 0;
+      margin-right: 0;
+      max-width: min(760px, 100%);
+    }
+  }
+
+  @media (min-width: 1800px) {
+    .hero-grid {
+      grid-template-columns: minmax(0, 0.86fr) minmax(720px, 1.08fr);
+    }
+
+    .hero-copy {
+      max-width: 50rem;
+    }
+
+    .hero-title {
+      max-width: 50rem;
+      font-size: 5.75rem;
+    }
+
+    .hero-shot {
+      max-width: 860px;
+    }
+  }
+}
