@@ -3,14 +3,14 @@ import Link from "next/link";
 import {
   ArrowDownToLine,
   Check,
-  Clipboard,
-  FileText,
   HardDriveDownload,
   Keyboard,
+  ListTodo,
   Lock,
   Mic,
   Monitor,
   Radio,
+  ScanText,
   ShieldCheck,
 } from "lucide-react";
 
@@ -36,24 +36,24 @@ function ApplificationMark({ className }: { className?: string }) {
 
 const workflow = [
   {
-    icon: Keyboard,
-    title: "Hold the hotkey",
-    text: "Press and hold Right Command, or choose another push-to-talk key in settings.",
-  },
-  {
     icon: Mic,
-    title: "Speak in place",
-    text: "A small indicator follows the recording state, with optional sounds for start and stop.",
+    title: "Speak it",
+    text: "Hold Right Command to save a voice capture, or add Shift to transcribe directly into the focused editor.",
   },
   {
-    icon: FileText,
-    title: "Review the result",
-    text: "The transcript appears in a floating review panel before you copy, drag, or reshape it.",
+    icon: ScanText,
+    title: "Select it",
+    text: "Press Shift twice to keep selected text from the app you are already using.",
   },
   {
-    icon: Clipboard,
-    title: "Use it anywhere",
-    text: "Copy to the clipboard, drag into another app, or run an Apple Intelligence action when available.",
+    icon: Keyboard,
+    title: "Type it",
+    text: "Open the shelf with Option-Space and type a prompt, note, idea, or follow-up.",
+  },
+  {
+    icon: ListTodo,
+    title: "Paste, queue, or keep it",
+    text: "Edit, search, copy, insert, or move captures through Inbox, Next, and Done.",
   },
 ];
 
@@ -65,13 +65,13 @@ const trustPoints = [
   },
   {
     icon: ShieldCheck,
-    title: "Sensitive permissions explained",
-    text: "Microphone, model downloads, and any hotkey privacy permission are explained before they matter.",
+    title: "Permissions stay visible",
+    text: "Microphone, Accessibility, Input Monitoring, and model downloads are explained with recovery actions.",
   },
   {
     icon: Lock,
-    title: "Transcript text stays out of logs",
-    text: "Logs use counts and state changes, not audio content, transcript text, file names, or window titles.",
+    title: "No telemetry or cloud storage",
+    text: "Captures stay in a readable local file. There is no account, analytics, or remote capture service.",
   },
 ];
 
@@ -85,14 +85,14 @@ const modelFacts = [
 const privacyFacts = [
   "No cloud transcription path",
   "Temporary audio deleted after transcription",
-  "Recent transcripts stay memory-only",
-  "No synthetic paste keystrokes",
+  "Captures saved as local JSON",
+  "No account or telemetry",
 ];
 
 const ctaFacts = [
   "macOS 14 or newer",
-  "Default hotkey: Right Command",
-  "Review-first output",
+  "Direct download",
+  "Local shelf",
 ];
 
 function StatusDot({ className = "" }: { className?: string }) {
@@ -183,12 +183,12 @@ function ModelPanel() {
           </span>
         </div>
         <h3 className="mt-7 max-w-md text-2xl font-semibold tracking-[-0.02em]">
-          Capture and review have visible limits.
+          Capture and storage have visible limits.
         </h3>
         <p className="mt-4 max-w-lg text-sm leading-6 text-[#e8ece8]/74">
-          After setup, speech is recorded locally, transcribed locally, then
-          shown for review. Temporary audio is cleaned up, and recent
-          transcripts are kept in memory only.
+          After setup, speech is recorded and transcribed locally. Voice,
+          selections, and typed notes are saved to one readable file under
+          Application Support.
         </p>
         <ul className="mt-7 space-y-3">
           {privacyFacts.map((item) => (
@@ -273,15 +273,15 @@ function Hero() {
               className={`mb-8 inline-flex items-center gap-2 rounded-full border border-[#e8ece8]/18 bg-[#101818] px-3 py-1.5 text-sm text-[#80b890] ${brandLabel}`}
             >
               <Radio aria-hidden className="size-4" />
-              Review-first dictation for macOS
+              Local capture for macOS
             </div>
             <h1 className="hero-title max-w-6xl text-balance font-semibold leading-[0.96] tracking-[-0.025em]">
-              Turn speech into text you can trust.
+              Speak it, select it, or type it.
             </h1>
             <p className="mt-7 max-w-2xl text-pretty text-lg leading-8 text-[#e8ece8]/76 sm:text-xl">
-              Voiced records while you hold a key, transcribes locally with
-              WhisperKit, then opens a review window where you can check,
-              clean, copy, or drag the text into your work.
+              Voiced keeps speech, selected text, and typed prompts in one
+              persistent shelf. Paste them, queue them, or keep them without
+              creating an account or sending captures to the cloud.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
               <a
@@ -307,10 +307,10 @@ function Hero() {
                 Local transcription
               </span>
               <span className={`rounded-full bg-[#101818] px-3 py-1.5 ${brandLabel}`}>
-                Review window
+                Persistent shelf
               </span>
               <span className={`rounded-full bg-[#101818] px-3 py-1.5 ${brandLabel}`}>
-                Apple Intelligence actions
+                No telemetry
               </span>
             </div>
           </div>
@@ -335,12 +335,11 @@ function WorkflowSection() {
       <div className="mx-auto grid max-w-7xl gap-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
         <div>
           <h2 className="max-w-2xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
-            Dictation that stays out of the way.
+            Capture without leaving your train of thought.
           </h2>
           <p className="mt-5 max-w-xl text-pretty text-base leading-7 text-muted-foreground">
-            The whole loop is designed for the moment between thinking and
-            typing: hold a key, speak, release, then review the text before it
-            enters another app.
+            Use the input that fits the moment. Every path creates the same
+            editable item, ready to insert now or keep for later.
           </p>
           <div className="mt-9 grid gap-6">
             {workflow.map(({ icon: Icon, title, text }) => (
@@ -362,7 +361,7 @@ function WorkflowSection() {
         </div>
         <ScreenshotFrame
           src="/screenshots/setup-guide.png"
-          alt="Voiced setup guide showing local speech model choices and microphone readiness."
+          alt="Voiced setup guide showing local speech model choices and capture permission readiness."
           width={1584}
           height={1288}
           className="mx-auto w-full max-w-[740px]"
@@ -389,7 +388,7 @@ function ModelSection() {
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(300px,0.56fr)] xl:items-center">
           <ScreenshotFrame
             src="/screenshots/menu-model.png"
-            alt="Voiced menu bar status menu with selected local model, download size, approval state, recent transcripts, and settings."
+            alt="Voiced menu bar controls for the shelf, capture shortcuts, permissions, models, and settings."
             width={1222}
             height={588}
             className="mx-auto w-full max-w-[520px] xl:order-2 xl:justify-self-end"
@@ -413,9 +412,9 @@ function TrustSection() {
             A small tool with explicit boundaries.
           </h2>
           <p className="mt-5 max-w-xl text-pretty text-base leading-7 text-muted-foreground">
-            Voiced is built around a simple bargain: record only while
-            push-to-talk is active, transcribe locally after model setup, and
-            keep the output path visible until you choose what happens next.
+            Voiced listens only for its explicit shortcuts, records only while
+            push-to-talk is active, and keeps captures on your Mac until you
+            decide what happens next.
           </p>
           <div className="mt-8 max-w-lg overflow-hidden rounded-[18px] border border-border bg-[#000808]">
             <Image
@@ -454,7 +453,7 @@ function DownloadCta() {
             Ready when your model is
           </p>
           <h2 className="mt-3 max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
-            Download Voiced and keep your words under review.
+            Download Voiced and keep useful text close.
           </h2>
           <div className="mt-7 flex flex-wrap gap-2">
             {ctaFacts.map((fact) => (

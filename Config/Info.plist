@@ -32,9 +32,5 @@
 	<string>Voiced needs access to Reminders so it can export generated checklist items as reminders.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Voiced uses speech recognition to turn your push-to-talk recordings into text.</string>
-	<key>PostHogHost</key>
-	<string>$(POSTHOG_HOST)</string>
-	<key>PostHogProjectToken</key>
-	<string>$(POSTHOG_PROJECT_TOKEN)</string>
 </dict>
 </plist>

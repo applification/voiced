@@ -171,7 +171,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
                 try ModelIntegrity.verify(model: selectedModel, at: store.localModelURL)
             }.value
         } catch {
-            logger.error("WhisperKit model integrity verification failed: \(String(describing: error), privacy: .public)")
+            logger.error("WhisperKit model integrity verification failed")
             try? await Task.detached(priority: .utility) {
                 try store.deleteDownloadedModel()
             }.value
@@ -307,7 +307,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
                 try await transcriber.startStreamTranscription()
             } catch {
                 await MainActor.run {
-                    self?.logger.error("Live transcription failed: \(String(describing: error), privacy: .public)")
+                    self?.logger.error("Live transcription failed")
                 }
             }
         }

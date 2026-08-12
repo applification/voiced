@@ -4,101 +4,85 @@
 
 # Voiced
 
-Voiced is a quiet, native macOS dictation companion for fast capture and clean transcription. It runs as a local menu bar app, records only while push-to-talk is held, transcribes speech locally with WhisperKit, and makes the result available from the clipboard and a review/drag surface.
+Voiced is a local capture layer for macOS: speak it, select it, or type it, then paste it, queue it, or keep it. It combines local Whisper transcription with selected-text capture, typed prompts, a native review surface, and a persistent shelf.
 
-The project also includes a small Next.js website for the public product/download surface.
+## Capture
 
-## What It Does
+- Hold Right Command to transcribe into the previously focused editor. Successful insertion moves the capture to Done and restores the previous clipboard when it remains unchanged.
+- Hold Shift + Right Command to record, then release to save and review the capture in the shelf.
+- Press Shift twice to capture the current selection.
+- Press Option-Space to open or close the shelf.
+- Type directly into the shelf to add a capture.
+- Edit, search, clean, summarize, turn into a to-do list, export reminders, copy, insert, drag, move, or remove captures in the shelf detail pane.
+- Inbox, Next, and Done persist across launches.
+- Automatic insertion restores the previous clipboard when it has not changed during the operation.
 
-- Global push-to-talk capture for quick dictation from anywhere on macOS.
-- Local speech transcription through WhisperKit and Argmax OSS models.
-- Clipboard output with an on-screen review surface for checking or dragging the completed transcript where needed.
-- Model download approval, progress reporting, and SHA-256 integrity verification before loading.
-- Status menu controls for recording state, permissions, model selection, output behavior, and settings.
-- Floating/cursor recording indicators and optional sound cues.
-- Lightweight PostHog telemetry support when a public project token is supplied at build time.
+Voice, selection, and typed input all produce the same `CaptureItem`. Captures are stored as readable JSON at:
 
-## Repository Layout
+```text
+~/Library/Application Support/Voiced/Captures.json
+```
 
-- `Voiced/` - the macOS app source, with `VoicedApp.swift` as the app entry point.
-- `Voiced/App/` - app coordination, services, settings, and shared state.
-- `Voiced/Audio/` - recording, transcription models, and WhisperKit transcription.
-- `Voiced/Models/` - local model storage, progress, and integrity verification.
-- `Voiced/Output/` - clipboard and last-capture output behavior.
-- `Voiced/Permissions/` - microphone, Accessibility, hotkey, and event monitoring support.
-- `Voiced/UI/` - settings, status menu, indicators, and supporting view code.
-- `Voiced/Support/` - notifications, telemetry, and sound cues.
-- `Config/` - app entitlements, Info.plist, and asset catalogs.
-- `Voiced.xcodeproj/` - generated Xcode project.
-- `project.yml` - XcodeGen project definition.
-- `script/` - local build, run, and model manifest scripts.
-- `docs/` - local build, security, privacy, and release notes.
-- `website/` - the Next.js marketing/download site.
-- `DESIGN.md` - product and visual design system notes.
+Writes are atomic. If the file is corrupt, Voiced preserves a timestamped recovery copy before starting an empty shelf.
+
+## Privacy
+
+Voiced has no account, telemetry, analytics, cloud storage, server, or cloud transcription path. Capture text, transcript text, clipboard contents, application window titles, and other sensitive material are not logged.
+
+Network access is used only after an explicit local speech-model download request. Temporary audio is deleted after transcription or cancellation. Downloaded models are verified against pinned SHA-256 manifests before loading.
 
 ## Requirements
 
 - macOS 14 or newer.
-- Xcode with Swift 6 support.
-- XcodeGen for regenerating the Xcode project from `project.yml`.
-- An Apple Developer signing identity for the smoothest local Accessibility permission flow.
+- Microphone access for voice capture.
+- Accessibility for selected-text access and automatic insertion.
+- Input Monitoring for global modifier gestures and shortcuts.
+- Xcode with Swift 6 support and XcodeGen for development.
 
-## Local Development
+The onboarding flow, shelf, settings, and menu all expose recoverable permission actions. Voiced never resets TCC or changes privacy settings itself.
 
-Generate the Xcode project after changing `project.yml`:
+## Development
+
+`project.yml` is the source of truth for the generated Xcode project.
 
 ```sh
 xcodegen generate
+xcodebuild -project Voiced.xcodeproj -scheme Voiced -configuration Debug build
+xcodebuild -project Voiced.xcodeproj -scheme Voiced -configuration Release build
+xcodebuild -project Voiced.xcodeproj -scheme Voiced -configuration Debug test
 ```
 
-Build and launch the debug product:
+Build, install to the stable `dist/Voiced.app` path, sign with a local Apple Development identity when available, and launch:
 
 ```sh
-./script/build_and_run.sh run
+./script/build_and_run.sh
 ```
 
-Install the built app to a stable local path and launch it:
+See [docs/local-build.md](docs/local-build.md) for local permission testing and [docs/manual-smoke-checklist.md](docs/manual-smoke-checklist.md) for end-to-end verification.
+
+## Direct Distribution
+
+The Mac App Store is not a supported distribution target. Release builds are unsandboxed and use Hardened Runtime so global capture, Accessibility selection, and insertion can work reliably.
+
+Create a signed Release archive and ZIP package:
 
 ```sh
-./script/build_and_run.sh install-run
+VOICED_DEVELOPER_ID_IDENTITY="Developer ID Application: Company (TEAMID)" \
+  ./script/package_release.sh package
 ```
 
-Running from `dist/Voiced.app` is recommended because macOS tracks Accessibility permissions by app identity and path. See [docs/local-build.md](docs/local-build.md) for signing and permission troubleshooting.
+No repository script uploads or notarizes during ordinary build/package commands. The separate `notarize` mode requires an explicit invocation and configured keychain profile. See [docs/direct-distribution.md](docs/direct-distribution.md).
 
-## Permissions
+## Repository Layout
 
-Voiced needs:
-
-- Microphone access to record audio while push-to-talk is held.
-- Accessibility/Input Monitoring access where macOS requires it for global push-to-talk while another app is focused.
-- Input Monitoring on some systems for global event taps.
-
-Completed transcripts are copied to the clipboard; Voiced does not synthesize paste keystrokes.
-
-## Privacy And Security
-
-Voiced is designed around local capture and local transcription. The app has no cloud transcription path, does not log transcript text, and deletes temporary audio files after transcription, cancellation, and error paths.
-
-Downloaded transcription models are verified against pinned SHA-256 manifests before WhisperKit loads them. Public releases ship through Xcode Cloud and App Store Connect.
-
-See [docs/security-model.md](docs/security-model.md) and [docs/privacy-checklist.md](docs/privacy-checklist.md) for more detail.
-
-## Website
-
-The public site lives in `website/`.
-
-```sh
-cd website
-npm run dev
-```
-
-Then open `http://localhost:3000`.
-
-Deployment notes live in [docs/website-deployment.md](docs/website-deployment.md).
-
-## Release
-
-Distribution builds are produced by Xcode Cloud and delivered through App Store Connect. Local scripts are for development and clean-slate App Store configuration checks only.
+- `Voiced/Capture/`: capture model, persistence, source application tracking, and selected-text capture.
+- `Voiced/Output/`: clipboard transactions and automatic insertion.
+- `Voiced/Permissions/`: global event tap, gesture recognition, and permission state.
+- `Voiced/UI/`: shelf, generic review surface, settings, onboarding, and menu bar UI.
+- `Voiced/Audio/` and `Voiced/Models/`: local Whisper transcription and model management.
+- `VoicedTests/`: persistence, recovery, gesture, and clipboard-safety tests.
+- `script/`: local run and direct Release packaging workflows.
+- `website/`: public product site.
 
 ## License
 

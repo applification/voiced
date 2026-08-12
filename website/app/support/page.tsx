@@ -16,12 +16,16 @@ const supportTopics = [
     text: "Voiced needs microphone access to record while push-to-talk is active. You can review this in macOS System Settings under Privacy & Security.",
   },
   {
-    title: "Hotkey privacy permission",
-    text: "macOS may ask for Accessibility or Input Monitoring so Voiced can detect your push-to-talk key while another app is focused. Voiced does not use that access to paste automatically.",
+    title: "Capture permissions",
+    text: "Accessibility lets Voiced read an explicit selection and insert a capture. Input Monitoring listens for Right Command, Shift + Right Command, double Shift, and Option-Space. The shelf and Settings provide recovery buttons.",
   },
   {
     title: "Model downloads",
-    text: "The first local transcription model download can be large. After download and verification, Voiced uses the cached model from the app container.",
+    text: "The first local transcription model download can be large. After download and verification, Voiced uses the cached model from Application Support.",
+  },
+  {
+    title: "Local shelf storage",
+    text: "Captures are stored at ~/Library/Application Support/Voiced/Captures.json. If the file is corrupt, Voiced preserves a timestamped recovery copy.",
   },
   {
     title: "Review actions",
@@ -45,9 +49,8 @@ export default function SupportPage() {
             Support
           </h1>
           <p className="mt-5 text-pretty text-lg leading-8 text-[#c5d6ca]">
-            If Voiced is not recording, downloading a model, or showing the
-            review window where you expect, start with the macOS permissions
-            below.
+            If Voiced is not recording, capturing a selection, inserting text,
+            or downloading a model, start with the macOS permissions below.
           </p>
         </header>
 

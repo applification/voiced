@@ -33,18 +33,6 @@ final class SettingsStore {
         }
     }
 
-    var pushToTalkHotkey: PushToTalkHotkey {
-        didSet {
-            userDefaults.set(pushToTalkHotkey.rawValue, forKey: Keys.pushToTalkHotkey)
-        }
-    }
-
-    var basicDiagnosticsEnabled: Bool {
-        didSet {
-            userDefaults.set(basicDiagnosticsEnabled, forKey: Keys.basicDiagnosticsEnabled)
-        }
-    }
-
     var hasSeenIntroOnboarding: Bool {
         didSet {
             userDefaults.set(hasSeenIntroOnboarding, forKey: Keys.hasSeenIntroOnboarding)
@@ -73,16 +61,6 @@ final class SettingsStore {
             .flatMap(SoundCue.init(rawValue:))
         deactivationSound = storedDeactivationSound ?? .tink
 
-        let storedPushToTalkHotkey = userDefaults.string(forKey: Keys.pushToTalkHotkey)
-            .flatMap(PushToTalkHotkey.init(rawValue:))
-        pushToTalkHotkey = storedPushToTalkHotkey ?? .rightCommand
-
-        if userDefaults.object(forKey: Keys.basicDiagnosticsEnabled) == nil {
-            basicDiagnosticsEnabled = true
-        } else {
-            basicDiagnosticsEnabled = userDefaults.bool(forKey: Keys.basicDiagnosticsEnabled)
-        }
-
         hasSeenIntroOnboarding = userDefaults.bool(forKey: Keys.hasSeenIntroOnboarding)
 
         resetSetupStateForApplicationSupportStorageIfNeeded()
@@ -103,8 +81,6 @@ private enum Keys {
     static let launchAtLogin = "launchAtLogin"
     static let activationSound = "activationSound"
     static let deactivationSound = "deactivationSound"
-    static let pushToTalkHotkey = "pushToTalkHotkey"
-    static let basicDiagnosticsEnabled = "basicDiagnosticsEnabled"
     static let hasSeenIntroOnboarding = "hasSeenIntroOnboarding"
     static let didResetForApplicationSupportModelStorage = "didResetForApplicationSupportModelStorage"
 }

@@ -1,4 +1,5 @@
 import AppKit
+@preconcurrency import ApplicationServices
 import AVFoundation
 import SwiftUI
 
@@ -15,6 +16,8 @@ enum IntroOnboardingPresenter {
     static func isSetupRequired(settings: SettingsStore) -> Bool {
         !settings.hasSeenIntroOnboarding
             || AVCaptureDevice.authorizationStatus(for: .audio) != .authorized
+            || !AXIsProcessTrusted()
+            || !CGPreflightListenEventAccess()
             || !ModelStore(model: settings.transcriptionModel).statusSnapshot().isDownloaded
     }
 
@@ -32,8 +35,8 @@ enum IntroOnboardingPresenter {
         if mode == .firstRun {
             window.styleMask.remove(.closable)
         }
-        window.setContentSize(NSSize(width: 680, height: 500))
-        window.minSize = NSSize(width: 680, height: 500)
+        window.setContentSize(NSSize(width: 680, height: 620))
+        window.minSize = NSSize(width: 680, height: 620)
         window.isReleasedWhenClosed = false
         hostingController.rootView = IntroOnboardingView(settings: settings, mode: mode, window: window, onFinish: onFinish)
         window.center()
@@ -76,13 +79,18 @@ private struct IntroOnboardingView: View {
     var onFinish: () -> Void
 
     @State private var microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+    @State private var accessibilityAuthorized = AXIsProcessTrusted()
+    @State private var inputMonitoringAuthorized = CGPreflightListenEventAccess()
     @State private var modelProgress: ModelLoadProgress?
     @State private var downloadingModel: TranscriptionModel?
     @State private var preparedModels: Set<TranscriptionModel> = []
     @State private var selectedModel = TranscriptionModel.tiny
 
     private var canStart: Bool {
-        isSelectedModelPrepared && microphoneStatus == .authorized
+        isSelectedModelPrepared
+            && microphoneStatus == .authorized
+            && accessibilityAuthorized
+            && inputMonitoringAuthorized
     }
 
     private var canFinish: Bool {
@@ -111,13 +119,15 @@ private struct IntroOnboardingView: View {
             modelSection
             Divider()
             microphoneSection
+            Divider()
+            automationPermissionsSection
             Spacer(minLength: 0)
             footer
         }
         .padding(.horizontal, 28)
         .padding(.top, 28)
         .padding(.bottom, 18)
-        .frame(width: 680, height: 500, alignment: .topLeading)
+        .frame(width: 680, height: 620, alignment: .topLeading)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.18))
         .onAppear {
             selectedModel = settings.transcriptionModel
@@ -170,7 +180,7 @@ private struct IntroOnboardingView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(mode.heading)
                     .font(.title3.weight(.semibold))
-                Text("Hold \(settings.pushToTalkHotkey.onboardingLabel) to record, then release to transcribe.")
+                Text("Right ⌘ saves a voice capture. Add Shift to dictate and insert.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -199,6 +209,31 @@ private struct IntroOnboardingView: View {
             detail: "Required while push-to-talk is active."
         ) {
             microphoneAction
+        }
+    }
+
+    private var automationPermissionsSection: some View {
+        setupSection(
+            symbolName: "hand.raised.fill",
+            title: "Capture permissions",
+            status: accessibilityAuthorized && inputMonitoringAuthorized ? "Ready" : "Needed",
+            statusColor: accessibilityAuthorized && inputMonitoringAuthorized ? .green : .secondary,
+            detail: "Accessibility reads selections and inserts captures. Input Monitoring listens for Right Command, Shift + Right Command, double Shift, and Option-Space."
+        ) {
+            HStack(spacing: 8) {
+                if !accessibilityAuthorized {
+                    Button("Open Accessibility") {
+                        AppServices.permissions.openAccessibilitySettings()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                if !inputMonitoringAuthorized {
+                    Button("Open Input Monitoring") {
+                        AppServices.permissions.openInputMonitoringSettings()
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
         }
     }
 
@@ -436,6 +471,9 @@ private struct IntroOnboardingView: View {
         if microphoneStatus != .authorized {
             return "Allow microphone access to continue."
         }
+        if !accessibilityAuthorized || !inputMonitoringAuthorized {
+            return "Allow capture permissions to continue."
+        }
         return "Complete the required steps to continue."
     }
 
@@ -462,6 +500,8 @@ private struct IntroOnboardingView: View {
 
     private func refreshStatuses() {
         microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        accessibilityAuthorized = AXIsProcessTrusted()
+        inputMonitoringAuthorized = CGPreflightListenEventAccess()
         if LoadedModelState.isLoaded(selectedModel) {
             preparedModels.insert(selectedModel)
         }

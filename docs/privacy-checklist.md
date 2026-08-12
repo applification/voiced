@@ -1,67 +1,37 @@
-# Voiced Privacy Checklist
+# Privacy Checklist
 
-Voiced is intentionally local-only after the approved model download.
+## Local Capture Data
 
-## Runtime Data
+- Voice, selection, and typed input use `CaptureItem` and `CaptureStore`.
+- `~/Library/Application Support/Voiced/Captures.json` is the only capture database.
+- Writes are atomic and corrupt input is preserved as a timestamped recovery file.
+- Capture text, selected text, clipboard contents, window titles, source URLs, and transcript contents never appear in application logs.
+- Temporary recording data is removed after transcription and cancellation.
 
-- Audio files are written to the system temporary directory while recording.
-- Temp audio is deleted after transcription, including transcription error paths.
-- The most recent transcript is kept in memory only for recovery.
-- The last transcript is not persisted to disk.
-- The last transcript can be copied or cleared from the menu.
-- Logs use file existence, character counts, and state transitions; transcript text and audio content are not logged.
-
-## Model Download
-
-Voiced uses WhisperKit with explicitly selected local models.
-
-On first run, onboarding lets the user choose a local model and discloses the approximate size before network access begins. Later model changes are explicit from Settings > Models.
-
-In the App Store sandbox build, WhisperKit caches downloaded model files under:
-
-```text
-~/Library/Containers/net.applification.voiced/Data/Documents/huggingface/models/argmaxinc/whisperkit-coreml
-```
-
-The Voiced menu shows the model name, local cache size, and lets you reveal or delete that model folder. Downloaded model files are verified against pinned SHA-256 manifests before WhisperKit loads them.
-
-After the model is downloaded, WhisperKit should resolve from the local cache before attempting a download. To test offline behavior:
-
-1. Download the selected model once while online.
-2. Quit Voiced.
-3. Disable network access.
-4. Relaunch Voiced.
-5. Transcribe a short phrase.
-
-Expected result: transcription works without new model download traffic.
-
-## Network Expectations
+## Network
 
 Expected:
 
-- Hugging Face/WhisperKit model download only after the user presses a model download button in onboarding or `Download now` in Settings > Models.
-- PostHog diagnostics only when a build includes `POSTHOG_PROJECT_TOKEN` and the user has basic diagnostics enabled. Diagnostics must not include audio, transcript text, clipboard contents, screenshots, session replay, file names, file paths, window titles, or target application names.
+- WhisperKit/Hugging Face access only after the user explicitly chooses to download a model.
 
 Not expected:
 
-- Cloud transcription.
-- AI cleanup/enhancement calls.
-- Automatic update checks.
-- Transcript upload.
-- Audio upload.
+- telemetry, analytics, or crash-report uploads
+- account or authentication traffic
+- cloud transcription, capture upload, or remote storage
+- automatic update checks unless a direct-update mechanism is added and documented separately
 
-## Useful Logs
+## Clipboard
 
-Telemetry-only logs:
+- Copy is an explicit user action.
+- Selection fallback snapshots the clipboard before Command-C.
+- Insertion snapshots the clipboard before Command-V.
+- Restoration is guarded by pasteboard change count and never overwrites a newer clipboard value.
 
-```sh
-./script/build_and_run.sh --telemetry
-```
+## Verification
 
-Broad process logs:
-
-```sh
-./script/build_and_run.sh --logs
-```
-
-When reviewing logs, transcript text should not appear. Character counts are acceptable.
+1. Search source, dependency configuration, Settings, docs, and website for telemetry vendors and diagnostics copy.
+2. Exercise voice, selected-text, and typed capture without a network connection after the model is installed.
+3. Confirm `Captures.json` survives relaunch and contains no unexpected fields.
+4. Confirm application logs contain state/error metadata only, never captured content.
+5. Confirm the Release signature contains no `com.apple.security.app-sandbox` entitlement and has Hardened Runtime flags.

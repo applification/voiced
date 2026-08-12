@@ -40,7 +40,7 @@ final class TranscriptProcessingService {
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
-                logger.error("FoundationModels transcript processing failed: \(String(describing: error), privacy: .public)")
+                logger.error("FoundationModels capture processing failed")
                 return text
             }
         }
@@ -67,7 +67,7 @@ final class TranscriptProcessingService {
         let response = try await session.respond(
             to: prompt(for: profile, transcript: transcript),
             options: GenerationOptions(
-                sampling: .greedy,
+                    samplingMode: .greedy,
                 temperature: profile.temperature,
                 maximumResponseTokens: profile.maximumResponseTokens
             )

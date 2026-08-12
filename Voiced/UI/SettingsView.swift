@@ -144,14 +144,15 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 18) {
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 14) {
                 GridRow {
-                    Text("Push-to-talk")
+                    Text("Dictate and insert")
                         .foregroundStyle(.secondary)
-                    Picker("Push-to-talk", selection: Bindable(settings).pushToTalkHotkey) {
-                        ForEach(PushToTalkHotkey.allCases) { hotkey in
-                            Text(hotkey.label).tag(hotkey)
-                        }
-                    }
-                    .labelsHidden()
+                    Text("Right Command")
+                }
+
+                GridRow {
+                    Text("Save capture")
+                        .foregroundStyle(.secondary)
+                    Text("Shift + Right Command")
                 }
 
                 GridRow {
@@ -294,19 +295,37 @@ struct SettingsView: View {
 
     private var privacySettings: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Toggle("Share basic usage and crash diagnostics", isOn: diagnosticsBinding)
-
-            Text("Helps us understand whether Voiced is working. Never sends audio, transcripts, clipboard contents, screen recordings, file paths, or the apps you dictate into.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Capture permissions")
+                    .font(.callout.weight(.semibold))
+                HStack {
+                    permissionStatusLabel(
+                        "Accessibility",
+                        granted: AppServices.permissions.accessibilityAuthorized
+                    )
+                    Spacer()
+                    Button("Open Settings") {
+                        AppServices.permissions.openAccessibilitySettings()
+                    }
+                }
+                HStack {
+                    permissionStatusLabel(
+                        "Input Monitoring",
+                        granted: AppServices.permissions.inputMonitoringAuthorized
+                    )
+                    Spacer()
+                    Button("Open Settings") {
+                        AppServices.permissions.openInputMonitoringSettings()
+                    }
+                }
+            }
 
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Recent transcripts")
+                Label("Local by design", systemImage: "lock.shield")
                     .font(.callout.weight(.semibold))
-                Text("The menu bar keeps up to 5 recent transcripts in memory for quick review. They are not written to disk, are cleared when Voiced quits, and expire after 60 minutes.")
+                Text("Captures and transcription stay on this Mac. Voiced has no account, telemetry, cloud storage, or analytics.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -315,18 +334,18 @@ struct SettingsView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Included")
+                Text("Local capture file")
                     .font(.callout.weight(.semibold))
-                Text("App opens, app version, macOS version, anonymous install activity, recording starts and cancellations, transcription success or failure, selected model, coarse duration buckets, and broad error categories.")
+                Text("The shelf is saved as readable JSON at ~/Library/Application Support/Voiced/Captures.json.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .font(.callout)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Not included")
+                Text("Network access")
                     .font(.callout.weight(.semibold))
-                Text("Audio, transcript text, clipboard contents, screenshots, session replay, file names, file paths, window titles, and target application names.")
+                Text("Used only when you explicitly download a local speech model. Captures are never uploaded.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -335,15 +354,16 @@ struct SettingsView: View {
             Spacer(minLength: 0)
         }
         .padding(.top, 10)
+        .onAppear { AppServices.permissions.refresh() }
     }
 
-    private var diagnosticsBinding: Binding<Bool> {
-        Binding {
-            settings.basicDiagnosticsEnabled
-        } set: { enabled in
-            settings.basicDiagnosticsEnabled = enabled
-            AppServices.telemetry.setBasicDiagnosticsEnabled(enabled)
-        }
+    private func permissionStatusLabel(_ title: String, granted: Bool) -> some View {
+        Label(
+            granted ? "\(title) ready" : "\(title) needed",
+            systemImage: granted ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
+        )
+        .font(.callout)
+        .foregroundStyle(granted ? Color.green : Color.orange)
     }
 
     private var launchAtLoginBinding: Binding<Bool> {

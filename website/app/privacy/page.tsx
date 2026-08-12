@@ -4,29 +4,11 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "Privacy details for Voiced Dictation, including local transcription, review actions, model downloads, and optional diagnostics.",
+    "Privacy details for Voiced, including local captures, local transcription, model downloads, permissions, and clipboard handling.",
   alternates: {
     canonical: "/privacy",
   },
 };
-
-const diagnosticsIncluded = [
-  "app opens and anonymous install activity",
-  "app version, build number, macOS version, processor count, and architecture",
-  "recording starts and cancellations",
-  "transcription success or failure",
-  "model load success or failure",
-  "review action success or failure and broad error categories",
-];
-
-const diagnosticsExcluded = [
-  "audio recordings",
-  "transcript text",
-  "clipboard contents",
-  "screen recordings or session replay",
-  "file names, file paths, and window titles",
-  "the apps or text fields you dictate into",
-];
 
 function Section({
   title,
@@ -45,19 +27,6 @@ function Section({
   );
 }
 
-function BulletList({ items }: { items: string[] }) {
-  return (
-    <ul className="space-y-2">
-      {items.map((item) => (
-        <li key={item} className="flex gap-3">
-          <span aria-hidden className="mt-3 size-1.5 shrink-0 rounded-full bg-[#88d0a0]" />
-          <span>{item}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-[#000808] px-5 py-12 text-[#e8ece8] sm:px-8 lg:px-10">
@@ -71,82 +40,91 @@ export default function PrivacyPage() {
 
         <header className="py-12">
           <p className="text-sm font-medium text-[#80b890]">
-            Effective 7 June 2026
+            Effective 10 August 2026
           </p>
           <h1 className="mt-3 text-balance text-4xl font-semibold leading-tight tracking-[-0.03em] sm:text-6xl">
             Privacy Policy
           </h1>
           <p className="mt-5 text-pretty text-lg leading-8 text-[#c5d6ca]">
-            Voiced Dictation is built for local speech transcription and
-            review on your Mac. Audio and transcript text are not uploaded to
-            Applification or to a cloud transcription service.
+            Voiced keeps captures and transcription on your Mac. It has no
+            account, telemetry, analytics, cloud storage, or cloud transcription
+            service.
           </p>
         </header>
 
+        <Section title="Local captures">
+          <p>
+            Voice, selected text, and typed input create the same local capture
+            item. Captures are saved as readable JSON at
+            <code className="mx-1 text-[#88d0a0]">
+              ~/Library/Application Support/Voiced/Captures.json
+            </code>
+            . The file includes capture text, status, timestamps, source type,
+            and the source application name and bundle identifier when
+            available.
+          </p>
+          <p>
+            Writes are atomic. If the file cannot be decoded, Voiced preserves a
+            timestamped recovery copy before starting an empty shelf.
+          </p>
+        </Section>
+
         <Section title="Local transcription">
           <p>
-            Voiced records only while push-to-talk is active. Temporary audio is
-            used for local transcription, then deleted after processing,
-            including error paths. Transcript text is shown in the review
-            window, copied or dragged only when you choose, and is not written
-            to disk by Voiced.
+            Voiced records only while push-to-talk is active. Audio is processed
+            by the local Whisper model and temporary recording data is removed
+            after transcription or cancellation. Audio and capture text are not
+            uploaded to Applification.
           </p>
         </Section>
 
         <Section title="Model downloads">
           <p>
-            On first run, Voiced asks you to choose a local transcription model
-            and shows the approximate download size before downloading. Model
-            downloads use the network and may contact Hugging Face through
-            WhisperKit. Downloaded model files are stored in the app container
-            and verified before loading.
+            Voiced uses the network only after you explicitly request a speech
+            model download. WhisperKit may contact Hugging Face. Downloaded
+            models are stored in Application Support and checked against pinned
+            size and SHA-256 integrity values before loading.
           </p>
         </Section>
 
-        <Section title="Review window and clipboard">
+        <Section title="Accessibility and Input Monitoring">
           <p>
-            Completed transcripts appear in a floating review window. You can
-            copy the transcript to the clipboard, drag it into another app, or
-            use an available review action. Voiced does not send synthetic
-            paste keystrokes and does not collect clipboard contents.
+            Input Monitoring lets Voiced listen for Right Command, Shift + Right Command, double Shift,
+            Option-Space, and Escape. Accessibility lets Voiced read the selected
+            text exposed by the focused application and insert a capture after a
+            user action. Voiced does not use these permissions to collect
+            arbitrary keystrokes or background document content.
           </p>
         </Section>
 
-        <Section title="Apple Intelligence review actions">
+        <Section title="Clipboard handling">
+          <p>
+            Some applications do not expose selected text through Accessibility.
+            For those applications, Voiced can perform a controlled Command-C
+            fallback. Automatic insertion can perform Command-V. Both operations
+            snapshot the clipboard and restore it only if the clipboard has not
+            changed during the operation. A newer clipboard value is never
+            overwritten.
+          </p>
+        </Section>
+
+        <Section title="On-device review actions">
           <p>
             On compatible Macs, Voiced can use Apple Intelligence through
-            Foundation Models to clean a transcript, summarize it, or turn
-            spoken tasks into a checklist. These actions run after
-            transcription from the review window. If Apple Intelligence is not
-            available, Voiced keeps the raw transcript.
+            Foundation Models to clean a capture, summarize it, or turn tasks
+            into a checklist. These actions run on device. Reminders export
+            occurs only when you choose it and uses the macOS Reminders
+            permission.
           </p>
         </Section>
 
-        <Section title="Hotkey privacy permissions">
+        <Section title="Logs and data collection">
           <p>
-            macOS may require Accessibility or Input Monitoring permission for
-            Voiced to detect your explicit push-to-talk key while another app is
-            focused. Voiced uses that permission for hotkey detection, not for
-            automatic paste or arbitrary keystroke capture.
+            Voiced does not collect usage diagnostics. Application logs do not
+            include audio, capture or transcript text, selected text, clipboard
+            contents, source URLs, file names, window titles, or destination
+            application names.
           </p>
-        </Section>
-
-        <Section title="Basic diagnostics">
-          <p>
-            Voiced can share basic usage and crash diagnostics through PostHog
-            to help us understand whether the app is working. Diagnostics can be
-            turned off in Settings.
-          </p>
-          <div className="grid gap-6 md:grid-cols-2">
-            <div>
-              <h3 className="mb-3 text-lg font-semibold">Included</h3>
-              <BulletList items={diagnosticsIncluded} />
-            </div>
-            <div>
-              <h3 className="mb-3 text-lg font-semibold">Not included</h3>
-              <BulletList items={diagnosticsExcluded} />
-            </div>
-          </div>
         </Section>
 
         <Section title="Contact">

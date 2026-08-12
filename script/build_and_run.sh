@@ -4,10 +4,11 @@ set -euo pipefail
 MODE="${1:-run}"
 APP_NAME="Voiced"
 BUNDLE_ID="net.applification.voiced"
+CONFIGURATION="${VOICED_CONFIGURATION:-Debug}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/build"
-APP_BUNDLE="$BUILD_DIR/Build/Products/Debug/$APP_NAME.app"
+APP_BUNDLE="$BUILD_DIR/Build/Products/$CONFIGURATION/$APP_NAME.app"
 APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 DIST_DIR="$ROOT_DIR/dist"
 DIST_APP="$DIST_DIR/$APP_NAME.app"
@@ -24,14 +25,53 @@ detect_signing_identity() {
 }
 
 build_app() {
+  xcodegen generate --spec "$ROOT_DIR/project.yml"
   xcodebuild \
     -project "$ROOT_DIR/Voiced.xcodeproj" \
     -scheme "$APP_NAME" \
-    -configuration Debug \
+    -configuration "$CONFIGURATION" \
     -derivedDataPath "$BUILD_DIR" \
-    POSTHOG_PROJECT_TOKEN="${POSTHOG_PROJECT_TOKEN:-}" \
-    POSTHOG_HOST="${POSTHOG_HOST:-https://eu.i.posthog.com}" \
     build
+}
+
+sign_stable_app() {
+  local identity="$1"
+
+  while IFS= read -r -d '' executable; do
+    if file "$executable" | grep -q 'Mach-O'; then
+      codesign --force --sign "$identity" --options runtime --timestamp=none "$executable"
+    fi
+  done < <(find "$DIST_APP/Contents" -type f -print0)
+
+  while IFS= read -r nested; do
+    codesign --force --sign "$identity" --options runtime --timestamp=none "$nested"
+  done < <(find "$DIST_APP/Contents" -type d \( -name '*.framework' -o -name '*.xpc' -o -name '*.app' \) -print | sort -r)
+  codesign \
+    --force \
+    --sign "$identity" \
+    --options runtime \
+    --timestamp=none \
+    --entitlements "$ROOT_DIR/Config/Voiced.entitlements" \
+    "$DIST_APP"
+}
+
+sign_stable_app_adhoc() {
+  while IFS= read -r -d '' executable; do
+    if file "$executable" | grep -q 'Mach-O'; then
+      codesign --force --sign - --options runtime "$executable"
+    fi
+  done < <(find "$DIST_APP/Contents" -type f -print0)
+
+  while IFS= read -r nested; do
+    codesign --force --sign - --options runtime "$nested"
+  done < <(find "$DIST_APP/Contents" -type d \( -name '*.framework' -o -name '*.xpc' -o -name '*.app' \) -print | sort -r)
+
+  codesign \
+    --force \
+    --sign - \
+    --options runtime \
+    --entitlements "$ROOT_DIR/Config/Voiced.entitlements" \
+    "$DIST_APP"
 }
 
 install_app() {
@@ -43,22 +83,16 @@ install_app() {
   ditto "$APP_BUNDLE" "$DIST_APP"
 
   if [[ -n "$identity" ]]; then
-    codesign --force --deep --sign "$identity" --entitlements "$ROOT_DIR/Config/Voiced.entitlements" "$DIST_APP"
+    sign_stable_app "$identity"
     echo "Signed $DIST_APP with $identity"
   else
-    echo "No Apple Development signing identity found; leaving $DIST_APP ad-hoc signed" >&2
+    sign_stable_app_adhoc
+    echo "No Apple Development identity found; applied a local ad-hoc signature" >&2
   fi
 
+  codesign --verify --deep --strict --verbose=2 "$DIST_APP"
   /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f -R -trusted "$DIST_APP"
   echo "Installed $DIST_APP"
-}
-
-open_app() {
-  /usr/bin/open "$APP_BUNDLE"
-}
-
-open_installed_app() {
-  /usr/bin/open "$DIST_APP"
 }
 
 stop_app() {
@@ -71,17 +105,17 @@ build_and_install() {
   install_app
 }
 
+open_installed_app() {
+  /usr/bin/open -n "$DIST_APP"
+}
+
 case "$MODE" in
-  run)
+  run|install-run|--install-run)
     build_and_install
     open_installed_app
     ;;
   install)
     build_and_install
-    ;;
-  install-run|--install-run)
-    build_and_install
-    open_installed_app
     ;;
   launch|--launch)
     open_installed_app
@@ -99,14 +133,6 @@ case "$MODE" in
     open_installed_app
     /usr/bin/log stream --info --style compact --predicate "process == \"$APP_NAME\""
     ;;
-  --telemetry|telemetry)
-    build_and_install
-    open_installed_app
-    /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
-    ;;
-  telemetry-live|--telemetry-live)
-    /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
-    ;;
   --verify|verify)
     build_and_install
     open_installed_app
@@ -114,7 +140,7 @@ case "$MODE" in
     pgrep -x "$APP_NAME" >/dev/null
     ;;
   *)
-    echo "usage: $0 [run|install|install-run|launch|stop|--debug|--logs|--telemetry|telemetry-live|--verify]" >&2
+    echo "usage: $0 [run|install|launch|stop|--debug|--logs|--verify]" >&2
     exit 2
     ;;
 esac

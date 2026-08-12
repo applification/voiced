@@ -52,12 +52,12 @@ The repository root contains a `.vercelignore` guardrail so an accidental root d
 
 Still, the preferred deployment command is from `website/` with Vercel `Root Directory: .`.
 
-## App Store URLs
+## Public Product URLs
 
-The App Store metadata uses these website routes:
+Direct distribution and support use these website routes:
 
 ```text
-Marketing URL: https://voiced.applification.net
-Support URL: https://voiced.applification.net/support
-Privacy Policy URL: https://voiced.applification.net/privacy
+Download: https://voiced.applification.net/download
+Support: https://voiced.applification.net/support
+Privacy: https://voiced.applification.net/privacy
 ```

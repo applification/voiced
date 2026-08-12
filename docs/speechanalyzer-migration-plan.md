@@ -2,7 +2,7 @@
 
 ## Goal
 
-Evaluate and migrate Voiced from its current WhisperKit/Core ML transcription path to Apple's native `SpeechAnalyzer` + `SpeechTranscriber` stack where it improves latency, memory use, power use, reliability, or App Store fit.
+Evaluate and migrate Voiced from its current WhisperKit/Core ML transcription path to Apple's native `SpeechAnalyzer` + `SpeechTranscriber` stack where it improves latency, memory use, power use, or reliability.
 
 The migration should preserve Voiced's existing product constraints:
 
@@ -10,7 +10,7 @@ The migration should preserve Voiced's existing product constraints:
 - Push-to-talk recording flow.
 - Live transcript preview while recording.
 - Final transcript review surface after release.
-- No transcript or audio content in logs or diagnostics.
+- No transcript or audio content in logs.
 - Temporary audio cleanup after processing.
 - A fallback path for unsupported OS versions, languages, devices, and model-asset failures.
 
@@ -189,7 +189,7 @@ Acceptance criteria:
 
 - Existing users keep their current WhisperKit behavior unless `automatic` is deliberately made the default in a later phase.
 - Switching backend does not require restarting the app.
-- Telemetry records backend identifiers only, never transcript/audio content.
+- Logs may identify a backend or broad failure class, never transcript/audio content.
 
 ## Phase 3: Asset And Onboarding UX
 
@@ -219,10 +219,8 @@ Tasks:
    - file transcription available, live transcription requires macOS 27+
    - unavailable on this macOS version
    - failed
-4. Update App Store metadata and privacy docs if Apple Speech becomes default.
-5. Re-check sandbox entitlements:
-   - Apple Speech may reduce or remove the need for network access if WhisperKit downloads are no longer default.
-   - Keep network entitlement if WhisperKit fallback remains user-accessible and downloads models.
+4. Update direct-distribution and privacy docs if Apple Speech becomes default.
+5. Re-check network documentation if WhisperKit model downloads are no longer required.
 
 Acceptance criteria:
 
@@ -277,14 +275,14 @@ Acceptance criteria for making Apple Speech the default:
 Roll out in layers.
 
 1. Debug-only backend selector.
-2. Internal/TestFlight backend selector.
+2. Internal backend selector.
 3. `automatic` default for new installs on macOS 27+ if live benchmarks are favorable.
 4. Prompt existing users to try Apple Speech if benchmarks are favorable.
 5. Make Apple Speech default for all eligible users.
 6. Consider removing WhisperKit only after:
    - Apple Speech covers required locales.
    - Older macOS support below 27 is no longer required, or WhisperKit remains as the legacy live backend.
-   - App Store/network/model-download tradeoffs are no longer worth maintaining.
+   - Network/model-download tradeoffs are no longer worth maintaining.
 
 Acceptance criteria:
 
@@ -336,7 +334,7 @@ When testing `DictationTranscriber`, keep custom language model assets small and
 - Live transcript semantics may differ from WhisperKit's partial result behavior.
 - `CaptureInputSequenceProvider` may conflict with Voiced's existing audio capture/metering assumptions if it replaces the current capture path.
 - `AnalyzerInputConverter` may preserve the current capture path, but still requires macOS 27+ in the current SDK.
-- App Store review copy must distinguish Apple-managed speech assets from third-party model downloads.
+- Product copy must distinguish Apple-managed speech assets from third-party model downloads.
 
 ## Rollback Plan
 
@@ -364,7 +362,7 @@ Rollback action:
 - Does `DictationTranscriber` custom language data materially improve developer vocabulary?
 - Does Apple Speech's timing/segment data justify future transcript highlighting or editing features?
 - Should Voiced adopt `CaptureInputSequenceProvider`, or keep the existing capture pipeline and use `AnalyzerInputConverter`?
-- Can Voiced remove the network entitlement if Apple Speech becomes the only production backend?
+- Can Voiced remove model-download network access if Apple Speech becomes the only production backend?
 - Should Apple Speech be a Pro/default quality feature, or simply the default native path where available?
 
 ## Recommended Next Step
@@ -374,4 +372,4 @@ Build two debug-only spikes:
 1. A macOS 26+ file-transcription spike using fixed audio fixtures and Apple Speech assets.
 2. A macOS 27+ live-transcription spike comparing `SpeechTranscriber`, `DictationTranscriber`, `CaptureInputSequenceProvider`, and `AnalyzerInputConverter`.
 
-Then run the small benchmark set before touching onboarding, App Store copy, or default behavior.
+Then run the small benchmark set before touching onboarding, release copy, or default behavior.

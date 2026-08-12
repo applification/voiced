@@ -25,11 +25,11 @@ const overpassMono = Overpass_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://voiced.applification.net"),
   title: {
-    default: "Voiced - Review-First Dictation for macOS",
+    default: "Voiced - Local Capture for macOS",
     template: "%s - Voiced",
   },
   description:
-    "Voiced is a focused Mac dictation app that turns push-to-talk recordings into local transcripts you can review, clean, copy, and drag.",
+    "Capture speech, selected text, and typed prompts in one persistent local shelf for macOS.",
   applicationName: "Voiced",
   authors: [{ name: "Applification" }],
   creator: "Applification",
@@ -39,6 +39,8 @@ export const metadata: Metadata = {
     "macOS dictation",
     "private transcription",
     "local transcription",
+    "selected text capture",
+    "prompt shelf",
     "push to talk",
     "Apple Intelligence",
     "Foundation Models",
@@ -54,9 +56,9 @@ export const metadata: Metadata = {
     shortcut: [{ url: "/voiced-icon.png", type: "image/png" }],
   },
   openGraph: {
-    title: "Voiced - Review-First Dictation for macOS",
+    title: "Voiced - Local Capture for macOS",
     description:
-      "A focused Mac dictation app for turning speech into local transcripts you can review, clean, copy, and drag.",
+      "Capture speech, selected text, and typed prompts in one persistent local shelf for macOS.",
     url: "/",
     siteName: "Voiced",
     images: [
@@ -72,9 +74,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "Voiced - Review-First Dictation for macOS",
+    title: "Voiced - Local Capture for macOS",
     description:
-      "Push-to-talk dictation for Mac, with local transcription and review-window actions.",
+      "A local Mac capture shelf for speech, selected text, and typed prompts.",
     images: ["/voiced-icon.png"],
   },
   appleWebApp: {

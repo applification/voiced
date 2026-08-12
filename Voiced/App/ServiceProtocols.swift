@@ -26,7 +26,8 @@ protocol AppTranscribing: AnyObject {
 
 @MainActor
 protocol OutputPerforming: AnyObject {
-    func copyToClipboard(_ text: String)
+    @discardableResult func copyToClipboard(_ text: String) -> OutputResult
+    func insert(_ text: String, into targetApplication: NSRunningApplication?) async -> OutputResult
 }
 
 @MainActor
@@ -51,28 +52,6 @@ protocol IndicatorPresenting: AnyObject {
 }
 
 @MainActor
-protocol CursorIndicatorPresenting: AnyObject {
-    var hasReviewText: Bool { get }
-
-    func showTranscribingAtCursor()
-    func showLiveTranscriptAtCursor(state: LiveTranscriptState, onCancel: @escaping () -> Void)
-    func updateLiveTranscript(_ state: LiveTranscriptState)
-    func updateAudioLevel(_ level: Double)
-    @discardableResult
-    func showReviewAtCursor(
-        text: String,
-        processingAvailability: TranscriptProcessingAvailability,
-        onCopy: @escaping (String) -> Void,
-        onProcess: @escaping (TranscriptProcessingProfile, String) async -> String,
-        onLoadReminderLists: @escaping (Bool) async -> [ReminderListOption],
-        onExportToReminders: @escaping (String, String?) async -> ReminderExportResult,
-        onDropRejected: @escaping () -> Void
-    ) -> String
-    func hide()
-    func hideImmediately()
-}
-
-@MainActor
 protocol MicrophonePermissionManaging: AnyObject {
     var micAuthorized: Bool { get }
 
@@ -81,17 +60,14 @@ protocol MicrophonePermissionManaging: AnyObject {
 }
 
 @MainActor
-protocol SoundCuePlaying: AnyObject {
-    func playActivation()
-    func playDeactivation()
+protocol SelectedTextCapturing: AnyObject {
+    func capture(from context: DestinationApplicationContext) async throws -> SelectedTextCaptureResult
 }
 
 @MainActor
-protocol TelemetryReporting: AnyObject {
-    func configure(settings: SettingsStore)
-    func setBasicDiagnosticsEnabled(_ enabled: Bool)
-    func capture(_ event: TelemetryEvent, properties: [String: Any])
-    func captureError(_ category: TelemetryErrorCategory, properties: [String: Any])
+protocol SoundCuePlaying: AnyObject {
+    func playActivation()
+    func playDeactivation()
 }
 
 extension HotkeyManager: HotkeyListening {}
@@ -100,7 +76,6 @@ extension OutputManager: OutputPerforming {}
 extension TranscriptProcessingService: TranscriptProcessing {}
 extension ReminderExportService: ReminderExporting {}
 extension FloatingIndicator: IndicatorPresenting {}
-extension CursorMicroIndicator: CursorIndicatorPresenting {}
 extension MicrophonePermissionManager: MicrophonePermissionManaging {}
+extension SelectedTextCaptureService: SelectedTextCapturing {}
 extension SoundCuePlayer: SoundCuePlaying {}
-extension TelemetryService: TelemetryReporting {}
