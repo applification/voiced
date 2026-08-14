@@ -175,6 +175,7 @@ final class AppCoordinator {
         }
         microphonePermissions.refreshStatuses()
         guard microphonePermissions.micAuthorized else {
+            showTemporaryIndicator(.error("Microphone access needed"), duration: 1_800_000_000)
             microphonePermissions.requestMicrophone { [weak self] _ in
                 Task { @MainActor in self?.microphonePermissions.refreshStatuses() }
             }
@@ -233,6 +234,7 @@ final class AppCoordinator {
         transcriptionTask?.cancel()
         transcriptionTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            var feedbackDuration: UInt64 = 1_000_000_000
             defer {
                 self.captureState = .idle
                 self.transcriptionTask = nil
@@ -252,7 +254,7 @@ final class AppCoordinator {
                 }
                 switch destination {
                 case .shelf:
-                    self.indicator.show(state: .success("Saved"))
+                    self.indicator.show(state: .success("Saved to Inbox"))
                 case .focusedEditor:
                     let result = await self.output.insert(
                         item.text,
@@ -262,9 +264,10 @@ final class AppCoordinator {
                         self.captures.move(id: item.id, to: .done)
                         self.indicator.show(state: .success("Inserted"))
                     } else {
+                        feedbackDuration = 2_000_000_000
                         let message = result == .accessibilityRequired
-                            ? "Accessibility needed"
-                            : "Insert failed"
+                            ? "Saved · Access needed"
+                            : "Saved · Insert failed"
                         self.indicator.show(state: .error(message))
                     }
                 }
@@ -276,7 +279,7 @@ final class AppCoordinator {
                 _ = await self.transcriber.stopLiveTranscription()
                 self.indicator.show(state: .error("Transcription failed"))
             }
-            try? await Task.sleep(for: .seconds(1))
+            try? await Task.sleep(nanoseconds: feedbackDuration)
             self.indicator.hide()
         }
     }
@@ -303,7 +306,6 @@ final class AppCoordinator {
                 self.showTemporaryIndicator(.success("Selection captured"))
             } catch SelectedTextCaptureError.accessibilityRequired {
                 self.showTemporaryIndicator(.error("Accessibility needed"), duration: 1_500_000_000)
-                NotificationCenter.default.post(name: .voicedShelfShowRequested, object: "permissions")
             } catch SelectedTextCaptureError.noSelection {
                 self.showTemporaryIndicator(.error("No text selected"))
             } catch {

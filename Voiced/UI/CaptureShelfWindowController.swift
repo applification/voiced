@@ -97,17 +97,6 @@ final class CaptureShelfWindowController: NSObject, NSWindowDelegate {
             onCopy: { [weak self] text in
                 _ = self?.output.copyToClipboard(text)
             },
-            onInsert: { [weak self] item, text in
-                guard let self else { return .failed }
-                self.store.updateText(id: item.id, text: text)
-                let result = await self.output.insert(
-                    text,
-                    into: self.destinationApplication(for: item)
-                )
-                if result == .inserted { self.store.move(id: item.id, to: .done) }
-                self.permissions.refresh()
-                return result
-            },
             onProcess: { [weak self] profile, text in
                 guard let self else { return text }
                 return try await self.transcriptProcessor.process(text, profile: profile)
@@ -145,15 +134,6 @@ final class CaptureShelfWindowController: NSObject, NSWindowDelegate {
         self.window = window
         position(window)
         return window
-    }
-
-    private func destinationApplication(for item: CaptureItem) -> NSRunningApplication? {
-        if let bundleIdentifier = item.sourceApplication?.bundleIdentifier,
-           let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first,
-           !running.isTerminated {
-            return running
-        }
-        return contextTracker.runningApplication(for: contextTracker.mostRecentDestination)
     }
 
     private func position(_ window: NSWindow) {

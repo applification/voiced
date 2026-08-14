@@ -8,14 +8,16 @@ struct CaptureShelfView: View {
     var processingAvailability: TranscriptProcessingAvailability
     var onAddTyped: (String) -> CaptureItem?
     var onCopy: (String) -> Void
-    var onInsert: (CaptureItem, String) async -> OutputResult
     var onProcess: (TranscriptProcessingProfile, String) async throws -> String
     var onLoadReminderLists: (Bool) async -> [ReminderListOption]
     var onExportToReminders: (String, String?) async -> ReminderExportResult
 
     @State private var searchText = ""
     @State private var draft = ""
-    @State private var pendingRemoval: CaptureItem?
+    @Environment(\.undoManager) private var undoManager
+    @State private var recentlyRemoved: CaptureItem?
+    @State private var removalNoticeTask: Task<Void, Never>?
+    @State private var undoTarget = CaptureShelfUndoTarget()
     @FocusState private var isComposerFocused: Bool
     @FocusState private var isSearchFocused: Bool
 
@@ -38,7 +40,9 @@ struct CaptureShelfView: View {
             if let issue = store.issue {
                 storageIssueBanner(issue)
             }
-            if !permissions.accessibilityAuthorized || !permissions.inputMonitoringAuthorized {
+            if !permissions.microphoneAuthorized
+                || !permissions.accessibilityAuthorized
+                || !permissions.inputMonitoringAuthorized {
                 permissionBanner
             }
 
@@ -69,22 +73,15 @@ struct CaptureShelfView: View {
         .onChange(of: searchText) {
             selectFirstVisibleItemIfNeeded(force: true)
         }
-        .alert(
-            "Remove capture?",
-            isPresented: Binding(
-                get: { pendingRemoval != nil },
-                set: { if !$0 { pendingRemoval = nil } }
-            ),
-            presenting: pendingRemoval
-        ) { item in
-            Button("Remove Capture", role: .destructive) {
-                _ = store.remove(id: item.id)
-                pendingRemoval = nil
-                selectFirstVisibleItemIfNeeded(force: true)
+        .overlay(alignment: .bottom) {
+            if let recentlyRemoved {
+                removalNotice(recentlyRemoved)
+                    .padding(.bottom, 14)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            Button("Cancel", role: .cancel) { pendingRemoval = nil }
-        } message: { _ in
-            Text("This removes the item from the local shelf. This action cannot be undone.")
+        }
+        .onDisappear {
+            removalNoticeTask?.cancel()
         }
     }
 
@@ -134,7 +131,7 @@ struct CaptureShelfView: View {
                 .listStyle(.inset)
                 .scrollContentBackground(.hidden)
                 .onDeleteCommand {
-                    if let selectedItem { pendingRemoval = selectedItem }
+                    if let selectedItem { removeCapture(selectedItem) }
                 }
             }
         }
@@ -146,7 +143,7 @@ struct CaptureShelfView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
 
-            TextField("Search captures", text: $searchText)
+            TextField("Search \(selection.status.label)", text: $searchText)
                 .textFieldStyle(.plain)
                 .focused($isSearchFocused)
 
@@ -186,6 +183,7 @@ struct CaptureShelfView: View {
             .buttonBorderShape(.circle)
             .disabled(!canAddDraft)
             .help("Add to Inbox")
+            .accessibilityLabel("Add to Inbox")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -218,7 +216,6 @@ struct CaptureShelfView: View {
     private var emptyTitle: String {
         switch selection.status {
         case .inbox: "Inbox is clear"
-        case .next: "Nothing queued next"
         case .done: "Nothing completed yet"
         }
     }
@@ -226,8 +223,7 @@ struct CaptureShelfView: View {
     private var emptyDescription: String {
         switch selection.status {
         case .inbox: "Speak, select text, or type above to keep something."
-        case .next: "Move captures here when you want them close at hand."
-        case .done: "Inserted captures appear here automatically."
+        case .done: "Captures you finish appear here."
         }
     }
 
@@ -240,24 +236,17 @@ struct CaptureShelfView: View {
                 onUpdate: { id, text in store.updateText(id: id, text: text) },
                 onMove: moveCapture,
                 onCopy: onCopy,
-                onInsert: { item, text in
-                    let result = await onInsert(item, text)
-                    if result == .inserted, let updated = store.item(id: item.id) {
-                        selection.select(updated)
-                    }
-                    return result
-                },
                 onProcess: onProcess,
                 onLoadReminderLists: onLoadReminderLists,
                 onExportToReminders: onExportToReminders,
-                onRemove: { pendingRemoval = $0 }
+                onRemove: removeCapture
             )
             .id(item.id)
         } else {
             ContentUnavailableView {
                 Label("Choose a capture", systemImage: "text.cursor")
             } description: {
-                Text("Edit it, refine it, or send it back to your work.")
+                Text("Edit, refine, copy, or drag it back to your work.")
             }
         }
     }
@@ -265,14 +254,6 @@ struct CaptureShelfView: View {
     @ViewBuilder
     private func captureContextMenu(_ item: CaptureItem) -> some View {
         Button("Copy") { onCopy(item.text) }
-        Button("Insert") {
-            Task { @MainActor in
-                let result = await onInsert(item, item.text)
-                if result == .inserted, let updated = store.item(id: item.id) {
-                    selection.select(updated)
-                }
-            }
-        }
         Divider()
         Menu("Move To") {
             ForEach(CaptureStatus.allCases) { status in
@@ -281,7 +262,7 @@ struct CaptureShelfView: View {
             }
         }
         Divider()
-        Button("Remove", role: .destructive) { pendingRemoval = item }
+        Button("Remove", role: .destructive) { removeCapture(item) }
     }
 
     private var permissionBanner: some View {
@@ -291,11 +272,17 @@ struct CaptureShelfView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Finish capture permissions")
                     .font(.callout.weight(.semibold))
-                Text("Accessibility reads selections and inserts text. Input Monitoring listens for global shortcuts.")
+                Text("Microphone records voice. Accessibility reads selections and inserts text. Input Monitoring listens for shortcuts.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            if !permissions.microphoneAuthorized {
+                Button("Microphone") {
+                    Task { await permissions.requestOrOpenMicrophone() }
+                }
+                .voicedGlassButton()
+            }
             if !permissions.accessibilityAuthorized {
                 Button("Accessibility") { permissions.openAccessibilitySettings() }
                     .voicedGlassButton()
@@ -330,10 +317,61 @@ struct CaptureShelfView: View {
     }
 
     private func moveCapture(_ id: UUID, _ status: CaptureStatus) {
+        guard let previousStatus = store.item(id: id)?.status,
+              previousStatus != status else { return }
         store.move(id: id, to: status)
+        undoManager?.registerUndo(withTarget: undoTarget) { _ in
+            Task { @MainActor in
+                store.move(id: id, to: previousStatus)
+            }
+        }
+        undoManager?.setActionName("Move Capture")
         if let updated = store.item(id: id) {
             selection.select(updated)
         }
+    }
+
+    private func removeCapture(_ item: CaptureItem) {
+        guard let removed = store.remove(id: item.id) else { return }
+        recentlyRemoved = removed
+        selectFirstVisibleItemIfNeeded(force: true)
+        undoManager?.registerUndo(withTarget: undoTarget) { _ in
+            Task { @MainActor in
+                store.restore(removed)
+            }
+        }
+        undoManager?.setActionName("Remove Capture")
+
+        removalNoticeTask?.cancel()
+        removalNoticeTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(6))
+            guard !Task.isCancelled, recentlyRemoved?.id == removed.id else { return }
+            withAnimation(.easeOut(duration: 0.18)) {
+                recentlyRemoved = nil
+            }
+        }
+    }
+
+    private func restoreRemovedCapture(_ item: CaptureItem) {
+        store.restore(item)
+        selection.select(item)
+        recentlyRemoved = nil
+        removalNoticeTask?.cancel()
+    }
+
+    private func removalNotice(_ item: CaptureItem) -> some View {
+        HStack(spacing: 10) {
+            Label("Capture removed", systemImage: "trash")
+                .font(.callout.weight(.medium))
+            Button("Undo") { restoreRemovedCapture(item) }
+                .buttonStyle(.link)
+                .font(.callout.weight(.semibold))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .voicedGlassSurface(cornerRadius: 10)
+        .shadow(color: .black.opacity(0.12), radius: 7, y: 3)
+        .accessibilityElement(children: .contain)
     }
 
     private func selectFirstVisibleItemIfNeeded(force: Bool = false) {
@@ -345,6 +383,9 @@ struct CaptureShelfView: View {
         selection.itemID = filteredItems.first?.id
     }
 }
+
+@MainActor
+private final class CaptureShelfUndoTarget: NSObject {}
 
 private struct CaptureShelfRow: View {
     let item: CaptureItem

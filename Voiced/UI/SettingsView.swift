@@ -270,7 +270,7 @@ struct SettingsView: View {
 
     private var aiSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("After dictation, use these actions in the review panel to reshape the captured text before pasting.")
+            Text("In the shelf, use Refine to preview a cleaned transcript, summary, or to-do list before applying it.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -298,6 +298,16 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Capture permissions")
                     .font(.callout.weight(.semibold))
+                HStack {
+                    permissionStatusLabel(
+                        "Microphone",
+                        granted: AppServices.permissions.microphoneAuthorized
+                    )
+                    Spacer()
+                    Button("Open Settings") {
+                        Task { await AppServices.permissions.requestOrOpenMicrophone() }
+                    }
+                }
                 HStack {
                     permissionStatusLabel(
                         "Accessibility",

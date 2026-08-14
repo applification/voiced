@@ -14,7 +14,7 @@ Voiced exposes the permission state and recovery actions in onboarding, the shel
 
 Captures are stored at `~/Library/Application Support/Voiced/Captures.json` in a readable, versioned JSON document. Writes use Foundation's atomic file replacement. A corrupt document is copied to `Captures.corrupt-<timestamp>.json` before Voiced begins with an empty in-memory shelf.
 
-Each item stores text, UUID, source type, Inbox/Next/Done status, timestamps, and the source application name/bundle identifier when available. A source URL is stored only when Accessibility exposes an HTTP, HTTPS, or file URL.
+Each item stores text, UUID, source type, Inbox/Done status, timestamps, and the source application name/bundle identifier when available. Legacy Next items migrate to Inbox. A source URL is stored only when Accessibility exposes an HTTP, HTTPS, or file URL.
 
 Downloaded Whisper models remain in Application Support and are verified against pinned byte counts and SHA-256 hashes before loading. Temporary audio is deleted by the transcription lifecycle.
 

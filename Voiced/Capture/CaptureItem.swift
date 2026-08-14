@@ -22,9 +22,8 @@ enum CaptureSource: String, Codable, CaseIterable, Sendable {
     }
 }
 
-enum CaptureStatus: String, Codable, CaseIterable, Identifiable, Sendable {
+enum CaptureStatus: String, CaseIterable, Identifiable, Sendable {
     case inbox
-    case next
     case done
 
     var id: String { rawValue }
@@ -32,7 +31,6 @@ enum CaptureStatus: String, Codable, CaseIterable, Identifiable, Sendable {
     var label: String {
         switch self {
         case .inbox: "Inbox"
-        case .next: "Next"
         case .done: "Done"
         }
     }
@@ -40,9 +38,27 @@ enum CaptureStatus: String, Codable, CaseIterable, Identifiable, Sendable {
     var symbolName: String {
         switch self {
         case .inbox: "tray"
-        case .next: "arrow.right.circle"
         case .done: "checkmark.circle"
         }
+    }
+}
+
+extension CaptureStatus: Codable {
+    init(from decoder: Decoder) throws {
+        let value = try decoder.singleValueContainer().decode(String.self)
+        switch value {
+        case Self.done.rawValue:
+            self = .done
+        case Self.inbox.rawValue, "next":
+            self = .inbox
+        default:
+            self = .inbox
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 

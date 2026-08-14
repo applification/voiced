@@ -180,7 +180,7 @@ private struct IntroOnboardingView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(mode.heading)
                     .font(.title3.weight(.semibold))
-                Text("Right ⌘ saves a voice capture. Add Shift to dictate and insert.")
+                Text("Hold Right ⌘ to dictate and insert. Add Shift to save the voice capture to Inbox.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -348,16 +348,36 @@ private struct IntroOnboardingView: View {
         }
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .onTapGesture {
-            guard downloadingModel == nil || downloadingModel == model else {
-                selectedModel = model
-                return
-            }
+            selectModel(model)
+        }
+        .focusable()
+        .onKeyPress(.return) {
+            selectModel(model)
+            return .handled
+        }
+        .onKeyPress(.space) {
+            selectModel(model)
+            return .handled
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel("\(model.label), \(model.onboardingDetail)")
+        .accessibilityValue(isSelected ? "Selected" : (isDownloaded ? "Downloaded" : "Not downloaded"))
+        .accessibilityAction {
+            selectModel(model)
+        }
+    }
+
+    private func selectModel(_ model: TranscriptionModel) {
+        guard downloadingModel == nil || downloadingModel == model else {
             selectedModel = model
-            settings.transcriptionModel = model
-            ModelStatusCache.refresh(model)
-            if downloadingModel == nil {
-                modelProgress = nil
-            }
+            return
+        }
+        selectedModel = model
+        settings.transcriptionModel = model
+        ModelStatusCache.refresh(model)
+        if downloadingModel == nil {
+            modelProgress = nil
         }
     }
 

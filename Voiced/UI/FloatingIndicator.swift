@@ -132,19 +132,25 @@ final class FloatingIndicator {
             return
         }
 
+        let size = panel.frame.size
+        let y = visible
+            ? notchGeometry.visibleOriginY(forHeight: size.height)
+            : notchGeometry.hiddenOriginY
+        let frame = NSRect(
+            x: notchGeometry.centerX - size.width / 2,
+            y: y,
+            width: size.width,
+            height: size.height
+        )
+
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            panel.setFrame(frame, display: true)
+            return
+        }
+
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.18
             context.timingFunction = CAMediaTimingFunction(name: visible ? .easeOut : .easeIn)
-            let size = panel.frame.size
-            let y = visible
-                ? notchGeometry.visibleOriginY(forHeight: size.height)
-                : notchGeometry.hiddenOriginY
-            let frame = NSRect(
-                x: notchGeometry.centerX - size.width / 2,
-                y: y,
-                width: size.width,
-                height: size.height
-            )
             panel.animator().setFrame(frame, display: true)
         }
     }

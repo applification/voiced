@@ -41,12 +41,12 @@ final class TranscriptProcessingService {
                 throw CancellationError()
             } catch {
                 logger.error("FoundationModels capture processing failed")
-                return text
+                throw TranscriptProcessingError.processingFailed
             }
         }
         #endif
 
-        return text
+        throw TranscriptProcessingError.unavailable
     }
 
     #if canImport(FoundationModels)
@@ -55,11 +55,11 @@ final class TranscriptProcessingService {
         let model = SystemLanguageModel.default
         guard case .available = model.availability else {
             logger.info("FoundationModels unavailable for transcript processing")
-            return transcript
+            throw TranscriptProcessingError.unavailable
         }
         guard model.supportsLocale() else {
             logger.info("FoundationModels locale unsupported for transcript processing")
-            return transcript
+            throw TranscriptProcessingError.unsupportedLocale
         }
 
         let start = ContinuousClock.now
@@ -76,7 +76,8 @@ final class TranscriptProcessingService {
         logger.info("FoundationModels \(profile.rawValue, privacy: .public) completed in \(String(describing: duration), privacy: .public)")
 
         let processedText = TranscriptOutputFormatter.normalizedText(response.content, profile: profile)
-        return processedText.isEmpty ? transcript : processedText
+        guard !processedText.isEmpty else { throw TranscriptProcessingError.emptyResult }
+        return processedText
     }
 
     @available(macOS 26.0, *)
@@ -99,6 +100,13 @@ final class TranscriptProcessingService {
         }
     }
     #endif
+}
+
+enum TranscriptProcessingError: Error, Equatable {
+    case unavailable
+    case unsupportedLocale
+    case processingFailed
+    case emptyResult
 }
 
 enum TranscriptProcessingAvailability: Equatable {

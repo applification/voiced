@@ -9,12 +9,12 @@ Voiced is a local capture layer for macOS: speak it, select it, or type it, then
 ## Capture
 
 - Hold Right Command to transcribe into the previously focused editor. Successful insertion moves the capture to Done and restores the previous clipboard when it remains unchanged.
-- Hold Shift + Right Command to record, then release to save and review the capture in the shelf.
+- Hold Shift + Right Command to record, then release to save quietly to Inbox; the notch confirms when it is ready.
 - Press Shift twice to capture the current selection.
 - Press Option-Space to open or close the shelf.
 - Type directly into the shelf to add a capture.
-- Edit, search, clean, summarize, turn into a to-do list, export reminders, copy, insert, drag, move, or remove captures in the shelf detail pane.
-- Inbox, Next, and Done persist across launches.
+- Edit, search, preview transcript refinements, export reminders, copy, drag, move, or remove captures in the shelf detail pane. Refinements are applied only after review and can be undone.
+- Inbox and Done persist across launches. Removed captures offer an immediate Undo action.
 - Automatic insertion restores the previous clipboard when it has not changed during the operation.
 
 Voice, selection, and typed input all produce the same `CaptureItem`. Captures are stored as readable JSON at:

@@ -26,6 +26,18 @@ final class SystemPermissionManager {
         return granted
     }
 
+    func requestOrOpenMicrophone() async {
+        if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+            _ = await requestMicrophone()
+        } else {
+            openPrivacyPane("Privacy_Microphone")
+        }
+    }
+
+    func openMicrophoneSettings() {
+        openPrivacyPane("Privacy_Microphone")
+    }
+
     func requestAccessibility() {
         let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
         _ = AXIsProcessTrustedWithOptions([promptKey: true] as CFDictionary)

@@ -6,19 +6,23 @@ struct CaptureShelfDetailView: View {
     let onUpdate: (UUID, String) -> Void
     let onMove: (UUID, CaptureStatus) -> Void
     let onCopy: (String) -> Void
-    let onInsert: (CaptureItem, String) async -> OutputResult
     let onProcess: (TranscriptProcessingProfile, String) async throws -> String
     let onLoadReminderLists: (Bool) async -> [ReminderListOption]
     let onExportToReminders: (String, String?) async -> ReminderExportResult
     let onRemove: (CaptureItem) -> Void
 
+    @Environment(\.undoManager) private var undoManager
     @State private var editText: String
     @State private var processingProfile: TranscriptProcessingProfile?
     @State private var processingTask: Task<Void, Never>?
+    @State private var refinementPreview: RefinementPreview?
+    @State private var previewSelection: RefinementPreviewSelection = .proposed
+    @State private var lastAppliedRefinement: AppliedRefinement?
     @State private var reminderLists: [ReminderListOption] = []
     @State private var isLoadingReminderLists = false
     @State private var isExportingToReminders = false
-    @State private var actionMessage: String?
+    @State private var actionNotice: CaptureActionNotice?
+    @State private var undoTarget = CaptureDetailUndoTarget()
     @FocusState private var isEditorFocused: Bool
 
     init(
@@ -27,7 +31,6 @@ struct CaptureShelfDetailView: View {
         onUpdate: @escaping (UUID, String) -> Void,
         onMove: @escaping (UUID, CaptureStatus) -> Void,
         onCopy: @escaping (String) -> Void,
-        onInsert: @escaping (CaptureItem, String) async -> OutputResult,
         onProcess: @escaping (TranscriptProcessingProfile, String) async throws -> String,
         onLoadReminderLists: @escaping (Bool) async -> [ReminderListOption],
         onExportToReminders: @escaping (String, String?) async -> ReminderExportResult,
@@ -38,7 +41,6 @@ struct CaptureShelfDetailView: View {
         self.onUpdate = onUpdate
         self.onMove = onMove
         self.onCopy = onCopy
-        self.onInsert = onInsert
         self.onProcess = onProcess
         self.onLoadReminderLists = onLoadReminderLists
         self.onExportToReminders = onExportToReminders
@@ -59,48 +61,13 @@ struct CaptureShelfDetailView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             header
-
-            TextEditor(text: $editText)
-                .font(.body)
-                .lineSpacing(3)
-                .textEditorStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .padding(12)
-                .focused($isEditorFocused)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .voicedGlassSurface(cornerRadius: 14, interactive: true)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(
-                            isEditorFocused
-                                ? VoicedShelfStyle.signalMint.opacity(0.72)
-                                : Color.primary.opacity(0.08),
-                            lineWidth: isEditorFocused ? 1.5 : 0.5
-                        )
-                }
-                .onChange(of: editText) { _, newValue in
-                    guard !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-                    onUpdate(item.id, newValue)
-                    actionMessage = nil
-                }
-
-            processingActions
-
-            if let actionMessage {
-                Label(actionMessage, systemImage: messageSymbol)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            } else if let unavailableMessage = processingAvailability.unavailableMessage {
-                Label(unavailableMessage, systemImage: "sparkles")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
+            editorOrPreview
+            secondaryActions
+            feedback
             Spacer(minLength: 0)
-            primaryActions
+            outputActions
         }
         .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -110,6 +77,11 @@ struct CaptureShelfDetailView: View {
                 return
             }
             reminderLists = await onLoadReminderLists(false)
+        }
+        .onChange(of: item.text) { _, newValue in
+            guard refinementPreview == nil,
+                  newValue != normalizedText else { return }
+            editText = newValue
         }
         .onDisappear {
             processingTask?.cancel()
@@ -139,47 +111,141 @@ struct CaptureShelfDetailView: View {
                     Text(status.label).tag(status)
                 }
             }
-            .labelsHidden()
             .frame(width: 105)
             .controlSize(.small)
+            .accessibilityLabel("Capture status")
         }
     }
 
-    private var processingActions: some View {
-        HStack(spacing: 7) {
-            processingButton(.cleanTranscript, title: "Clean", symbol: "wand.and.sparkles")
-            processingButton(.executiveSummary, title: "Summarize", symbol: "text.alignleft")
-            processingButton(.todoList, title: "To-do", symbol: "checklist")
+    @ViewBuilder
+    private var editorOrPreview: some View {
+        if let refinementPreview {
+            refinementPreviewView(refinementPreview)
+        } else {
+            TextEditor(text: $editText)
+                .font(.body)
+                .lineSpacing(3)
+                .textEditorStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .padding(12)
+                .focused($isEditorFocused)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .voicedGlassSurface(cornerRadius: 14, interactive: true)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(
+                            isEditorFocused
+                                ? VoicedShelfStyle.signalMint.opacity(0.72)
+                                : Color.primary.opacity(0.08),
+                            lineWidth: isEditorFocused ? 1.5 : 0.5
+                        )
+                }
+                .onChange(of: editText) { _, newValue in
+                    guard !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        actionNotice = .warning("Empty captures aren’t saved")
+                        return
+                    }
+                    onUpdate(item.id, newValue)
+                    actionNotice = nil
+                    lastAppliedRefinement = nil
+                }
+                .onChange(of: isEditorFocused) { _, focused in
+                    guard !focused, normalizedText.isEmpty else { return }
+                    editText = item.text
+                    actionNotice = .warning("Restored the last saved text")
+                }
+                .accessibilityLabel("Capture text")
+        }
+    }
 
-            if reminderTaskCount > 0 {
+    private func refinementPreviewView(_ preview: RefinementPreview) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Label("Review \(preview.profile.label.lowercased())", systemImage: "sparkles")
+                    .font(.callout.weight(.semibold))
+                Spacer()
+                Picker("Preview text", selection: $previewSelection) {
+                    Text("Proposed").tag(RefinementPreviewSelection.proposed)
+                    Text("Original").tag(RefinementPreviewSelection.original)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 170)
+            }
+
+            ScrollView {
+                Text(previewSelection == .proposed ? preview.proposedText : preview.originalText)
+                    .font(.body)
+                    .lineSpacing(3)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(12)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                Color(nsColor: .textBackgroundColor).opacity(0.55),
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
+
+            HStack(spacing: 8) {
+                Button("Keep Original") {
+                    cancelRefinement()
+                }
+                .voicedGlassButton()
+
+                Spacer()
+
+                Button("Apply \(preview.profile.label)") {
+                    applyRefinement(preview)
+                }
+                .voicedGlassButton(prominent: true, tint: VoicedShelfStyle.signalMint)
+                .keyboardShortcut(.return, modifiers: [.command])
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .accessibilityElement(children: .contain)
+    }
+
+    private var secondaryActions: some View {
+        HStack(spacing: 7) {
+            Menu {
+                refinementMenuButton(.cleanTranscript, symbol: "wand.and.sparkles")
+                refinementMenuButton(.executiveSummary, symbol: "text.alignleft")
+                refinementMenuButton(.todoList, symbol: "checklist")
+            } label: {
+                if let processingProfile {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text(processingProfile.label)
+                    }
+                } else {
+                    Label("Refine", systemImage: "sparkles")
+                }
+            }
+            .menuStyle(.borderlessButton)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .voicedGlassSurface(cornerRadius: 8, interactive: true)
+            .disabled(isBusy || refinementPreview != nil || !processingAvailability.isAvailable || normalizedText.isEmpty)
+            .help(processingAvailability.unavailableMessage ?? "Preview a cleaned transcript, summary, or to-do list")
+
+            if reminderTaskCount > 0, refinementPreview == nil {
                 remindersMenu
             }
 
             Spacer(minLength: 0)
         }
         .controlSize(.small)
-        .voicedGlassGroup(spacing: 7)
     }
 
-    private func processingButton(
-        _ profile: TranscriptProcessingProfile,
-        title: String,
-        symbol: String
-    ) -> some View {
+    private func refinementMenuButton(_ profile: TranscriptProcessingProfile, symbol: String) -> some View {
         Button {
             process(profile)
         } label: {
-            if processingProfile == profile {
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(width: 52)
-            } else {
-                Label(title, systemImage: symbol)
-            }
+            Label(profile.label, systemImage: symbol)
         }
-        .voicedGlassButton()
         .disabled(isBusy || !processingAvailability.isAvailable || normalizedText.isEmpty)
-        .help(processingAvailability.unavailableMessage ?? profile.detail)
     }
 
     private var remindersMenu: some View {
@@ -215,25 +281,39 @@ struct CaptureShelfDetailView: View {
         .help("Add \(reminderTaskCount) checklist \(reminderTaskCount == 1 ? "item" : "items") to Reminders")
     }
 
-    private var primaryActions: some View {
-        HStack(spacing: 8) {
-            Button("Insert", systemImage: "arrow.turn.down.left") {
-                insertCapture()
+    @ViewBuilder
+    private var feedback: some View {
+        if let actionNotice {
+            HStack(spacing: 7) {
+                Label(actionNotice.message, systemImage: actionNotice.symbolName)
+                    .font(.caption)
+                    .foregroundStyle(actionNotice.isWarning ? Color.orange : Color.secondary)
+                    .lineLimit(2)
+                if lastAppliedRefinement != nil {
+                    Button("Undo") { undoLastRefinement() }
+                        .buttonStyle(.link)
+                        .font(.caption)
+                }
             }
-            .voicedGlassButton(prominent: true, tint: VoicedShelfStyle.signalMint)
-            .keyboardShortcut(.return, modifiers: [.command])
-            .disabled(normalizedText.isEmpty || isBusy)
+        } else if let unavailableMessage = processingAvailability.unavailableMessage {
+            Label(unavailableMessage, systemImage: "sparkles")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
 
+    private var outputActions: some View {
+        HStack(spacing: 8) {
             Button("Copy", systemImage: "doc.on.doc") {
                 onCopy(normalizedText)
-                actionMessage = "Copied to clipboard"
+                actionNotice = .success("Copied to clipboard")
             }
-            .voicedGlassButton()
+            .voicedGlassButton(prominent: true, tint: VoicedShelfStyle.signalMint)
             .keyboardShortcut("c", modifiers: [.command, .shift])
-            .disabled(normalizedText.isEmpty)
+            .disabled(normalizedText.isEmpty || refinementPreview != nil)
 
             CaptureTextDragHandle(text: normalizedText)
-                .disabled(normalizedText.isEmpty || isBusy)
+                .disabled(normalizedText.isEmpty || isBusy || refinementPreview != nil)
 
             Spacer()
 
@@ -241,6 +321,7 @@ struct CaptureShelfDetailView: View {
                 onRemove(item)
             }
             .voicedGlassButton()
+            .disabled(isBusy)
         }
         .controlSize(.regular)
         .voicedGlassGroup(spacing: 8)
@@ -252,44 +333,71 @@ struct CaptureShelfDetailView: View {
         return parts.joined(separator: " · ")
     }
 
-    private var messageSymbol: String {
-        if actionMessage?.hasPrefix("Could") == true || actionMessage?.hasSuffix("failed") == true {
-            return "exclamationmark.triangle"
-        }
-        return "checkmark.circle"
-    }
-
     private func process(_ profile: TranscriptProcessingProfile) {
         processingTask?.cancel()
         processingProfile = profile
-        actionMessage = nil
+        refinementPreview = nil
+        actionNotice = nil
         let input = normalizedText
         processingTask = Task { @MainActor in
+            defer {
+                processingProfile = nil
+                processingTask = nil
+            }
             do {
                 let processed = try await onProcess(profile, input)
                 try Task.checkCancellation()
-                editText = processed
-                actionMessage = "\(profile.label) applied"
+                let normalized = processed.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !normalized.isEmpty, normalized != input else {
+                    actionNotice = .success("No changes suggested")
+                    return
+                }
+                previewSelection = .proposed
+                refinementPreview = RefinementPreview(
+                    profile: profile,
+                    originalText: input,
+                    proposedText: normalized
+                )
             } catch is CancellationError {
             } catch {
-                actionMessage = "Couldn’t process this capture"
+                actionNotice = .warning("Couldn’t refine this capture")
             }
-            processingProfile = nil
-            processingTask = nil
         }
     }
 
-    private func insertCapture() {
-        actionMessage = nil
-        Task { @MainActor in
-            let result = await onInsert(item, normalizedText)
-            actionMessage = switch result {
-            case .inserted: "Inserted and moved to Done"
-            case .accessibilityRequired: "Accessibility permission is required"
-            case .copied: "Copied to clipboard"
-            case .failed: "Insertion failed"
+    private func applyRefinement(_ preview: RefinementPreview) {
+        let originalText = preview.originalText
+        let proposedText = preview.proposedText
+        editText = proposedText
+        onUpdate(item.id, proposedText)
+        refinementPreview = nil
+        lastAppliedRefinement = AppliedRefinement(originalText: originalText)
+        actionNotice = .success("\(preview.profile.label) applied")
+        registerRefinementUndo(originalText: originalText)
+        isEditorFocused = true
+    }
+
+    private func cancelRefinement() {
+        refinementPreview = nil
+        actionNotice = .success("Kept original text")
+        isEditorFocused = true
+    }
+
+    private func registerRefinementUndo(originalText: String) {
+        undoManager?.registerUndo(withTarget: undoTarget) { _ in
+            Task { @MainActor in
+                onUpdate(item.id, originalText)
             }
         }
+        undoManager?.setActionName("Apply Refinement")
+    }
+
+    private func undoLastRefinement() {
+        guard let refinement = lastAppliedRefinement else { return }
+        editText = refinement.originalText
+        onUpdate(item.id, refinement.originalText)
+        lastAppliedRefinement = nil
+        actionNotice = .success("Refinement undone")
     }
 
     private func loadReminderListsRequestingAccess() {
@@ -299,7 +407,7 @@ struct CaptureShelfDetailView: View {
             reminderLists = await onLoadReminderLists(true)
             isLoadingReminderLists = false
             if reminderLists.isEmpty {
-                actionMessage = "Couldn’t load Reminders lists"
+                actionNotice = .warning("Couldn’t load Reminders lists")
             }
         }
     }
@@ -307,13 +415,13 @@ struct CaptureShelfDetailView: View {
     private func exportToReminders(listID: String?) {
         guard !isExportingToReminders else { return }
         isExportingToReminders = true
-        actionMessage = nil
+        actionNotice = nil
         Task { @MainActor in
             switch await onExportToReminders(editText, listID) {
             case .success(let count):
-                actionMessage = count == 1 ? "Added 1 reminder" : "Added \(count) reminders"
+                actionNotice = .success(count == 1 ? "Added 1 reminder" : "Added \(count) reminders")
             case .failure(let message):
-                actionMessage = message
+                actionNotice = .warning(message)
             }
             isExportingToReminders = false
             if !reminderLists.isEmpty {
@@ -322,6 +430,47 @@ struct CaptureShelfDetailView: View {
         }
     }
 }
+
+private struct RefinementPreview {
+    let profile: TranscriptProcessingProfile
+    let originalText: String
+    let proposedText: String
+}
+
+private enum RefinementPreviewSelection {
+    case proposed
+    case original
+}
+
+private struct AppliedRefinement {
+    let originalText: String
+}
+
+private enum CaptureActionNotice {
+    case success(String)
+    case warning(String)
+
+    var message: String {
+        switch self {
+        case .success(let message), .warning(let message): message
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .success: "checkmark.circle"
+        case .warning: "exclamationmark.triangle"
+        }
+    }
+
+    var isWarning: Bool {
+        if case .warning = self { return true }
+        return false
+    }
+}
+
+@MainActor
+private final class CaptureDetailUndoTarget: NSObject {}
 
 private struct CaptureTextDragHandle: View {
     let text: String
@@ -335,5 +484,7 @@ private struct CaptureTextDragHandle: View {
             .draggable(text)
             .help("Drag capture text to another app")
             .accessibilityLabel("Drag capture text")
+            .accessibilityHint("Drag this text to another app, or use Copy")
+            .accessibilityAddTraits(.isButton)
     }
 }

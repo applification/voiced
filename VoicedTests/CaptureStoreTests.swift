@@ -56,16 +56,58 @@ final class CaptureStoreTests: XCTestCase {
         let item = store.add(text: "First", source: .voice)!
 
         now = Date(timeIntervalSince1970: 200)
-        store.move(id: item.id, to: .next)
+        store.move(id: item.id, to: .done)
         store.updateText(id: item.id, text: "Revised")
 
-        XCTAssertEqual(store.item(id: item.id)?.status, .next)
+        XCTAssertEqual(store.item(id: item.id)?.status, .done)
         XCTAssertEqual(store.item(id: item.id)?.text, "Revised")
         XCTAssertEqual(store.item(id: item.id)?.updatedAt, now)
 
         let relaunchedStore = CaptureStore(fileURL: fileURL)
-        XCTAssertEqual(relaunchedStore.item(id: item.id)?.status, .next)
+        XCTAssertEqual(relaunchedStore.item(id: item.id)?.status, .done)
         XCTAssertEqual(relaunchedStore.item(id: item.id)?.text, "Revised")
+    }
+
+    @MainActor
+    func testLegacyNextStatusMigratesToInbox() throws {
+        let data = Data("""
+        {
+          "version": 1,
+          "items": [
+            {
+              "id": "E1319284-7E6F-49B2-A144-788762270819",
+              "text": "Legacy queued capture",
+              "source": "voice",
+              "status": "next",
+              "createdAt": "2023-11-14T22:13:20Z",
+              "updatedAt": "2023-11-14T22:13:20Z"
+            }
+          ]
+        }
+        """.utf8)
+        try data.write(to: fileURL)
+
+        let store = CaptureStore(fileURL: fileURL)
+
+        XCTAssertEqual(store.items.count, 1)
+        XCTAssertEqual(store.items.first?.status, .inbox)
+    }
+
+    @MainActor
+    func testRemovedCaptureCanBeRestored() {
+        let store = CaptureStore(fileURL: fileURL)
+        let item = store.add(text: "Recover me", source: .typed)!
+
+        let removed = store.remove(id: item.id)
+        XCTAssertTrue(store.items.isEmpty)
+
+        store.restore(removed!)
+
+        XCTAssertEqual(store.items, [item])
+        let restoredItem = CaptureStore(fileURL: fileURL).items.first
+        XCTAssertEqual(restoredItem?.id, item.id)
+        XCTAssertEqual(restoredItem?.text, item.text)
+        XCTAssertEqual(restoredItem?.status, item.status)
     }
 
     @MainActor

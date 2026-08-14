@@ -24,4 +24,19 @@ enum IndicatorState {
             ""
         }
     }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .recording:
+            "Recording"
+        case .transcribing:
+            "Transcribing"
+        case .processing:
+            "Processing"
+        case .success(let message):
+            message
+        case .error(let message):
+            "Error: \(message)"
+        }
+    }
 }
