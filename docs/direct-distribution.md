@@ -6,7 +6,8 @@ Voiced's supported release path is a Developer ID-signed, notarized direct downl
 
 - A `Developer ID Application` certificate in the signing keychain.
 - The matching Apple Developer Team ID.
-- For notarization, App Store Connect API credentials or an Apple ID app-specific password stored through `notarytool store-credentials`.
+- An Apple ID app-specific password stored in the local Keychain through `notarytool store-credentials`.
+- `xcodegen` and an authenticated GitHub CLI (`gh auth login`).
 
 List available identities:
 
@@ -67,7 +68,7 @@ Run the final signature, staple, and Gatekeeper checks after notarization:
 ./script/package_release.sh verify
 ```
 
-Run packaging, notarization, and final Gatekeeper verification in one operation with:
+Run packaging, notarization, and final Gatekeeper verification without publishing with:
 
 ```sh
 VOICED_DEVELOPER_ID_IDENTITY="Developer ID Application: Company (TEAMID)" \
@@ -75,26 +76,23 @@ VOICED_NOTARY_PROFILE="VoicedNotary" \
   ./script/package_release.sh release
 ```
 
-## GitHub Releases
+## Publish A GitHub Release Locally
 
-Pushing a version tag runs `.github/workflows/release.yml`. The tag must match `MARKETING_VERSION` in `project.yml` exactly.
-
-Configure these GitHub Actions repository secrets before publishing:
-
-- `DEVELOPER_ID_CERTIFICATE_BASE64`: base64-encoded Developer ID Application `.p12` certificate and private key.
-- `DEVELOPER_ID_CERTIFICATE_PASSWORD`: password used when exporting the `.p12`.
-- `NOTARY_API_KEY_BASE64`: base64-encoded App Store Connect API `.p8` key.
-- `NOTARY_API_KEY_ID`: App Store Connect API key ID.
-- `NOTARY_API_ISSUER_ID`: App Store Connect API issuer ID.
-
-For example, after setting `MARKETING_VERSION` to `0.1.6` and committing the release source:
+Set `MARKETING_VERSION` in `project.yml`, commit the release source, and run:
 
 ```sh
-git tag v0.1.6
-git push origin v0.1.6
+./script/publish_release.sh
 ```
 
-The workflow imports the certificate into a temporary keychain, creates a Developer ID-signed archive, notarizes and staples the app, verifies it with Gatekeeper, and publishes `Voiced-0.1.6.zip` plus its SHA-256 checksum to GitHub Releases.
+You can also provide the expected tag explicitly:
+
+```sh
+./script/publish_release.sh v0.1.6
+```
+
+The publisher requires a clean checkout and a tag matching `MARKETING_VERSION`. It runs the tests, discovers the single installed Developer ID Application identity, packages and notarizes the tagged source, verifies the staple and Gatekeeper acceptance, creates and pushes the tag when it does not already exist, and publishes the ZIP plus its SHA-256 checksum to GitHub Releases.
+
+If the version tag already exists at another commit, as with a retry after a failed release, the publisher builds that exact tagged source in a temporary checkout. Set `VOICED_DEVELOPER_ID_IDENTITY` only when more than one Developer ID Application identity is installed, or `VOICED_NOTARY_PROFILE` when using a profile name other than `VoicedNotary`.
 
 ## Installation
 
@@ -103,4 +101,4 @@ The workflow imports the certificate into a temporary keychain, creates a Develo
 3. Open Voiced and complete Microphone, Accessibility, and Input Monitoring setup.
 4. Keep the app at the same path so macOS permission grants remain stable.
 
-No publish, upload, release, or notarization command is run during ordinary development or packaging.
+No publish, upload, release, or notarization command is run during ordinary development or packaging. Publishing occurs only when `script/publish_release.sh` is invoked explicitly.

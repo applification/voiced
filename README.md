@@ -64,14 +64,13 @@ See [docs/local-build.md](docs/local-build.md) for local permission testing and 
 
 The Mac App Store is not a supported distribution target. Release builds are unsandboxed and use Hardened Runtime so global capture, Accessibility selection, and insertion can work reliably.
 
-Create a signed Release archive and ZIP package:
+Publish a signed, notarized GitHub Release from the local Mac:
 
 ```sh
-VOICED_DEVELOPER_ID_IDENTITY="Developer ID Application: Company (TEAMID)" \
-  ./script/package_release.sh package
+./script/publish_release.sh
 ```
 
-No repository script uploads or notarizes during ordinary build/package commands. Pushing a matching `vMAJOR.MINOR.PATCH` tag runs the signed, notarized GitHub Release workflow. See [docs/direct-distribution.md](docs/direct-distribution.md).
+The publisher validates the version and checkout, runs tests, uses credentials stored in the local Keychain, signs and notarizes the app, creates the version tag when needed, and uploads the ZIP and checksum. No GitHub Actions signing secrets are required. See [docs/direct-distribution.md](docs/direct-distribution.md).
 
 ## Repository Layout
 
