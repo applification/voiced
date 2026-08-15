@@ -62,4 +62,4 @@ Support: https://voiced.applification.net/support
 Privacy: https://voiced.applification.net/privacy
 ```
 
-The download route looks up the latest published GitHub Release and redirects to its ZIP asset, falling back to a DMG for older releases. `script/publish_release.sh` marks each local release as latest, so the public download updates automatically within the route's five-minute cache window.
+The download route looks up the latest published GitHub Release and redirects to its DMG asset, falling back to a ZIP only when needed. `script/publish_release.sh` marks each local release as latest, so the public download updates automatically within the route's five-minute cache window.

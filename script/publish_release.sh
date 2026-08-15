@@ -6,18 +6,44 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_FILE="$ROOT_DIR/project.yml"
 GITHUB_REPOSITORY="applification/voiced"
 DOWNLOAD_URL="https://voiced.applification.net/download"
-NOTARY_PROFILE="${VOICED_NOTARY_PROFILE:-VoicedNotary}"
+NOTARY_PROFILE="${VOICED_NOTARY_PROFILE:-voiced-notary}"
 IDENTITY="${VOICED_DEVELOPER_ID_IDENTITY:-}"
 TEMP_ROOT=""
 TEMP_WORKTREE=""
+FINAL_ARTIFACT_COPIED=false
 
 cleanup() {
+  local exit_status=$?
+  if (( exit_status != 0 )) && [[ "$FINAL_ARTIFACT_COPIED" == false && -n "$TEMP_WORKTREE" && -n "${VERSION:-}" ]]; then
+    local failed_dmg="$TEMP_WORKTREE/dist/release/$APP_NAME-$VERSION.dmg"
+    if [[ -f "$failed_dmg" ]]; then
+      local preserved_dir="$ROOT_DIR/dist/release"
+      local preserved_dmg
+      local preservation_message
+      if xcrun stapler validate "$failed_dmg" >/dev/null 2>&1; then
+        preserved_dmg="$preserved_dir/$APP_NAME-$VERSION.not-published.dmg"
+        preservation_message="The DMG is notarized but was not published."
+      else
+        preserved_dmg="$preserved_dir/$APP_NAME-$VERSION.unnotarized.dmg"
+        preservation_message="Do not publish that file until notarization succeeds."
+      fi
+      mkdir -p "$preserved_dir"
+      if ditto "$failed_dmg" "$preserved_dmg"; then
+        echo "Preserved the failed release artifact at $preserved_dmg" >&2
+        echo "$preservation_message" >&2
+      fi
+    fi
+  fi
+
   if [[ -n "$TEMP_WORKTREE" ]]; then
     git -C "$ROOT_DIR" worktree remove --force "$TEMP_WORKTREE" >/dev/null 2>&1 || true
   fi
   if [[ -n "$TEMP_ROOT" ]]; then
     rmdir "$TEMP_ROOT" >/dev/null 2>&1 || true
   fi
+
+  trap - EXIT
+  exit "$exit_status"
 }
 trap cleanup EXIT
 
@@ -66,6 +92,15 @@ resolve_distribution_identity() {
   esac
 }
 
+validate_notary_profile() {
+  if ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
+    echo "No valid notarytool Keychain profile named $NOTARY_PROFILE was found." >&2
+    echo "Create or refresh it before publishing:" >&2
+    echo "  xcrun notarytool store-credentials \"$NOTARY_PROFILE\" --apple-id \"YOUR_APPLE_ID\" --team-id \"GY6Q9L4423\"" >&2
+    exit 1
+  fi
+}
+
 if (( $# > 1 )); then
   fail "usage: $0 [vMAJOR.MINOR.PATCH]"
 fi
@@ -77,6 +112,7 @@ require_tool xcodegen
 require_tool xcodebuild
 require_tool shasum
 require_tool ditto
+require_tool xcrun
 
 VERSION="$(project_version)"
 [[ -n "$VERSION" ]] || fail "MARKETING_VERSION is missing from $PROJECT_FILE."
@@ -101,6 +137,7 @@ if gh release view "$TAG" >/dev/null 2>&1; then
 fi
 
 resolve_distribution_identity
+validate_notary_profile
 
 REMOTE_TAG_OBJECT="$(git ls-remote --tags origin "refs/tags/$TAG" | awk 'NR == 1 { print $1 }')"
 if [[ -n "$REMOTE_TAG_OBJECT" ]] && ! git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
@@ -138,25 +175,43 @@ xcodebuild \
   test
 
 echo "Building, notarizing, and verifying $TAG with $IDENTITY."
+PACKAGE_SCRIPT="$ROOT_DIR/script/package_release.sh"
+VOICED_RELEASE_ROOT="$BUILD_ROOT" \
 VOICED_DEVELOPER_ID_IDENTITY="$IDENTITY" \
 VOICED_NOTARY_PROFILE="$NOTARY_PROFILE" \
-  "$BUILD_ROOT/script/package_release.sh" release
+  "$PACKAGE_SCRIPT" release
 
-SOURCE_ARTIFACT="$BUILD_ROOT/dist/release/$APP_NAME-$VERSION.zip"
+SOURCE_ARTIFACT="$BUILD_ROOT/dist/release/$APP_NAME-$VERSION.dmg"
+SOURCE_ZIP="$BUILD_ROOT/dist/release/$APP_NAME-$VERSION.zip"
+SOURCE_APP="$BUILD_ROOT/dist/release/$APP_NAME.app"
 [[ -f "$SOURCE_ARTIFACT" ]] || fail "Expected release artifact was not created: $SOURCE_ARTIFACT"
+[[ -f "$SOURCE_ZIP" ]] || fail "Expected release ZIP was not created: $SOURCE_ZIP"
+[[ -d "$SOURCE_APP" ]] || fail "Expected release app was not created: $SOURCE_APP"
 
 PACKAGE_DIR="$ROOT_DIR/dist/release"
-ARTIFACT_NAME="$APP_NAME-$VERSION.zip"
+ARTIFACT_NAME="$APP_NAME-$VERSION.dmg"
 ARTIFACT="$PACKAGE_DIR/$ARTIFACT_NAME"
 CHECKSUM="$ARTIFACT.sha256"
+ZIP_NAME="$APP_NAME-$VERSION.zip"
+ZIP_ARTIFACT="$PACKAGE_DIR/$ZIP_NAME"
+ARCHIVE_APP="$PACKAGE_DIR/archive/$APP_NAME.app"
 mkdir -p "$PACKAGE_DIR"
 if [[ "$SOURCE_ARTIFACT" != "$ARTIFACT" ]]; then
   ditto "$SOURCE_ARTIFACT" "$ARTIFACT"
 fi
+if [[ "$SOURCE_ZIP" != "$ZIP_ARTIFACT" ]]; then
+  ditto "$SOURCE_ZIP" "$ZIP_ARTIFACT"
+fi
+rm -rf "$PACKAGE_DIR/archive"
+mkdir -p "$PACKAGE_DIR/archive"
+ditto "$SOURCE_APP" "$ARCHIVE_APP"
+rm -rf "$PACKAGE_DIR/$APP_NAME.app"
+rm -f "$PACKAGE_DIR/$APP_NAME.zip"
 (
   cd "$PACKAGE_DIR"
   shasum -a 256 "$ARTIFACT_NAME" > "$ARTIFACT_NAME.sha256"
 )
+FINAL_ARTIFACT_COPIED=true
 
 if [[ "$TAG_EXISTS" == false ]]; then
   git tag -a "$TAG" -m "$APP_NAME $TAG"

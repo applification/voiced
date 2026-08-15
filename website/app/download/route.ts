@@ -21,8 +21,8 @@ async function fetchLatestPackage(): Promise<GitHubAsset | null> {
 
     const data = (await res.json()) as { assets?: GitHubAsset[] };
     return (
-      data.assets?.find((asset) => asset.name.endsWith(".zip")) ??
       data.assets?.find((asset) => asset.name.endsWith(".dmg")) ??
+      data.assets?.find((asset) => asset.name.endsWith(".zip")) ??
       null
     );
   } catch {

@@ -70,7 +70,7 @@ Publish a signed, notarized GitHub Release from the local Mac:
 ./script/publish_release.sh
 ```
 
-The publisher validates the version and checkout, runs tests, uses credentials stored in the local Keychain, signs and notarizes the app, creates the version tag when needed, and uploads the ZIP and checksum. No GitHub Actions signing secrets are required. See [docs/direct-distribution.md](docs/direct-distribution.md).
+The publisher validates the version and checkout, runs tests, uses credentials stored in the local Keychain, signs and notarizes the DMG, creates the version tag when needed, and uploads the DMG and checksum. No GitHub Actions signing secrets are required. See [docs/direct-distribution.md](docs/direct-distribution.md).
 
 ## Repository Layout
 

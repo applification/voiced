@@ -3,12 +3,14 @@ set -euo pipefail
 
 MODE="${1:-package}"
 APP_NAME="Voiced"
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="${VOICED_RELEASE_ROOT:-$SCRIPT_ROOT}"
 RELEASE_DIR="$ROOT_DIR/build/release"
 ARCHIVE_PATH="$RELEASE_DIR/$APP_NAME.xcarchive"
 ARCHIVED_APP="$ARCHIVE_PATH/Products/Applications/$APP_NAME.app"
 PACKAGE_DIR="$ROOT_DIR/dist/release"
 PACKAGE_APP="$PACKAGE_DIR/$APP_NAME.app"
+DMG_STAGING_DIR="$RELEASE_DIR/dmg-staging"
 LEGACY_PACKAGE_ZIP="$PACKAGE_DIR/$APP_NAME.zip"
 IDENTITY="${VOICED_DEVELOPER_ID_IDENTITY:-}"
 
@@ -51,6 +53,10 @@ package_zip_path() {
   echo "$PACKAGE_DIR/$APP_NAME-$(release_version).zip"
 }
 
+package_dmg_path() {
+  echo "$PACKAGE_DIR/$APP_NAME-$(release_version).dmg"
+}
+
 verify_distribution_signature() {
   require_package_app
 
@@ -75,6 +81,25 @@ create_zip() {
   rm -f "$zip_path"
   ditto -c -k --keepParent "$PACKAGE_APP" "$zip_path"
   echo "Created $zip_path"
+}
+
+create_dmg() {
+  local dmg_path="$1"
+  require_tool hdiutil
+
+  rm -rf "$DMG_STAGING_DIR"
+  mkdir -p "$DMG_STAGING_DIR"
+  ditto "$PACKAGE_APP" "$DMG_STAGING_DIR/$APP_NAME.app"
+  ln -s /Applications "$DMG_STAGING_DIR/Applications"
+
+  rm -f "$dmg_path"
+  hdiutil create \
+    -volname "$APP_NAME" \
+    -srcfolder "$DMG_STAGING_DIR" \
+    -ov \
+    -format UDZO \
+    "$dmg_path" >/dev/null
+  echo "Created $dmg_path"
 }
 
 archive_app() {
@@ -106,25 +131,26 @@ package_app() {
   ditto "$ARCHIVED_APP" "$PACKAGE_APP"
   verify_distribution_signature
   create_zip "$(package_zip_path)"
+  create_dmg "$(package_dmg_path)"
 }
 
 notarize_package() {
   require_package_app
   require_tool xcrun
 
-  local zip_path
-  zip_path="$(package_zip_path)"
-  if [[ ! -f "$zip_path" ]]; then
-    echo "Release ZIP not found at $zip_path. Run package mode first." >&2
+  local dmg_path
+  dmg_path="$(package_dmg_path)"
+  if [[ ! -f "$dmg_path" ]]; then
+    echo "Release DMG not found at $dmg_path. Run package mode first." >&2
     exit 2
   fi
 
   if [[ -n "${VOICED_NOTARY_PROFILE:-}" ]]; then
-    xcrun notarytool submit "$zip_path" \
+    xcrun notarytool submit "$dmg_path" \
       --keychain-profile "$VOICED_NOTARY_PROFILE" \
       --wait
   elif [[ -n "${VOICED_NOTARY_API_KEY_PATH:-}" && -n "${VOICED_NOTARY_KEY_ID:-}" && -n "${VOICED_NOTARY_ISSUER_ID:-}" ]]; then
-    xcrun notarytool submit "$zip_path" \
+    xcrun notarytool submit "$dmg_path" \
       --key "$VOICED_NOTARY_API_KEY_PATH" \
       --key-id "$VOICED_NOTARY_KEY_ID" \
       --issuer "$VOICED_NOTARY_ISSUER_ID" \
@@ -134,20 +160,19 @@ notarize_package() {
     exit 2
   fi
 
-  xcrun stapler staple "$PACKAGE_APP"
-  xcrun stapler validate "$PACKAGE_APP"
-
-  # Stapling changes the app bundle, so the distributable ZIP must be rebuilt.
-  create_zip "$zip_path"
+  xcrun stapler staple "$dmg_path"
+  xcrun stapler validate "$dmg_path"
 }
 
 verify_package() {
   require_tool codesign
+  require_tool hdiutil
   require_tool spctl
   require_tool xcrun
   verify_distribution_signature
-  xcrun stapler validate "$PACKAGE_APP"
+  xcrun stapler validate "$(package_dmg_path)"
   spctl -a -vv --type execute "$PACKAGE_APP"
+  hdiutil verify "$(package_dmg_path)"
 }
 
 case "$MODE" in
