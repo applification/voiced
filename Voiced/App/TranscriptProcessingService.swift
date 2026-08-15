@@ -67,7 +67,7 @@ final class TranscriptProcessingService {
         let response = try await session.respond(
             to: prompt(for: profile, transcript: transcript),
             options: GenerationOptions(
-                    samplingMode: .greedy,
+                sampling: .greedy,
                 temperature: profile.temperature,
                 maximumResponseTokens: profile.maximumResponseTokens
             )

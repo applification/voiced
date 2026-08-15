@@ -9,20 +9,81 @@ ARCHIVE_PATH="$RELEASE_DIR/$APP_NAME.xcarchive"
 ARCHIVED_APP="$ARCHIVE_PATH/Products/Applications/$APP_NAME.app"
 PACKAGE_DIR="$ROOT_DIR/dist/release"
 PACKAGE_APP="$PACKAGE_DIR/$APP_NAME.app"
-PACKAGE_ZIP="$PACKAGE_DIR/$APP_NAME.zip"
-IDENTITY="${VOICED_DEVELOPER_ID_IDENTITY:-${VOICED_CODE_SIGN_IDENTITY:-}}"
+LEGACY_PACKAGE_ZIP="$PACKAGE_DIR/$APP_NAME.zip"
+IDENTITY="${VOICED_DEVELOPER_ID_IDENTITY:-}"
 
-require_identity() {
+require_tool() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Missing required tool: $1" >&2
+    exit 1
+  fi
+}
+
+require_distribution_identity() {
   if [[ -z "$IDENTITY" ]]; then
     echo "Set VOICED_DEVELOPER_ID_IDENTITY to a Developer ID Application identity." >&2
-    echo "For local workflow validation only, VOICED_CODE_SIGN_IDENTITY may name an Apple Development identity." >&2
+    exit 2
+  fi
+
+  case "$IDENTITY" in
+    "Developer ID Application:"*) ;;
+    *)
+      echo "VOICED_DEVELOPER_ID_IDENTITY must name a Developer ID Application identity." >&2
+      echo "Refusing to create a release package with: $IDENTITY" >&2
+      exit 2
+      ;;
+  esac
+}
+
+require_package_app() {
+  if [[ ! -d "$PACKAGE_APP" ]]; then
+    echo "Release app not found at $PACKAGE_APP. Run package mode first." >&2
     exit 2
   fi
 }
 
+release_version() {
+  require_package_app
+  /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PACKAGE_APP/Contents/Info.plist"
+}
+
+package_zip_path() {
+  echo "$PACKAGE_DIR/$APP_NAME-$(release_version).zip"
+}
+
+verify_distribution_signature() {
+  require_package_app
+
+  local signing_details
+  signing_details="$(codesign -dvvv "$PACKAGE_APP" 2>&1)"
+  if [[ "$signing_details" != *"Authority=Developer ID Application:"* ]]; then
+    echo "Release app is not signed with a Developer ID Application certificate." >&2
+    echo "$signing_details" >&2
+    exit 1
+  fi
+  if [[ "$signing_details" != *"flags="*"runtime"* ]]; then
+    echo "Release app is not signed with Hardened Runtime enabled." >&2
+    echo "$signing_details" >&2
+    exit 1
+  fi
+
+  codesign --verify --deep --strict --verbose=2 "$PACKAGE_APP"
+}
+
+create_zip() {
+  local zip_path="$1"
+  rm -f "$zip_path"
+  ditto -c -k --keepParent "$PACKAGE_APP" "$zip_path"
+  echo "Created $zip_path"
+}
+
 archive_app() {
-  require_identity
+  require_distribution_identity
+  require_tool xcodegen
+  require_tool xcodebuild
+
   mkdir -p "$RELEASE_DIR"
+  rm -rf "$ARCHIVE_PATH"
   xcodegen generate --spec "$ROOT_DIR/project.yml"
   xcodebuild \
     -project "$ROOT_DIR/Voiced.xcodeproj" \
@@ -36,28 +97,57 @@ archive_app() {
 
 package_app() {
   archive_app
-  mkdir -p "$PACKAGE_DIR"
-  rm -rf "$PACKAGE_APP" "$PACKAGE_ZIP"
-  ditto "$ARCHIVED_APP" "$PACKAGE_APP"
-  codesign --verify --deep --strict --verbose=2 "$PACKAGE_APP"
-  ditto -c -k --keepParent "$PACKAGE_APP" "$PACKAGE_ZIP"
-  echo "Created $PACKAGE_ZIP"
-}
+  require_tool codesign
+  require_tool ditto
 
-verify_package() {
-  codesign -dvvv --entitlements :- "$PACKAGE_APP"
-  codesign --verify --deep --strict --verbose=2 "$PACKAGE_APP"
-  spctl -a -vv --type execute "$PACKAGE_APP"
+  mkdir -p "$PACKAGE_DIR"
+  rm -rf "$PACKAGE_APP"
+  rm -f "$LEGACY_PACKAGE_ZIP"
+  ditto "$ARCHIVED_APP" "$PACKAGE_APP"
+  verify_distribution_signature
+  create_zip "$(package_zip_path)"
 }
 
 notarize_package() {
-  if [[ -z "${VOICED_NOTARY_PROFILE:-}" ]]; then
-    echo "Set VOICED_NOTARY_PROFILE to a notarytool keychain profile." >&2
+  require_package_app
+  require_tool xcrun
+
+  local zip_path
+  zip_path="$(package_zip_path)"
+  if [[ ! -f "$zip_path" ]]; then
+    echo "Release ZIP not found at $zip_path. Run package mode first." >&2
     exit 2
   fi
-  xcrun notarytool submit "$PACKAGE_ZIP" --keychain-profile "$VOICED_NOTARY_PROFILE" --wait
+
+  if [[ -n "${VOICED_NOTARY_PROFILE:-}" ]]; then
+    xcrun notarytool submit "$zip_path" \
+      --keychain-profile "$VOICED_NOTARY_PROFILE" \
+      --wait
+  elif [[ -n "${VOICED_NOTARY_API_KEY_PATH:-}" && -n "${VOICED_NOTARY_KEY_ID:-}" && -n "${VOICED_NOTARY_ISSUER_ID:-}" ]]; then
+    xcrun notarytool submit "$zip_path" \
+      --key "$VOICED_NOTARY_API_KEY_PATH" \
+      --key-id "$VOICED_NOTARY_KEY_ID" \
+      --issuer "$VOICED_NOTARY_ISSUER_ID" \
+      --wait
+  else
+    echo "Configure VOICED_NOTARY_PROFILE or the three VOICED_NOTARY_API_* credentials." >&2
+    exit 2
+  fi
+
   xcrun stapler staple "$PACKAGE_APP"
   xcrun stapler validate "$PACKAGE_APP"
+
+  # Stapling changes the app bundle, so the distributable ZIP must be rebuilt.
+  create_zip "$zip_path"
+}
+
+verify_package() {
+  require_tool codesign
+  require_tool spctl
+  require_tool xcrun
+  verify_distribution_signature
+  xcrun stapler validate "$PACKAGE_APP"
+  spctl -a -vv --type execute "$PACKAGE_APP"
 }
 
 case "$MODE" in
@@ -67,15 +157,20 @@ case "$MODE" in
   package)
     package_app
     ;;
+  notarize)
+    echo "Submitting the release package to Apple's notarization service." >&2
+    notarize_package
+    ;;
   verify)
     verify_package
     ;;
-  notarize)
-    echo "Notarization uploads the package to Apple. Continue only with explicit release approval." >&2
+  release)
+    package_app
     notarize_package
+    verify_package
     ;;
   *)
-    echo "usage: $0 [archive|package|verify|notarize]" >&2
+    echo "usage: $0 [archive|package|notarize|verify|release]" >&2
     exit 2
     ;;
 esac

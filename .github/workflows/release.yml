@@ -1,0 +1,157 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Sign, notarize, and publish
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7
+
+      - name: Validate release tag and version
+        shell: bash
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tags must use vMAJOR.MINOR.PATCH, for example v0.1.6." >&2
+            exit 1
+          fi
+
+          release_version="${GITHUB_REF_NAME#v}"
+          project_version="$(awk '$1 == "MARKETING_VERSION:" { print $2; exit }' project.yml)"
+          if [[ "$release_version" != "$project_version" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match MARKETING_VERSION $project_version." >&2
+            exit 1
+          fi
+
+          echo "RELEASE_VERSION=$release_version" >> "$GITHUB_ENV"
+
+      - name: Select release toolchain
+        shell: bash
+        run: |
+          xcodebuild -version
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+
+      - name: Run tests
+        shell: bash
+        run: |
+          xcodegen generate --spec project.yml
+          xcodebuild \
+            -project Voiced.xcodeproj \
+            -scheme Voiced \
+            -configuration Debug \
+            -derivedDataPath build/release-tests \
+            CODE_SIGNING_ALLOWED=NO \
+            test
+
+      - name: Prepare temporary signing paths
+        shell: bash
+        run: |
+          echo "RELEASE_CERTIFICATE_PATH=$RUNNER_TEMP/voiced-developer-id.p12" >> "$GITHUB_ENV"
+          echo "RELEASE_NOTARY_KEY_PATH=$RUNNER_TEMP/voiced-notary-key.p8" >> "$GITHUB_ENV"
+          echo "RELEASE_KEYCHAIN_PATH=$RUNNER_TEMP/voiced-release.keychain-db" >> "$GITHUB_ENV"
+
+      - name: Import Developer ID certificate and notary key
+        shell: bash
+        env:
+          DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          NOTARY_API_KEY_BASE64: ${{ secrets.NOTARY_API_KEY_BASE64 }}
+          NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_API_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          : "${DEVELOPER_ID_CERTIFICATE_BASE64:?Missing DEVELOPER_ID_CERTIFICATE_BASE64 secret}"
+          : "${DEVELOPER_ID_CERTIFICATE_PASSWORD:?Missing DEVELOPER_ID_CERTIFICATE_PASSWORD secret}"
+          : "${NOTARY_API_KEY_BASE64:?Missing NOTARY_API_KEY_BASE64 secret}"
+          : "${NOTARY_API_KEY_ID:?Missing NOTARY_API_KEY_ID secret}"
+          : "${NOTARY_API_ISSUER_ID:?Missing NOTARY_API_ISSUER_ID secret}"
+
+          keychain_password="$(openssl rand -hex 32)"
+
+          printf '%s' "$DEVELOPER_ID_CERTIFICATE_BASE64" | base64 --decode -o "$RELEASE_CERTIFICATE_PATH"
+          printf '%s' "$NOTARY_API_KEY_BASE64" | base64 --decode -o "$RELEASE_NOTARY_KEY_PATH"
+
+          security create-keychain -p "$keychain_password" "$RELEASE_KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$RELEASE_KEYCHAIN_PATH"
+          security unlock-keychain -p "$keychain_password" "$RELEASE_KEYCHAIN_PATH"
+          security import "$RELEASE_CERTIFICATE_PATH" \
+            -P "$DEVELOPER_ID_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$RELEASE_KEYCHAIN_PATH"
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s \
+            -k "$keychain_password" \
+            "$RELEASE_KEYCHAIN_PATH"
+          security list-keychains -d user -s "$RELEASE_KEYCHAIN_PATH"
+
+          developer_id_identity="$(
+            security find-identity -v -p codesigning "$RELEASE_KEYCHAIN_PATH" \
+              | sed -n 's/.*"\(Developer ID Application: .*\)".*/\1/p' \
+              | sed -n '1p'
+          )"
+          if [[ -z "$developer_id_identity" ]]; then
+            echo "The imported certificate does not contain a Developer ID Application identity." >&2
+            exit 1
+          fi
+
+          echo "VOICED_DEVELOPER_ID_IDENTITY=$developer_id_identity" >> "$GITHUB_ENV"
+          echo "VOICED_NOTARY_API_KEY_PATH=$RELEASE_NOTARY_KEY_PATH" >> "$GITHUB_ENV"
+          echo "VOICED_NOTARY_KEY_ID=$NOTARY_API_KEY_ID" >> "$GITHUB_ENV"
+          echo "VOICED_NOTARY_ISSUER_ID=$NOTARY_API_ISSUER_ID" >> "$GITHUB_ENV"
+
+      - name: Build, notarize, and verify release
+        shell: bash
+        run: ./script/package_release.sh release
+
+      - name: Create checksum
+        shell: bash
+        run: |
+          artifact_name="Voiced-${RELEASE_VERSION}.zip"
+          cd dist/release
+          shasum -a 256 "$artifact_name" > "$artifact_name.sha256"
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          artifact="dist/release/Voiced-${RELEASE_VERSION}.zip"
+          gh release create "$GITHUB_REF_NAME" \
+            "$artifact" \
+            "$artifact.sha256" \
+            --verify-tag \
+            --generate-notes \
+            --title "Voiced $GITHUB_REF_NAME"
+
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: |
+          keychain_path="${RELEASE_KEYCHAIN_PATH:-$RUNNER_TEMP/voiced-release.keychain-db}"
+          certificate_path="${RELEASE_CERTIFICATE_PATH:-$RUNNER_TEMP/voiced-developer-id.p12}"
+          notary_key_path="${RELEASE_NOTARY_KEY_PATH:-$RUNNER_TEMP/voiced-notary-key.p8}"
+          security delete-keychain "$keychain_path" || true
+          rm -f \
+            "$certificate_path" \
+            "$notary_key_path"

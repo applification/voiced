@@ -71,7 +71,7 @@ VOICED_DEVELOPER_ID_IDENTITY="Developer ID Application: Company (TEAMID)" \
   ./script/package_release.sh package
 ```
 
-No repository script uploads or notarizes during ordinary build/package commands. The separate `notarize` mode requires an explicit invocation and configured keychain profile. See [docs/direct-distribution.md](docs/direct-distribution.md).
+No repository script uploads or notarizes during ordinary build/package commands. Pushing a matching `vMAJOR.MINOR.PATCH` tag runs the signed, notarized GitHub Release workflow. See [docs/direct-distribution.md](docs/direct-distribution.md).
 
 ## Repository Layout
 
