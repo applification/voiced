@@ -4,6 +4,8 @@ set -euo pipefail
 APP_NAME="Voiced"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_FILE="$ROOT_DIR/project.yml"
+GITHUB_REPOSITORY="applification/voiced"
+DOWNLOAD_URL="https://voiced.applification.net/download"
 NOTARY_PROFILE="${VOICED_NOTARY_PROFILE:-VoicedNotary}"
 IDENTITY="${VOICED_DEVELOPER_ID_IDENTITY:-}"
 TEMP_ROOT=""
@@ -169,6 +171,14 @@ gh release create "$TAG" \
   "$CHECKSUM" \
   --verify-tag \
   --generate-notes \
+  --latest \
+  --notes "Download: $DOWNLOAD_URL" \
   --title "$APP_NAME $TAG"
 
+LATEST_TAG="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')"
+[[ "$LATEST_TAG" == "$TAG" ]] \
+  || fail "Published $TAG, but GitHub reports $LATEST_TAG as the latest release."
+
 echo "Published $APP_NAME $TAG."
+echo "Download: $DOWNLOAD_URL"
+echo "The download route refreshes its GitHub release lookup within five minutes."

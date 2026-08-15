@@ -94,6 +94,8 @@ The publisher requires a clean checkout and a tag matching `MARKETING_VERSION`. 
 
 If the version tag already exists at another commit, as with a retry after a failed release, the publisher builds that exact tagged source in a temporary checkout. Set `VOICED_DEVELOPER_ID_IDENTITY` only when more than one Developer ID Application identity is installed, or `VOICED_NOTARY_PROFILE` when using a profile name other than `VoicedNotary`.
 
+The publisher explicitly marks the new GitHub Release as latest. `https://voiced.applification.net/download` resolves the latest release through GitHub's API and prefers its versioned ZIP asset, so no website deployment is needed for each app release. The route caches that lookup for up to five minutes.
+
 ## Installation
 
 1. Download and expand `Voiced-<version>.zip`.
