@@ -40,7 +40,7 @@ export default function PrivacyPage() {
 
         <header className="py-12">
           <p className="text-sm font-medium text-[#80b890]">
-            Effective 10 August 2026
+            Effective 15 August 2026
           </p>
           <h1 className="mt-3 text-balance text-4xl font-semibold leading-tight tracking-[-0.03em] sm:text-6xl">
             Privacy Policy
@@ -59,9 +59,10 @@ export default function PrivacyPage() {
             <code className="mx-1 text-[#88d0a0]">
               ~/Library/Application Support/Voiced/Captures.json
             </code>
-            . The file includes capture text, status, timestamps, source type,
-            and the source application name and bundle identifier when
-            available.
+            . The file includes capture text, Inbox or Done status, timestamps,
+            source type, and the source application name and bundle identifier
+            when available. A source URL is stored only when Accessibility
+            exposes an HTTP, HTTPS, or file URL for the selected content.
           </p>
           <p>
             Writes are atomic. If the file cannot be decoded, Voiced preserves a
@@ -112,9 +113,10 @@ export default function PrivacyPage() {
           <p>
             On compatible Macs, Voiced can use Apple Intelligence through
             Foundation Models to clean a capture, summarize it, or turn tasks
-            into a checklist. These actions run on device. Reminders export
-            occurs only when you choose it and uses the macOS Reminders
-            permission.
+            into a checklist. These actions run on device and are shown as a
+            proposal before the capture changes. Applied refinements can be
+            undone. Reminders export occurs only when you choose it and uses the
+            macOS Reminders permission.
           </p>
         </Section>
 

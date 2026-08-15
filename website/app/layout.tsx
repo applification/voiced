@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     template: "%s - Voiced",
   },
   description:
-    "Capture speech, selected text, and typed prompts in one persistent local shelf for macOS.",
+    "Dictate into the app you are using or keep speech, selected text, and typed notes in one persistent local shelf for macOS.",
   applicationName: "Voiced",
   authors: [{ name: "Applification" }],
   creator: "Applification",
@@ -58,7 +58,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Voiced - Local Capture for macOS",
     description:
-      "Capture speech, selected text, and typed prompts in one persistent local shelf for macOS.",
+      "Dictate into the app you are using or keep speech, selected text, and typed notes in one persistent local shelf for macOS.",
     url: "/",
     siteName: "Voiced",
     images: [
@@ -76,7 +76,7 @@ export const metadata: Metadata = {
     card: "summary",
     title: "Voiced - Local Capture for macOS",
     description:
-      "A local Mac capture shelf for speech, selected text, and typed prompts.",
+      "Private Mac dictation with a local shelf for speech, selected text, and typed notes.",
     images: ["/voiced-icon.png"],
   },
   appleWebApp: {

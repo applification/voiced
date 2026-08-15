@@ -11,7 +11,10 @@ import {
   Monitor,
   Radio,
   ScanText,
+  Search,
   ShieldCheck,
+  Sparkles,
+  Undo2,
 } from "lucide-react";
 
 const downloadUrl = "/download";
@@ -34,88 +37,57 @@ function ApplificationMark({ className }: { className?: string }) {
   );
 }
 
-const workflow = [
+const shortcuts = [
   {
-    icon: Mic,
-    title: "Speak it",
-    text: "Hold Right Command to save a voice capture, or add Shift to transcribe directly into the focused editor.",
+    keys: ["Right ⌘"],
+    title: "Dictate and insert",
+    text: "Release to place the transcript in the editor you were using.",
   },
   {
-    icon: ScanText,
-    title: "Select it",
-    text: "Press Shift twice to keep selected text from the app you are already using.",
+    keys: ["⇧", "Right ⌘"],
+    title: "Save voice to Inbox",
+    text: "Keep the capture for later without opening the shelf.",
   },
   {
-    icon: Keyboard,
-    title: "Type it",
-    text: "Open the shelf with Option-Space and type a prompt, note, idea, or follow-up.",
+    keys: ["⇧", "⇧"],
+    title: "Save a selection",
+    text: "Capture selected text from the app already in front of you.",
   },
   {
-    icon: ListTodo,
-    title: "Paste, queue, or keep it",
-    text: "Edit, search, copy, insert, or move captures through Inbox, Next, and Done.",
+    keys: ["⌥", "Space"],
+    title: "Toggle the shelf",
+    text: "Search, type, edit, refine, copy, drag, finish, or remove.",
   },
 ];
 
-const trustPoints = [
-  {
-    icon: Monitor,
-    title: "Mac utility, not a web account",
-    text: "Runs from the menu bar with macOS permissions you can see and change.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Permissions stay visible",
-    text: "Microphone, Accessibility, Input Monitoring, and model downloads are explained with recovery actions.",
-  },
-  {
-    icon: Lock,
-    title: "No telemetry or cloud storage",
-    text: "Captures stay in a readable local file. There is no account, analytics, or remote capture service.",
-  },
+const shelfActions = [
+  "Search capture text or its source app",
+  "Edit voice, selection, and typed captures",
+  "Move items between Inbox and Done",
+  "Copy or drag text back into your work",
+  "Remove a capture with immediate Undo",
 ];
 
 const modelFacts = [
-  "Explicit model download approval",
-  "SHA-256 integrity verification",
-  "Local WhisperKit transcription",
-  "Delete or reveal downloaded models",
+  "Download starts only when you ask",
+  "Pinned size and SHA-256 verification",
+  "WhisperKit transcription on your Mac",
+  "Reveal or remove downloaded models",
 ];
 
 const privacyFacts = [
-  "No cloud transcription path",
-  "Temporary audio deleted after transcription",
-  "Captures saved as local JSON",
-  "No account or telemetry",
+  "No account, telemetry, or analytics",
+  "No cloud transcription or capture upload",
+  "Temporary audio deleted after use",
+  "Captures stored as readable local JSON",
 ];
 
-const ctaFacts = [
-  "macOS 14 or newer",
-  "Direct download",
-  "Local shelf",
-];
-
-function StatusDot({ className = "" }: { className?: string }) {
+function StatusDot() {
   return (
     <span
       aria-hidden
-      className={`inline-block size-2 rounded-full bg-[#88d0a0] ${className}`}
+      className="inline-block size-2 rounded-full bg-[#88d0a0]"
     />
-  );
-}
-
-function FactList({ items }: { items: string[] }) {
-  return (
-    <ul className="space-y-3">
-      {items.map((item) => (
-        <li key={item} className="flex gap-3 text-sm leading-6 text-[#385040]">
-          <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-[#101818]" />
-          <span className={item.includes("SHA-256") ? monoLabel : undefined}>
-            {item}
-          </span>
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -142,95 +114,34 @@ function ScreenshotFrame({
         width={width}
         height={height}
         priority={priority}
-        className="h-auto w-full rounded-[18px]"
+        className="h-auto w-full"
       />
     </div>
   );
 }
 
-function ModelPanel() {
+function FactList({ items, dark = false }: { items: string[]; dark?: boolean }) {
   return (
-    <div className="grid gap-6 min-[960px]:grid-cols-2">
-      <section className="rounded-[18px] bg-[#e7efea] p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-4">
-          <HardDriveDownload aria-hidden className="size-6 text-[#101818]" />
-          <span
-            className={`rounded-full bg-[#101818] px-3 py-1 text-xs text-[#e8ece8] ${brandLabel}`}
-          >
-            one-time setup
+    <ul className="space-y-3">
+      {items.map((item) => (
+        <li
+          key={item}
+          className={`flex gap-3 text-sm leading-6 ${
+            dark ? "text-[#d2ddd5]" : "text-[#385040]"
+          }`}
+        >
+          <Check
+            aria-hidden
+            className={`mt-0.5 size-4 shrink-0 ${
+              dark ? "text-[#88d0a0]" : "text-[#101818]"
+            }`}
+          />
+          <span className={item.includes("SHA-256") ? monoLabel : undefined}>
+            {item}
           </span>
-        </div>
-        <h3 className="mt-7 max-w-md text-2xl font-semibold tracking-[-0.02em]">
-          Models are downloaded deliberately.
-        </h3>
-        <p className="mt-4 max-w-lg text-sm leading-6 text-[#385040]">
-          Voiced asks before loading the local transcription model. It shows
-          progress, verifies downloaded files, and exposes model storage
-          controls in settings.
-        </p>
-        <div className="mt-7">
-          <FactList items={modelFacts} />
-        </div>
-      </section>
-
-      <section className="rounded-[18px] bg-[#101818] p-5 text-[#e8ece8] sm:p-6">
-        <div className="flex items-center justify-between gap-4">
-          <ShieldCheck aria-hidden className="size-6 text-[#88d0a0]" />
-          <span
-            className={`rounded-full bg-[#88d0a0] px-3 py-1 text-xs text-[#000808] ${brandLabel}`}
-          >
-            local-first
-          </span>
-        </div>
-        <h3 className="mt-7 max-w-md text-2xl font-semibold tracking-[-0.02em]">
-          Capture and storage have visible limits.
-        </h3>
-        <p className="mt-4 max-w-lg text-sm leading-6 text-[#e8ece8]/74">
-          After setup, speech is recorded and transcribed locally. Voice,
-          selections, and typed notes are saved to one readable file under
-          Application Support.
-        </p>
-        <ul className="mt-7 space-y-3">
-          {privacyFacts.map((item) => (
-            <li
-              key={item}
-              className="flex gap-3 text-sm leading-6 text-[#e8ece8]/76"
-            >
-              <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-[#88d0a0]" />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </div>
-  );
-}
-
-function IntelligenceSection() {
-  return (
-    <section className="bg-[#e7efea] px-5 py-16 sm:px-8 lg:px-10">
-      <div className="mx-auto grid max-w-7xl gap-10 xl:grid-cols-[0.9fr_1.1fr] xl:items-center">
-        <div>
-          <h2 className="max-w-2xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
-            Clean up the transcript before it leaves Voiced.
-          </h2>
-          <p className="mt-5 max-w-xl text-pretty text-base leading-7 text-muted-foreground">
-            On compatible Macs, Voiced can use Apple Intelligence through
-            Foundation Models to tidy spoken text, summarize a capture, or turn
-            tasks into a checklist. If Apple Intelligence is unavailable,
-            Voiced keeps the raw transcript ready to use.
-          </p>
-        </div>
-
-        <ScreenshotFrame
-          src="/screenshots/review-todo-reminders.png"
-          alt="Voiced review window showing a to-do list created from speech, plus clean, summarize, to-do, reminders, copy, and drag controls."
-          width={1340}
-          height={910}
-          className="mx-auto w-full max-w-[760px]"
-        />
-      </div>
-    </section>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -238,7 +149,7 @@ function Hero() {
   return (
     <section className="relative isolate overflow-hidden bg-[#000808] text-[#e8ece8]">
       <div className="absolute inset-x-0 top-0 h-px bg-[#e8ece8]/20" />
-      <div className="mx-auto flex min-h-[86vh] w-full max-w-[1760px] flex-col px-5 py-5 sm:px-8 lg:px-10">
+      <div className="mx-auto flex min-h-[92vh] w-full max-w-[1760px] flex-col px-5 py-5 sm:px-8 lg:px-10">
         <header className="flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-3 text-sm font-medium">
             <Image
@@ -251,15 +162,15 @@ function Hero() {
             />
             <span className={`text-[15px] ${brandLabel}`}>Voiced</span>
           </Link>
-          <nav className="hidden items-center gap-6 text-sm text-[#e8ece8]/72 sm:flex">
-            <a className="transition hover:text-[#e8ece8]" href="#workflow">
-              Workflow
+          <nav className="hidden items-center gap-6 text-sm text-[#c5d6ca] sm:flex">
+            <a className="transition hover:text-[#e8ece8]" href="#shortcuts">
+              Shortcuts
             </a>
-            <a className="transition hover:text-[#e8ece8]" href="#models">
-              Models
+            <a className="transition hover:text-[#e8ece8]" href="#shelf">
+              Shelf
             </a>
-            <a className="transition hover:text-[#e8ece8]" href="#privacy">
-              Privacy
+            <a className="transition hover:text-[#e8ece8]" href="#local">
+              Local-first
             </a>
             <Link className="transition hover:text-[#e8ece8]" href="/support">
               Support
@@ -267,21 +178,21 @@ function Hero() {
           </nav>
         </header>
 
-        <div className="hero-grid grid flex-1 items-center gap-12 py-10 lg:gap-14 lg:py-12">
+        <div className="hero-grid grid flex-1 items-center gap-12 py-12 lg:gap-14 lg:py-16">
           <div className="hero-copy max-w-6xl">
             <div
-              className={`mb-8 inline-flex items-center gap-2 rounded-full border border-[#e8ece8]/18 bg-[#101818] px-3 py-1.5 text-sm text-[#80b890] ${brandLabel}`}
+              className={`mb-8 inline-flex items-center gap-2 rounded-full border border-[#e8ece8]/18 bg-[#101818] px-3 py-1.5 text-sm text-[#a6dcb8] ${brandLabel}`}
             >
               <Radio aria-hidden className="size-4" />
-              Local capture for macOS
+              Private dictation for macOS
             </div>
             <h1 className="hero-title max-w-6xl text-balance font-semibold leading-[0.96] tracking-[-0.025em]">
-              Speak it, select it, or type it.
+              Capture the thought. Keep your place.
             </h1>
-            <p className="mt-7 max-w-2xl text-pretty text-lg leading-8 text-[#e8ece8]/76 sm:text-xl">
-              Voiced keeps speech, selected text, and typed prompts in one
-              persistent shelf. Paste them, queue them, or keep them without
-              creating an account or sending captures to the cloud.
+            <p className="mt-7 max-w-2xl text-pretty text-lg leading-8 text-[#d2ddd5] sm:text-xl">
+              Hold Right Command to dictate into the app you are already using.
+              Add Shift to save a voice capture to your local shelf instead.
+              Selected text and typed notes live there too.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
               <a
@@ -296,10 +207,10 @@ function Hero() {
                 className="inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[#e8ece8]/18 bg-[#101818] px-5 text-sm font-semibold text-[#e8ece8] transition hover:bg-[#181c1c] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
               >
                 <ShieldCheck aria-hidden className="size-4" />
-                Read privacy notes
+                Read the privacy policy
               </Link>
             </div>
-            <div className="mt-10 flex flex-wrap gap-2 text-sm text-[#e8ece8]/72">
+            <div className="mt-10 flex flex-wrap gap-2 text-sm text-[#c5d6ca]">
               <span
                 className={`inline-flex items-center gap-2 rounded-full bg-[#101818] px-3 py-1.5 ${brandLabel}`}
               >
@@ -307,7 +218,7 @@ function Hero() {
                 Local transcription
               </span>
               <span className={`rounded-full bg-[#101818] px-3 py-1.5 ${brandLabel}`}>
-                Persistent shelf
+                Inbox and Done
               </span>
               <span className={`rounded-full bg-[#101818] px-3 py-1.5 ${brandLabel}`}>
                 No telemetry
@@ -316,12 +227,12 @@ function Hero() {
           </div>
 
           <ScreenshotFrame
-            src="/screenshots/review-panel.png"
-            alt="Voiced review window with transcript text, clean, summarize, to-do, copy, and drag controls."
-            width={1340}
-            height={838}
+            src="/screenshots/shelf-current.png"
+            alt="The current Voiced shelf with Inbox and Done, shortcut hints, typed captures, a text editor, refinement, copy, drag, remove, and permission recovery controls."
+            width={2024}
+            height={1452}
             priority
-            className="hero-shot mx-auto w-full max-w-[960px]"
+            className="hero-shot mx-auto w-full max-w-[980px]"
           />
         </div>
       </div>
@@ -329,71 +240,223 @@ function Hero() {
   );
 }
 
-function WorkflowSection() {
+function ShortcutSection() {
   return (
-    <section id="workflow" className="bg-background px-5 py-18 sm:px-8 lg:px-10">
-      <div className="mx-auto grid max-w-7xl gap-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
-        <div>
+    <section id="shortcuts" className="bg-[#f7faf8] px-5 py-16 sm:px-8 lg:px-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="grid gap-6 border-b border-border pb-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-end">
           <h2 className="max-w-2xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
-            Capture without leaving your train of thought.
+            One gesture decides where the words go.
+          </h2>
+          <p className="max-w-2xl text-pretty text-base leading-7 text-muted-foreground lg:justify-self-end">
+            Insert a transcript immediately or keep it in Inbox. Voiced confirms
+            the result in the notch, then gets out of the way.
+          </p>
+        </div>
+
+        <div className="divide-y divide-border lg:grid lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+          {shortcuts.map((shortcut, index) => (
+            <section
+              key={shortcut.title}
+              className={`py-7 lg:px-8 ${index % 2 === 0 ? "lg:pl-0" : "lg:pr-0"}`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                {shortcut.keys.map((key) => (
+                  <kbd
+                    key={key}
+                    className={`rounded-[8px] bg-[#101818] px-2.5 py-1.5 text-xs text-[#e8ece8] ${monoLabel}`}
+                  >
+                    {key}
+                  </kbd>
+                ))}
+                <span className="ml-1 text-sm font-semibold">{shortcut.title}</span>
+              </div>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+                {shortcut.text}
+              </p>
+            </section>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ShelfSection() {
+  return (
+    <section id="shelf" className="bg-[#e7efea] px-5 py-18 sm:px-8 lg:px-10">
+      <div className="mx-auto grid max-w-7xl gap-12 xl:grid-cols-[0.88fr_1.12fr] xl:items-center">
+        <div>
+          <div className="flex size-11 items-center justify-center rounded-[10px] bg-[#101818] text-[#88d0a0]">
+            <ListTodo aria-hidden className="size-5" />
+          </div>
+          <h2 className="mt-7 max-w-2xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
+            A shelf for text that still needs somewhere to go.
           </h2>
           <p className="mt-5 max-w-xl text-pretty text-base leading-7 text-muted-foreground">
-            Use the input that fits the moment. Every path creates the same
-            editable item, ready to insert now or keep for later.
+            Voice, selections, and typed notes become the same editable capture.
+            Keep active work in Inbox, move finished items to Done, and pick up
+            exactly where you left off after a relaunch.
           </p>
-          <div className="mt-9 grid gap-6">
-            {workflow.map(({ icon: Icon, title, text }) => (
-              <section key={title} className="grid grid-cols-[auto_1fr] gap-4">
-                <div className="flex size-10 items-center justify-center rounded-[10px] bg-[#e7efea]">
-                  <Icon aria-hidden className="size-5 text-[#101818]" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold tracking-[-0.01em]">
-                    {title}
-                  </h3>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-                    {text}
-                  </p>
-                </div>
-              </section>
-            ))}
+          <div className="mt-8 max-w-lg">
+            <FactList items={shelfActions} />
           </div>
         </div>
-        <ScreenshotFrame
-          src="/screenshots/setup-guide.png"
-          alt="Voiced setup guide showing local speech model choices and capture permission readiness."
-          width={1584}
-          height={1288}
-          className="mx-auto w-full max-w-[740px]"
-        />
+
+        <div className="rounded-[18px] bg-[#000808] p-5 text-[#e8ece8] sm:p-7">
+          <div className="flex items-center justify-between gap-4 border-b border-[#e8ece8]/14 pb-5">
+            <div className="flex items-center gap-3">
+              <Search aria-hidden className="size-5 text-[#88d0a0]" />
+              <div>
+                <p className="font-semibold">One local capture library</p>
+                <p className="mt-1 text-sm text-[#b8c9bd]">Inbox stays focused. Done stays searchable.</p>
+              </div>
+            </div>
+            <span className={`rounded-full bg-[#181c1c] px-3 py-1.5 text-xs text-[#c5d6ca] ${monoLabel}`}>
+              ⌥ Space
+            </span>
+          </div>
+          <div className="grid gap-0 sm:grid-cols-[0.72fr_1.28fr]">
+            <div className="border-b border-[#e8ece8]/14 py-6 sm:border-r sm:border-b-0 sm:pr-6">
+              <p className={`text-xs text-[#80b890] ${brandLabel}`}>Capture sources</p>
+              <div className="mt-5 space-y-5">
+                <div className="flex items-center gap-3">
+                  <Mic aria-hidden className="size-4 text-[#88d0a0]" />
+                  <span className="text-sm">Voice</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <ScanText aria-hidden className="size-4 text-[#88d0a0]" />
+                  <span className="text-sm">Selection</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Keyboard aria-hidden className="size-4 text-[#88d0a0]" />
+                  <span className="text-sm">Typed</span>
+                </div>
+              </div>
+            </div>
+            <div className="py-6 sm:pl-6">
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-sm font-semibold">Capture detail</p>
+                <span className={`rounded-full bg-[#88d0a0] px-2.5 py-1 text-xs text-[#000808] ${brandLabel}`}>
+                  Inbox
+                </span>
+              </div>
+              <p className="mt-5 text-base leading-7 text-[#d2ddd5]">
+                Outline the settings walkthrough and verify the permission
+                recovery links.
+              </p>
+              <div className="mt-7 flex flex-wrap gap-2 text-xs">
+                {["Refine", "Copy", "Drag", "Remove"].map((action) => (
+                  <span
+                    key={action}
+                    className={`rounded-full bg-[#181c1c] px-3 py-1.5 text-[#d2ddd5] ${brandLabel}`}
+                  >
+                    {action}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
-function ModelSection() {
+function RefinementSection() {
   return (
-    <section id="models" className="bg-[#f7faf8] px-5 py-16 sm:px-8 lg:px-10">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-10 flex max-w-4xl flex-col gap-4">
-          <h2 className="max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
-            Local transcription without pretending setup is invisible.
+    <section className="bg-[#000808] px-5 py-18 text-[#e8ece8] sm:px-8 lg:px-10">
+      <div className="mx-auto grid max-w-7xl gap-12 xl:grid-cols-[1.08fr_0.92fr] xl:items-center">
+        <div className="rounded-[18px] bg-[#101818] p-5 sm:p-7">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e8ece8]/14 pb-5">
+            <div className="flex items-center gap-3">
+              <Sparkles aria-hidden className="size-5 text-[#88d0a0]" />
+              <div>
+                <p className="font-semibold">Review clean transcript</p>
+                <p className="mt-1 text-sm text-[#b8c9bd]">Nothing changes until you apply it.</p>
+              </div>
+            </div>
+            <div className="flex rounded-[8px] bg-[#181c1c] p-1 text-xs">
+              <span className={`rounded-[6px] bg-[#384840] px-3 py-1.5 ${brandLabel}`}>Proposed</span>
+              <span className={`px-3 py-1.5 text-[#b8c9bd] ${brandLabel}`}>Original</span>
+            </div>
+          </div>
+          <div className="min-h-44 py-7 text-base leading-8 text-[#dce6df]">
+            Today I need to make the bed, go for a walk, cook tea, and watch the football.
+          </div>
+          <div className="flex flex-col-reverse gap-3 border-t border-[#e8ece8]/14 pt-5 sm:flex-row sm:justify-end">
+            <span className={`inline-flex h-10 items-center justify-center rounded-full bg-[#181c1c] px-4 text-sm ${brandLabel}`}>
+              Keep Original
+            </span>
+            <span className={`inline-flex h-10 items-center justify-center rounded-full bg-[#88d0a0] px-4 text-sm text-[#000808] ${brandLabel}`}>
+              Apply Clean Transcript
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex size-11 items-center justify-center rounded-[10px] bg-[#181c1c] text-[#88d0a0]">
+            <Undo2 aria-hidden className="size-5" />
+          </div>
+          <h2 className="mt-7 max-w-2xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
+            Refine only after you review the result.
           </h2>
-          <p className="max-w-2xl text-pretty text-base leading-7 text-muted-foreground">
-            Voiced uses WhisperKit and Argmax OSS models on your Mac. The first
-            approved download can contact Hugging Face, then the model is used
-            from the local cache.
+          <p className="mt-5 max-w-xl text-pretty text-base leading-7 text-[#c5d6ca]">
+            On compatible Macs, Apple Intelligence can propose a cleaned
+            transcript, executive summary, or to-do list. Compare the proposal
+            with the original, then apply it or keep your words unchanged.
+          </p>
+          <ul className="mt-8 space-y-3 text-sm leading-6 text-[#d2ddd5]">
+            <li className="flex gap-3"><Check aria-hidden className="mt-0.5 size-4 shrink-0 text-[#88d0a0]" />Applied refinements can be undone.</li>
+            <li className="flex gap-3"><Check aria-hidden className="mt-0.5 size-4 shrink-0 text-[#88d0a0]" />Checklist items can be sent to a chosen Reminders list.</li>
+            <li className="flex gap-3"><Check aria-hidden className="mt-0.5 size-4 shrink-0 text-[#88d0a0]" />The raw capture remains ready when Apple Intelligence is unavailable.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LocalSection() {
+  return (
+    <section id="local" className="bg-[#f7faf8] px-5 py-18 sm:px-8 lg:px-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="grid gap-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-end">
+          <h2 className="max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
+            Setup is explicit because trust should be visible.
+          </h2>
+          <p className="max-w-2xl text-pretty text-base leading-7 text-muted-foreground lg:justify-self-end">
+            Voiced explains why each permission is needed, offers a recovery
+            action wherever it matters, and waits for approval before
+            downloading a speech model.
           </p>
         </div>
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(300px,0.56fr)] xl:items-center">
+
+        <div className="mt-12 grid gap-10 xl:grid-cols-[1.08fr_0.92fr] xl:items-center">
           <ScreenshotFrame
-            src="/screenshots/menu-model.png"
-            alt="Voiced menu bar controls for the shelf, capture shortcuts, permissions, models, and settings."
-            width={1222}
-            height={588}
-            className="mx-auto w-full max-w-[520px] xl:order-2 xl:justify-self-end"
+            src="/screenshots/onboarding-current.png"
+            alt="The current Voiced setup window showing local speech model choices, microphone access, Accessibility, and Input Monitoring with direct recovery actions."
+            width={1452}
+            height={1396}
+            className="mx-auto w-full max-w-[760px]"
           />
-          <ModelPanel />
+
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-1">
+            <section className="rounded-[12px] bg-[#e7efea] p-6">
+              <div className="flex items-center gap-3">
+                <HardDriveDownload aria-hidden className="size-5 text-[#101818]" />
+                <h3 className="text-lg font-semibold tracking-[-0.01em]">Local speech models</h3>
+              </div>
+              <div className="mt-6"><FactList items={modelFacts} /></div>
+            </section>
+            <section className="rounded-[12px] bg-[#101818] p-6 text-[#e8ece8]">
+              <div className="flex items-center gap-3">
+                <ShieldCheck aria-hidden className="size-5 text-[#88d0a0]" />
+                <h3 className="text-lg font-semibold tracking-[-0.01em]">Local by design</h3>
+              </div>
+              <div className="mt-6"><FactList items={privacyFacts} dark /></div>
+            </section>
+          </div>
         </div>
       </div>
     </section>
@@ -401,43 +464,48 @@ function ModelSection() {
 }
 
 function TrustSection() {
+  const trustPoints = [
+    {
+      icon: Monitor,
+      title: "A Mac utility, not a web account",
+      text: "Voiced runs from the menu bar and stores its shelf in Application Support on this Mac.",
+    },
+    {
+      icon: Lock,
+      title: "Clipboard changes are handled carefully",
+      text: "Insertion restores the previous clipboard only when nothing else changed it during the operation.",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Sensitive content stays out of logs",
+      text: "Audio, transcripts, selections, clipboard contents, file names, window titles, and destination apps are not logged.",
+    },
+  ];
+
   return (
-    <section
-      id="privacy"
-      className="border-y border-border bg-[#f7faf8] px-5 py-16 sm:px-8 lg:px-10"
-    >
-      <div className="mx-auto grid max-w-7xl gap-10 xl:grid-cols-[0.8fr_1.2fr]">
-        <div>
-          <h2 className="max-w-xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
-            A small tool with explicit boundaries.
-          </h2>
-          <p className="mt-5 max-w-xl text-pretty text-base leading-7 text-muted-foreground">
-            Voiced listens only for its explicit shortcuts, records only while
-            push-to-talk is active, and keeps captures on your Mac until you
-            decide what happens next.
-          </p>
-          <div className="mt-8 max-w-lg overflow-hidden rounded-[18px] border border-border bg-[#000808]">
-            <Image
-              src="/screenshots/settings-general.png"
-              alt="Voiced Settings window with push-to-talk, launch at login, activation sound, and deactivation sound controls."
-              width={1344}
-              height={1468}
-              className="h-auto w-full -translate-y-[1%] scale-[1.02]"
-            />
+    <section className="border-y border-border bg-[#e7efea] px-5 py-16 sm:px-8 lg:px-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="grid gap-10 lg:grid-cols-[0.7fr_1.3fr]">
+          <div>
+            <h2 className="max-w-xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
+              Clear boundaries, all the way through.
+            </h2>
+            <Link
+              href="/privacy"
+              className={`mt-7 inline-flex items-center gap-2 text-sm text-[#101818] underline decoration-[#80b890] decoration-2 underline-offset-4 transition hover:text-[#385040] ${brandLabel}`}
+            >
+              Read the full privacy policy
+            </Link>
           </div>
-        </div>
-        <div className="grid gap-6 md:grid-cols-3">
-          {trustPoints.map(({ icon: Icon, title, text }) => (
-            <section key={title} className="border-t border-border pt-5">
-              <Icon aria-hidden className="mb-5 size-5 text-[#385040]" />
-              <h3 className="text-lg font-semibold tracking-[-0.01em]">
-                {title}
-              </h3>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                {text}
-              </p>
-            </section>
-          ))}
+          <div className="grid gap-7 md:grid-cols-3">
+            {trustPoints.map(({ icon: Icon, title, text }) => (
+              <section key={title} className="border-t border-[#aebdb3] pt-5">
+                <Icon aria-hidden className="mb-5 size-5 text-[#385040]" />
+                <h3 className="text-lg font-semibold tracking-[-0.01em]">{title}</h3>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">{text}</p>
+              </section>
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -449,22 +517,14 @@ function DownloadCta() {
     <section className="bg-[#000808] px-5 py-16 text-[#e8ece8] sm:px-8 lg:px-10">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
-          <p className={`text-sm text-[#80b890] ${brandLabel}`}>
-            Ready when your model is
-          </p>
+          <p className={`text-sm text-[#a6dcb8] ${brandLabel}`}>macOS 14 or newer</p>
           <h2 className="mt-3 max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-5xl">
-            Download Voiced and keep useful text close.
+            Put your next thought where it belongs.
           </h2>
-          <div className="mt-7 flex flex-wrap gap-2">
-            {ctaFacts.map((fact) => (
-              <span
-                key={fact}
-                className={`rounded-full border border-[#e8ece8]/16 bg-[#101818] px-3 py-1 text-[11px] leading-5 text-[#e8ece8]/72 ${monoLabel}`}
-              >
-                {fact}
-              </span>
-            ))}
-          </div>
+          <p className="mt-5 max-w-xl text-base leading-7 text-[#c5d6ca]">
+            Download Voiced directly, choose a local speech model, and finish the
+            guided permission setup on your Mac.
+          </p>
         </div>
         <a
           href={downloadUrl}
@@ -492,12 +552,8 @@ function Footer() {
           <span className="font-medium text-[#385040]">Applification</span>
         </a>
         <nav aria-label="Footer" className="flex gap-5">
-          <Link className="transition hover:text-foreground" href="/privacy">
-            Privacy
-          </Link>
-          <Link className="transition hover:text-foreground" href="/support">
-            Support
-          </Link>
+          <Link className="transition hover:text-foreground" href="/privacy">Privacy</Link>
+          <Link className="transition hover:text-foreground" href="/support">Support</Link>
         </nav>
       </div>
     </footer>
@@ -508,9 +564,10 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <Hero />
-      <WorkflowSection />
-      <ModelSection />
-      <IntelligenceSection />
+      <ShortcutSection />
+      <ShelfSection />
+      <RefinementSection />
+      <LocalSection />
       <TrustSection />
       <DownloadCta />
       <Footer />

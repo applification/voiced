@@ -4,13 +4,17 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Support",
   description:
-    "Support information for Voiced Dictation, including transcription, review actions, permissions, and issue reporting.",
+    "Support for Voiced, including capture shortcuts, local transcription, shelf recovery, permissions, and refinement actions.",
   alternates: {
     canonical: "/support",
   },
 };
 
 const supportTopics = [
+  {
+    title: "Voice shortcuts",
+    text: "Hold Right Command to dictate into the previously focused editor. Hold Shift + Right Command to save a voice capture quietly to Inbox. Release either gesture to finish recording, or press Escape to cancel.",
+  },
   {
     title: "Microphone permission",
     text: "Voiced needs microphone access to record while push-to-talk is active. You can review this in macOS System Settings under Privacy & Security.",
@@ -25,11 +29,15 @@ const supportTopics = [
   },
   {
     title: "Local shelf storage",
-    text: "Captures are stored at ~/Library/Application Support/Voiced/Captures.json. If the file is corrupt, Voiced preserves a timestamped recovery copy.",
+    text: "Voice, selection, and typed captures are stored at ~/Library/Application Support/Voiced/Captures.json. Inbox and Done persist across launches. If the file is corrupt, Voiced preserves a timestamped recovery copy before opening an empty shelf.",
   },
   {
-    title: "Review actions",
-    text: "Clean transcript, executive summary, and to-do list actions use Apple Intelligence on compatible Macs. If Apple Intelligence is unavailable, the raw transcript remains ready to copy or drag.",
+    title: "Refinement actions",
+    text: "Clean transcript, executive summary, and to-do list actions use Apple Intelligence on compatible Macs. Voiced shows the proposed and original text before anything changes. Applied refinements can be undone, and checklist items can be exported to Reminders.",
+  },
+  {
+    title: "Insertion and clipboard recovery",
+    text: "Automatic insertion temporarily uses the clipboard to post Command-V. Selected-text fallback can use Command-C when Accessibility does not expose a selection. Voiced restores the previous clipboard only if nothing else changed it during the operation.",
   },
 ];
 
@@ -49,8 +57,9 @@ export default function SupportPage() {
             Support
           </h1>
           <p className="mt-5 text-pretty text-lg leading-8 text-[#c5d6ca]">
-            If Voiced is not recording, capturing a selection, inserting text,
-            or downloading a model, start with the macOS permissions below.
+            If Voiced is not recording, saving a selection, inserting text,
+            opening the shelf, or downloading a model, start with the relevant
+            permission or recovery action below.
           </p>
         </header>
 
@@ -79,9 +88,9 @@ export default function SupportPage() {
             >
               voiced@applification.net
             </a>
-            . Include your macOS version, Voiced version, selected model, and
-            whether the issue happens before recording, during transcription, or
-            in the review window.
+            . Include your macOS version, Voiced version, selected model, the
+            shortcut you used, and whether the issue happens during recording,
+            transcription, insertion, or in the shelf.
           </p>
         </section>
 
