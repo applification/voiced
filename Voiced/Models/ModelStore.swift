@@ -50,7 +50,7 @@ struct ModelStore: Sendable {
     let modelRepo = "argmaxinc/whisperkit-coreml"
 
     var modelName: String {
-        model.rawValue
+        model.whisperKitVariant
     }
 
     var localRepoURL: URL {

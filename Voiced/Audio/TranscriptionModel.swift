@@ -72,8 +72,17 @@ enum TranscriptionModel: String, CaseIterable, Identifiable, Sendable {
         "\(label) (\(detail))"
     }
 
+    var whisperKitVariant: String {
+        switch self {
+        case .tiny: "tiny.en"
+        case .base: "base.en"
+        case .small: "small.en"
+        case .largeAccuracy: rawValue
+        }
+    }
+
     var cacheFolderName: String {
-        "openai_whisper-\(rawValue)"
+        "openai_whisper-\(whisperKitVariant)"
     }
 
     var expectedDownloadBytes: UInt64 {

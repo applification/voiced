@@ -28,8 +28,9 @@ final class WhisperKitTranscriptionService: TranscriptionService {
     private let audioLevelUpdateInterval: TimeInterval = 0.05
     private var livePreviousWords: [WordTiming] = []
     private var liveConfirmedWords: [WordTiming] = []
+    private var liveConfirmedText = ""
+    private var liveConfirmedThroughSeconds: Float = 0
     private let liveWordConfirmationsNeeded = 2
-    private let liveStopGraceNanoseconds: UInt64 = 800_000_000
     private let liveFinalizationTimeoutNanoseconds: UInt64 = 1_500_000_000
     private let preparationTimeoutNanoseconds: UInt64 = 60_000_000_000
     var onModelProgress: ((ModelLoadProgress) -> Void)?
@@ -69,7 +70,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             let modelFolder = try await self.resolveModelFolder(for: selectedModel, store: store)
             self.postModelProgress(model: selectedModel, phase: "Preparing", fractionCompleted: 1)
             let config = WhisperKitConfig(
-                model: selectedModel.rawValue,
+                model: selectedModel.whisperKitVariant,
                 downloadBase: store.downloadBaseURL,
                 modelFolder: modelFolder.path,
                 tokenizerFolder: store.downloadBaseURL,
@@ -142,7 +143,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         }
         let remoteDownloadTask = Task {
             try await WhisperKit.download(
-                variant: selectedModel.rawValue,
+                variant: selectedModel.whisperKitVariant,
                 downloadBase: store.downloadBaseURL,
                 from: store.modelRepo
             ) { progress in
@@ -222,9 +223,18 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         guard let whisperKit else {
             throw TranscriptionError.modelNotLoaded
         }
+        guard let tokenizer = whisperKit.tokenizer else {
+            throw TranscriptionError.modelNotLoaded
+        }
 
         let path = url.path
-        let results = try await whisperKit.transcribe(audioPath: path)
+        let results = try await whisperKit.transcribe(
+            audioPath: path,
+            decodeOptions: TranscriptionVocabulary.decodingOptions(
+                tokenizer: tokenizer,
+                wordTimestamps: false
+            )
+        )
         let text = LiveTranscriptState.sanitizedText(
             results
                 .map(\.text)
@@ -259,6 +269,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         latestLiveState = .idle
         livePreviousWords = []
         liveConfirmedWords = []
+        liveConfirmedText = ""
+        liveConfirmedThroughSeconds = 0
 
         nonisolated(unsafe) let audioEncoder = whisperKit.audioEncoder
         nonisolated(unsafe) let featureExtractor = whisperKit.featureExtractor
@@ -274,8 +286,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             textDecoder: textDecoder,
             tokenizer: streamTokenizer,
             audioProcessor: audioProcessor,
-            decodingOptions: DecodingOptions(
-                skipSpecialTokens: true,
+            decodingOptions: TranscriptionVocabulary.decodingOptions(
+                tokenizer: streamTokenizer,
                 wordTimestamps: true
             ),
             requiredSegmentsForConfirmation: 1,
@@ -288,6 +300,10 @@ final class WhisperKitTranscriptionService: TranscriptionService {
 
                 Task { @MainActor in
                     guard let self else { return }
+                    self.liveConfirmedText = LiveTranscriptState.sanitizedText(
+                        confirmedSegments.map(\.text).joined(separator: " ")
+                    )
+                    self.liveConfirmedThroughSeconds = confirmedSegments.last?.end ?? 0
                     self.emitAudioLevel(audioLevel, onAudioLevel: onAudioLevel)
                     let state = self.liveTranscriptState(
                         confirmedSegments: confirmedSegments,
@@ -319,9 +335,9 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             return latestLiveState.combinedText
         }
 
-        try? await Task.sleep(nanoseconds: liveStopGraceNanoseconds)
         await streamTranscriber.stopStreamTranscription()
-        await waitForLiveStreamFinalization()
+        let audioSamples = whisperKit.map { Array($0.audioProcessor.audioSamples) } ?? []
+        let streamFinished = await waitForLiveStreamFinalization()
         streamTranscriptionTask?.cancel()
         liveUpdateTask?.cancel()
         liveUpdateTask = nil
@@ -329,11 +345,61 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         streamTranscriptionTask = nil
         self.streamTranscriber = nil
 
-        let text = latestLiveState.combinedText
+        let fallbackText = latestLiveState.combinedText
+        let text: String
+        if streamFinished,
+           LiveTranscriptionFinalizer.hasAudioToDecode(
+               audioSampleCount: audioSamples.count,
+               confirmedThroughSeconds: liveConfirmedThroughSeconds
+           ) {
+            text = await transcribeFinalLiveBuffer(
+                audioSamples,
+                confirmedText: liveConfirmedText,
+                confirmedThroughSeconds: liveConfirmedThroughSeconds,
+                fallbackText: fallbackText
+            )
+        } else {
+            text = fallbackText
+        }
         latestLiveState = .idle
         livePreviousWords = []
         liveConfirmedWords = []
+        liveConfirmedText = ""
+        liveConfirmedThroughSeconds = 0
         return text
+    }
+
+    private func transcribeFinalLiveBuffer(
+        _ audioSamples: [Float],
+        confirmedText: String,
+        confirmedThroughSeconds: Float,
+        fallbackText: String
+    ) async -> String {
+        guard let whisperKit, let tokenizer = whisperKit.tokenizer else {
+            return fallbackText
+        }
+
+        do {
+            let results = try await whisperKit.transcribe(
+                audioArray: audioSamples,
+                decodeOptions: LiveTranscriptionFinalizer.decodingOptions(
+                    tokenizer: tokenizer,
+                    confirmedThroughSeconds: confirmedThroughSeconds,
+                    audioSampleCount: audioSamples.count
+                )
+            )
+            let finalTailText = results.map(\.text).joined(separator: " ")
+            return LiveTranscriptionFinalizer.mergedText(
+                confirmedText: confirmedText,
+                finalTailText: finalTailText,
+                fallbackText: fallbackText
+            )
+        } catch is CancellationError {
+            return fallbackText
+        } catch {
+            logger.error("Final live transcription buffer failed")
+            return fallbackText
+        }
     }
 
     private func emitAudioLevel(_ level: Double, onAudioLevel: @escaping @MainActor (Double) -> Void) {
@@ -370,17 +436,20 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         }
     }
 
-    private func waitForLiveStreamFinalization() async {
-        guard let streamTranscriptionTask else { return }
-        await withTaskGroup(of: Void.self) { group in
+    private func waitForLiveStreamFinalization() async -> Bool {
+        guard let streamTranscriptionTask else { return true }
+        return await withTaskGroup(of: Bool.self) { group in
             group.addTask {
                 await streamTranscriptionTask.value
+                return true
             }
             group.addTask { [liveFinalizationTimeoutNanoseconds] in
                 try? await Task.sleep(nanoseconds: liveFinalizationTimeoutNanoseconds)
+                return false
             }
-            await group.next()
+            let streamFinished = await group.next() ?? false
             group.cancelAll()
+            return streamFinished
         }
     }
 
