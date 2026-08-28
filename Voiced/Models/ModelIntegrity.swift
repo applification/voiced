@@ -81,45 +81,45 @@ enum ModelIntegrity {
         switch model {
         case .tiny:
             [
-                ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "0b25820e5b2ab0b0686b4bea147fb217d1d1bface45170ff4ffde01fa6864ae2"),
-                ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/coremldata.bin", byteCount: 347, sha256: "142c33ade402fe41952059f175eb855093dfe09b5d2b84624a31e3a9952ed47d"),
+                ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "eaaaa6671a96a359a0bbd5e97885246dcc17f7435b6ffad8d871bb940964500b"),
+                ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/coremldata.bin", byteCount: 347, sha256: "325b182d0a4266730a81795ae6b7a787b5111dd091500fc0c04dedf610015d46"),
                 ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/model.mlmodel", byteCount: 54965, sha256: "030d64a3ddd296d6f709691a66a870aab7ee9f19e5fe07e8086245fb85302802"),
-                ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/weights/weight.bin", byteCount: 16422784, sha256: "bcd0879f6d1c61832765c7ec05d883d0dcbf1504057b13095fd315484196fc5e"),
-                ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "7f77e6457285248f99cd7aa3fd4cc2efbb17733e63e7023ac53abe1f95785d07"),
-                ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/coremldata.bin", byteCount: 328, sha256: "dabdc5aa69f6ef4d97dc9499f5c30514e00e96b53b750b33a5a6471363c71662"),
-                ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/weights/weight.bin", byteCount: 354080, sha256: "5b65b76f4e1dab57239e3946f6ab1314a7d1fdfa114485683dd04476ca62adb6"),
-                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "bfbe102ae5fb9368974a077f780441dd222fdfb0c7778c1df227ef6a73cbaada"),
-                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/coremldata.bin", byteCount: 633, sha256: "292f96416a33f9a80aaa62ead3dd5206aee6c5e6b3ac6cc02c059d38cbf04c6a"),
-                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/model.mlmodel", byteCount: 113134, sha256: "1afdfc3a8f3e8d6afc46e1ecc5fb216eadccbf82d9c568e7dbd3955143a1cd0e"),
-                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/weights/weight.bin", byteCount: 59216434, sha256: "d0313e1a4ffa88538c141cc3c73e6eb0e3dc54db9d574b21c7c034de688e4951"),
+                ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/weights/weight.bin", byteCount: 16422784, sha256: "f3706dac8d9d4bec269d3cee10fa4eda39b4240a46091c8323c1731a8c6d59c2"),
+                ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "160d9737169d22dc01a899e1c6a0a9c44d0637d41f0dedb2a0b7c1422c4035d2"),
+                ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/coremldata.bin", byteCount: 328, sha256: "cb3b3f51b080f58b12a6888a5e8ad57419be9e4c6843b96a7577f171b300e660"),
+                ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/weights/weight.bin", byteCount: 354080, sha256: "801024dbc7a89c677be1f8b285de3409e35f7d1786c9c8d9d0d6842ac57a1c83"),
+                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "edb99a30ccee8e157fbec80dc3dce49349ba0982391b327d753e10ccab0a01c3"),
+                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/coremldata.bin", byteCount: 633, sha256: "65c043a081845d190918b4c7d244f94a55df1a15fae796abedc1f414995542c6"),
+                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/model.mlmodel", byteCount: 108558, sha256: "5c3e91bc036014426708e2ceb0e35cb1bbbf34e8121d2070d2b174a7957581d0"),
+                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/weights/weight.bin", byteCount: 59215664, sha256: "763f915f0126093fc2c506572b3ab0fad134c04cfc2221333ccc7d73552c9252"),
             ]
         case .base:
             [
                 ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "c4e096b2abd561f00b9b698401df3fbe1a0d0c8d2476ff19cb4e1995680e827e"),
                 ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/coremldata.bin", byteCount: 347, sha256: "e316980638e2099e83cb1a93b903717dc12b3c2168d0ab69113764c3767696ba"),
                 ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/model.mlmodel", byteCount: 79853, sha256: "1d42038f84b508da5ce9b953302387ffedc097c346d36a56b765109002b6080e"),
-                ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/weights/weight.bin", byteCount: 41189632, sha256: "061ff4d74e5de3937b31288465d6c6f2697f92d121c80b23f51dd26bbdfe642b"),
+                ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/weights/weight.bin", byteCount: 41189632, sha256: "74f15e6d2f7694af54e90227cbf22fd6c04082638f163b78a909967b16edc1c7"),
                 ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "7f77e6457285248f99cd7aa3fd4cc2efbb17733e63e7023ac53abe1f95785d07"),
                 ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/coremldata.bin", byteCount: 328, sha256: "dabdc5aa69f6ef4d97dc9499f5c30514e00e96b53b750b33a5a6471363c71662"),
-                ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/weights/weight.bin", byteCount: 354080, sha256: "35d74417ef9c765e70f4ef85fe7405015a7086e9af05e3b63a5c2c7c748b2efc"),
-                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "6ac1227740ecc2fd7a03df50ac6e2a7f7946acfa77069cf2c486ae0255356b95"),
-                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/coremldata.bin", byteCount: 633, sha256: "9f1f6fe409486e2797d3f0c65d9a6d5af596771760548cd86f41939c54cdbe7c"),
-                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/model.mlmodel", byteCount: 164481, sha256: "ae260ff7b95d0c957c3c1f4df4dbeaa0ae6c76bacc55eb86caca8f6820d346f0"),
-                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/weights/weight.bin", byteCount: 104122162, sha256: "72325d42a4a4ccc8a6fa974ede6cdf2e0770685a5c4f9da94f41495b94d8d174"),
+                ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/weights/weight.bin", byteCount: 354080, sha256: "ee77f9b67765f7abc33f16374081b2389cf1d3a89536187b241950c5a2e5d6c1"),
+                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "e870aac5de88676c1ad93cb3939f257e6de30e5235c3f9d7686398ebecafdb8d"),
+                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/coremldata.bin", byteCount: 633, sha256: "4b23ff9d9fe376f2b86f9cf55af3218560a4e4d692041360510fbad490c0db43"),
+                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/model.mlmodel", byteCount: 160348, sha256: "72f1214f7c8b26e467dd8233572eaa5cbe200f30a36b918d4c289f9fc8c4f401"),
+                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/weights/weight.bin", byteCount: 104121136, sha256: "4649599bd2d97f87ffc716e6da2f61a06c06ac5a9424dd23edc3d4bf66fb6221"),
             ]
         case .small:
             [
                 ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "211457b92a0ced67bb8625efe39799a0030c4fc71eb87d7284ea81043caccde7"),
-                ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/coremldata.bin", byteCount: 347, sha256: "d68f152b6573ac55203a3dc8383730e6ecde685c7d2a88815b89820c88e35371"),
+                ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/coremldata.bin", byteCount: 347, sha256: "d8be820f6e3406891bdd25effc0e3b4cac712064c8bcf74053d8abec7e97c585"),
                 ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/model.mlmodel", byteCount: 155271, sha256: "68ca04660b8b050c68ca54c27d97c47e4133bc591422cb7009de8922d56fb8c9"),
-                ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/weights/weight.bin", byteCount: 176323456, sha256: "fe35cef2c9406993a635639b16f373f6debb0215ac115b7bf93fa03c8e10310b"),
+                ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/weights/weight.bin", byteCount: 176323456, sha256: "f92860042703b3679071e7eeb03c861e52bf0e1da38943cf7c37eb5fecfb3abe"),
                 ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "7f77e6457285248f99cd7aa3fd4cc2efbb17733e63e7023ac53abe1f95785d07"),
                 ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/coremldata.bin", byteCount: 328, sha256: "dabdc5aa69f6ef4d97dc9499f5c30514e00e96b53b750b33a5a6471363c71662"),
-                ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/weights/weight.bin", byteCount: 354080, sha256: "267017e533b5f542d195fd9a775f2ba649075128283ce8e86c63a2ec20de5b07"),
-                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "39c0d6d55353bc61ef8071081bb958dd1ab7b0b7f2a3338a797f1a64211e084c"),
-                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/coremldata.bin", byteCount: 633, sha256: "b2ccd0b8920701386ab9554f7db47b43e55ee07863280ee5d829d5272839adc2"),
-                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/model.mlmodel", byteCount: 313629, sha256: "7ea861c6dfdd866ed0f2e7fe0c3df7459daa44481cb25236e03698dd6d259391"),
-                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/weights/weight.bin", byteCount: 307287346, sha256: "bfea8044a8f38e8d33f56585b1e75ce023d3845e2a945e20480bd7e16558016e"),
+                ModelIntegrityFile(relativePath: "MelSpectrogram.mlmodelc/weights/weight.bin", byteCount: 354080, sha256: "50b463279c2f0089cd82a82f6c091675c6d499515562067c47c706f59051e4a0"),
+                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "63c717108d44630649d42e255ac94739c725937bf8e16ae6787e04c3a4f0ec6a"),
+                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/coremldata.bin", byteCount: 633, sha256: "f596a022005761b7f18e448b6c34be2b6f6a2797d11371145e4544eb25fa411d"),
+                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/model.mlmodel", byteCount: 326032, sha256: "702d2df1b6a37b49a4e21f8024c230148e3b0f7c6c4e9001deb5501b496971f2"),
+                ModelIntegrityFile(relativePath: "TextDecoder.mlmodelc/weights/weight.bin", byteCount: 307285808, sha256: "a71a58c723a8c379fbc0ba666d6a3d3dd85d84d34ee8665697d2edab52f2f6b1"),
             ]
         case .largeAccuracy:
             [
