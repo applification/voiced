@@ -79,6 +79,8 @@ enum ModelIntegrity {
 
     private static func manifest(for model: TranscriptionModel) -> [ModelIntegrityFile]? {
         switch model {
+        case .parakeetV2:
+            nil // FluidAudio validates and loads its own Core ML bundles.
         case .tiny:
             [
                 ModelIntegrityFile(relativePath: "AudioEncoder.mlmodelc/analytics/coremldata.bin", byteCount: 243, sha256: "eaaaa6671a96a359a0bbd5e97885246dcc17f7435b6ffad8d871bb940964500b"),

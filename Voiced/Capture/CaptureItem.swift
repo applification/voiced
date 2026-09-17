@@ -71,6 +71,7 @@ struct CaptureSourceApplication: Codable, Equatable, Sendable {
 struct CaptureItem: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     var text: String
+    var originalText: String? = nil
     let source: CaptureSource
     var status: CaptureStatus
     let createdAt: Date

@@ -35,8 +35,8 @@ enum IntroOnboardingPresenter {
         if mode == .firstRun {
             window.styleMask.remove(.closable)
         }
-        window.setContentSize(NSSize(width: 680, height: 620))
-        window.minSize = NSSize(width: 680, height: 620)
+        window.setContentSize(NSSize(width: 680, height: 700))
+        window.minSize = NSSize(width: 680, height: 700)
         window.isReleasedWhenClosed = false
         hostingController.rootView = IntroOnboardingView(settings: settings, mode: mode, window: window, onFinish: onFinish)
         window.center()
@@ -127,7 +127,7 @@ private struct IntroOnboardingView: View {
         .padding(.horizontal, 28)
         .padding(.top, 28)
         .padding(.bottom, 18)
-        .frame(width: 680, height: 620, alignment: .topLeading)
+        .frame(width: 680, height: 700, alignment: .topLeading)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.18))
         .onAppear {
             selectedModel = settings.transcriptionModel
@@ -180,7 +180,7 @@ private struct IntroOnboardingView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(mode.heading)
                     .font(.title3.weight(.semibold))
-                Text("Hold Right ⌘ to dictate and insert. Add Shift to save the voice capture to Inbox.")
+                Text("Hold ⌃⇧Space to dictate and insert. Add Option to save the voice capture to Inbox.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -218,7 +218,7 @@ private struct IntroOnboardingView: View {
             title: "Capture permissions",
             status: accessibilityAuthorized && inputMonitoringAuthorized ? "Ready" : "Needed",
             statusColor: accessibilityAuthorized && inputMonitoringAuthorized ? .green : .secondary,
-            detail: "Accessibility reads selections and inserts captures. Input Monitoring listens for Right Command, Shift + Right Command, double Shift, and Option-Space."
+            detail: "Accessibility reads selections and inserts captures. Input Monitoring listens for Control + Shift + Space, Control + Option + Shift + Space, double Shift, and Option-Space."
         ) {
             HStack(spacing: 8) {
                 if !accessibilityAuthorized {
@@ -286,7 +286,7 @@ private struct IntroOnboardingView: View {
                 modelChoiceCard(model)
             }
         }
-        .frame(minHeight: 134, alignment: .top)
+        .frame(minHeight: 206, alignment: .top)
     }
 
     private func modelChoiceCard(_ model: TranscriptionModel) -> some View {

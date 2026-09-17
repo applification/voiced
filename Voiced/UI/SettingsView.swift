@@ -5,6 +5,7 @@ import SwiftUI
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
     case models
+    case vocabulary
     case ai
     case privacy
 
@@ -14,6 +15,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: "General"
         case .models: "Models"
+        case .vocabulary: "Vocabulary"
         case .ai: "AI"
         case .privacy: "Privacy"
         }
@@ -32,6 +34,7 @@ struct SettingsView: View {
     @State private var modelManagementError: String?
     @State private var modelStatusRevision = 0
     @State private var downloadingModel: TranscriptionModel?
+    @State private var modelProgress: ModelLoadProgress?
 
     init(settings: SettingsStore, navigation: SettingsNavigation = SettingsNavigation()) {
         self.settings = settings
@@ -54,9 +57,11 @@ struct SettingsView: View {
                     centeredSettingsContent {
                         modelSettings
                     }
+                case .vocabulary:
+                    centeredSettingsContent { VocabularySettingsView(settings: settings) }
                 case .ai:
                     centeredSettingsContent {
-                        aiSettings
+                        ScrollView { aiSettings }
                     }
                 case .privacy:
                     centeredSettingsContent {
@@ -76,6 +81,11 @@ struct SettingsView: View {
         .onChange(of: settings.transcriptionModel) {
             ModelStatusCache.refresh(settings.transcriptionModel)
             modelStatusRevision += 1
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .voicedModelProgressChanged)) { notification in
+            guard let progress = notification.object as? ModelLoadProgress else { return }
+            modelProgress = progress
+            if progress.phase == "Loaded" { downloadingModel = nil }
         }
         .onReceive(NotificationCenter.default.publisher(for: .voicedModelStatusChanged)) { notification in
             if let downloadingModel,
@@ -146,13 +156,13 @@ struct SettingsView: View {
                 GridRow {
                     Text("Dictate and insert")
                         .foregroundStyle(.secondary)
-                    Text("Right Command")
+                    Text("Control + Shift + Space")
                 }
 
                 GridRow {
                     Text("Save capture")
                         .foregroundStyle(.secondary)
-                    Text("Shift + Right Command")
+                    Text("Control + Option + Shift + Space")
                 }
 
                 GridRow {
@@ -182,6 +192,16 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                 }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("Live dictation", selection: Bindable(settings).dictationMode) {
+                    ForEach(DictationMode.allCases) { Text($0.label).tag($0) }
+                }
+                Text(settings.dictationMode == .preview
+                     ? "Watch words appear beside the caret, then insert once when you release."
+                     : "Draft into supported text fields. If the field changes or cannot be updated, use the preview and copy the result.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             if let launchAtLoginError {
@@ -228,7 +248,7 @@ struct SettingsView: View {
                 Button(modelDownloadButtonTitle(modelStatus: modelStatus, isDownloading: isDownloadingSelectedModel)) {
                     downloadSelectedModel()
                 }
-                .disabled(modelStatus.isDownloaded || isDownloadingSelectedModel)
+                .disabled(LoadedModelState.isLoaded(settings.transcriptionModel) || isDownloadingSelectedModel)
 
                 Button("Show in Finder") {
                     showModelFolder()
@@ -251,11 +271,14 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Model attribution")
                     .font(.callout.weight(.semibold))
-                Text("Voiced uses WhisperKit by Argmax and OpenAI Whisper models converted for Core ML. WhisperKit is MIT licensed. OpenAI Whisper is MIT licensed.")
+                Text(settings.transcriptionModel == .parakeetV2
+                     ? "NVIDIA Parakeet v2 English, via FluidAudio and Core ML. Runs on Apple Silicon, including M1 Pro. The download includes a small vocabulary model. Parakeet uses FluidAudio’s shared local model folder."
+                     : "WhisperKit by Argmax and OpenAI Whisper, converted for Core ML. Both are MIT licensed.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 12) {
+                    Link("FluidAudio", destination: URL(string: "https://github.com/FluidInference/FluidAudio")!)
                     Link("WhisperKit", destination: URL(string: "https://github.com/argmaxinc/argmax-oss-swift")!)
                     Link("OpenAI Whisper", destination: URL(string: "https://github.com/openai/whisper")!)
                 }
@@ -270,6 +293,10 @@ struct SettingsView: View {
 
     private var aiSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
+            Toggle("Clean up after dictation", isOn: Bindable(settings).cleanUpAfterDictation)
+            Text("Remove fillers before inserting or saving. The original transcript stays available in the shelf. If local AI is unavailable, use the raw text.")
+                .font(.caption).foregroundStyle(.secondary)
+
             Text("In the shelf, use Refine to preview a cleaned transcript, summary, or to-do list before applying it.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -426,13 +453,9 @@ struct SettingsView: View {
     }
 
     private func modelDownloadButtonTitle(modelStatus: ModelStatus, isDownloading: Bool) -> String {
-        if modelStatus.isDownloaded {
-            return "Downloaded"
-        }
-        if isDownloading {
-            return "Downloading..."
-        }
-        return "Download now"
+        if LoadedModelState.isLoaded(settings.transcriptionModel) { return "Loaded" }
+        if isDownloading { return "Preparing…" }
+        return modelStatus.isDownloaded ? "Load model" : "Download now"
     }
 
     private func modelDownloadDetail(modelStatus: ModelStatus, isDownloading: Bool) -> String {
@@ -443,6 +466,10 @@ struct SettingsView: View {
     }
 
     private func modelStatusText(modelStatus: ModelStatus, isDownloading: Bool) -> String {
+        if LoadedModelState.isLoaded(settings.transcriptionModel) { return "Loaded · Ready to dictate" }
+        if let modelProgress, modelProgress.model == settings.transcriptionModel, isDownloading {
+            return modelProgress.phase
+        }
         if modelStatus.isDownloaded {
             return "Downloaded"
         }
@@ -454,8 +481,10 @@ struct SettingsView: View {
 
     private func deleteDownloadedModel() {
         let alert = NSAlert()
-        alert.messageText = "Delete downloaded Whisper model?"
-        alert.informativeText = "Voiced will ask for approval before downloading the model again."
+        alert.messageText = "Delete downloaded speech model?"
+        alert.informativeText = settings.transcriptionModel == .parakeetV2
+            ? "This removes the speech model from FluidAudio’s shared local folder. Other apps using it may need to download it again. The vocabulary model remains cached."
+            : "Voiced will need to download this model again before using it after a restart."
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Delete")
         alert.addButton(withTitle: "Cancel")
@@ -533,6 +562,7 @@ private struct SettingsSegmentedControl: View {
                     selection = section
                 } label: {
                     Text(section.label)
+                        .lineLimit(1)
                         .font(.callout.weight(selection == section ? .semibold : .regular))
                         .foregroundStyle(selection == section ? .primary : .secondary)
                         .frame(maxWidth: .infinity)
@@ -540,6 +570,7 @@ private struct SettingsSegmentedControl: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(section.label)
                 .background {
                     if selection == section {
                         RoundedRectangle(cornerRadius: 7, style: .continuous)
@@ -558,13 +589,14 @@ private struct SettingsSegmentedControl: View {
             }
         }
         .padding(1)
-        .frame(width: 300, height: 34)
+        .frame(width: 420, height: 34)
         .background(Color(nsColor: .textBackgroundColor).opacity(0.62))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(Color(nsColor: .separatorColor).opacity(0.8), lineWidth: 1)
         }
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Settings section")
     }
 }

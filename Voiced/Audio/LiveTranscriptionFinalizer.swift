@@ -5,13 +5,15 @@ enum LiveTranscriptionFinalizer {
     static func decodingOptions(
         tokenizer: any WhisperTokenizer,
         confirmedThroughSeconds: Float,
-        audioSampleCount: Int
+        audioSampleCount: Int,
+        terms: [String] = TranscriptionVocabulary.terms
     ) -> DecodingOptions {
         let audioDuration = Float(audioSampleCount) / Float(WhisperKit.sampleRate)
         let clipStart = min(max(0, confirmedThroughSeconds), audioDuration)
         var options = TranscriptionVocabulary.decodingOptions(
             tokenizer: tokenizer,
-            wordTimestamps: false
+            wordTimestamps: false,
+            terms: terms
         )
         options.clipTimestamps = clipStart > 0 ? [clipStart] : []
         options.windowClipTime = 0

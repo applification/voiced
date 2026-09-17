@@ -15,6 +15,18 @@ final class SettingsStore {
         }
     }
 
+    var vocabulary: [String] {
+        didSet { userDefaults.set(vocabulary, forKey: "personalVocabulary") }
+    }
+
+    var dictationMode: DictationMode {
+        didSet { userDefaults.set(dictationMode.rawValue, forKey: "dictationMode") }
+    }
+
+    var cleanUpAfterDictation: Bool {
+        didSet { userDefaults.set(cleanUpAfterDictation, forKey: "cleanUpAfterDictation") }
+    }
+
     var launchAtLogin: Bool {
         didSet {
             userDefaults.set(launchAtLogin, forKey: Keys.launchAtLogin)
@@ -49,7 +61,10 @@ final class SettingsStore {
 
         let storedModel = userDefaults.string(forKey: Keys.transcriptionModel)
             .flatMap(TranscriptionModel.init(rawValue:))
-        transcriptionModel = storedModel ?? .tiny
+        transcriptionModel = storedModel ?? .parakeetV2
+        vocabulary = PersonalVocabulary.normalized(userDefaults.stringArray(forKey: "personalVocabulary") ?? TranscriptionVocabulary.terms)
+        dictationMode = userDefaults.string(forKey: "dictationMode").flatMap(DictationMode.init(rawValue:)) ?? .preview
+        cleanUpAfterDictation = userDefaults.bool(forKey: "cleanUpAfterDictation")
 
         launchAtLogin = userDefaults.bool(forKey: Keys.launchAtLogin)
 

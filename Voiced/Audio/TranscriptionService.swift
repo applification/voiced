@@ -232,7 +232,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             audioPath: path,
             decodeOptions: TranscriptionVocabulary.decodingOptions(
                 tokenizer: tokenizer,
-                wordTimestamps: false
+                wordTimestamps: false,
+                terms: settings.vocabulary
             )
         )
         let text = LiveTranscriptState.sanitizedText(
@@ -247,6 +248,9 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         return text
     }
 
+    private var sessionVocabulary: [String] = []
+    private var liveStartupError: Error?
+
     func startLiveTranscription(
         onUpdate: @escaping @MainActor (LiveTranscriptState) -> Void,
         onAudioLevel: @escaping @MainActor (Double) -> Void
@@ -259,6 +263,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             throw TranscriptionError.modelNotLoaded
         }
 
+        liveStartupError = nil
+        sessionVocabulary = PersonalVocabulary.normalized(settings.vocabulary)
         await streamTranscriber?.stopStreamTranscription()
         streamTranscriptionTask?.cancel()
         liveUpdateTask?.cancel()
@@ -288,7 +294,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
             audioProcessor: audioProcessor,
             decodingOptions: TranscriptionVocabulary.decodingOptions(
                 tokenizer: streamTokenizer,
-                wordTimestamps: true
+                wordTimestamps: true,
+                terms: sessionVocabulary
             ),
             requiredSegmentsForConfirmation: 1,
             stateChangeCallback: { [weak self] _, newState in
@@ -323,11 +330,36 @@ final class WhisperKitTranscriptionService: TranscriptionService {
                 try await transcriber.startStreamTranscription()
             } catch {
                 await MainActor.run {
+                    self?.liveStartupError = error
                     self?.logger.error("Live transcription failed")
                 }
             }
         }
+        // The SDK starts its microphone inside an unstructured stream task. Wait
+        // for its recording callback so a quick release cannot stop before setup.
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while !latestLiveState.isRecording {
+            if let liveStartupError { throw liveStartupError }
+            guard ContinuousClock.now < deadline else {
+                await cancelLiveTranscription()
+                throw TranscriptionError.noResult
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        if let liveStartupError { throw liveStartupError }
         onUpdate(LiveTranscriptState(committedText: "", provisionalText: "Listening...", isRecording: true))
+    }
+
+    func cancelLiveTranscription() async {
+        await streamTranscriber?.stopStreamTranscription()
+        streamTranscriptionTask?.cancel()
+        liveUpdateTask?.cancel()
+        streamTranscriber = nil
+        streamTranscriptionTask = nil
+        liveUpdateTask = nil
+        latestLiveState = .idle
+        pendingLiveState = nil
+        whisperKit?.audioProcessor.purgeAudioSamples(keepingLast: 0)
     }
 
     func stopLiveTranscription() async -> String {
@@ -366,6 +398,7 @@ final class WhisperKitTranscriptionService: TranscriptionService {
         liveConfirmedWords = []
         liveConfirmedText = ""
         liveConfirmedThroughSeconds = 0
+        whisperKit?.audioProcessor.purgeAudioSamples(keepingLast: 0)
         return text
     }
 
@@ -385,7 +418,8 @@ final class WhisperKitTranscriptionService: TranscriptionService {
                 decodeOptions: LiveTranscriptionFinalizer.decodingOptions(
                     tokenizer: tokenizer,
                     confirmedThroughSeconds: confirmedThroughSeconds,
-                    audioSampleCount: audioSamples.count
+                    audioSampleCount: audioSamples.count,
+                    terms: sessionVocabulary
                 )
             )
             let finalTailText = results.map(\.text).joined(separator: " ")

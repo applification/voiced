@@ -15,6 +15,14 @@ final class AppCoordinator {
     private let microphonePermissions: any MicrophonePermissionManaging
     private let soundCues: any SoundCuePlaying
     private let liveSession = LiveDictationSession()
+    private let transcriptPanel = CursorTranscriptPanel()
+    private let processor = TranscriptProcessingService()
+    private var directSession: DirectDictationSession?
+    private var insertionAnchor: DictationInsertionAnchor?
+    private var recordingStartTask: Task<Void, Error>?
+    private var captureID = UUID()
+    private var latestLiveText = ""
+    private var shouldCleanUp = false
 
     private static let logger = Logger(subsystem: "net.applification.voiced", category: "coordinator")
 
@@ -22,7 +30,7 @@ final class AppCoordinator {
     private var modelDownloadObserver: NSObjectProtocol?
     private var transcriptionTask: Task<Void, Never>?
     private var doubleShiftRecognizer = DoubleShiftGestureRecognizer()
-    private var isRightCommandPhysicallyDown = false
+    private var pushToTalk = PushToTalkHotkey()
     private var lastShelfToggleTime: TimeInterval = 0
     private var activeVoiceContext: DestinationApplicationContext?
     private var activeVoiceDestination: VoiceCaptureDestination = .focusedEditor
@@ -59,7 +67,7 @@ final class AppCoordinator {
     ) {
         self.init(
             settings: settings,
-            transcriber: WhisperKitTranscriptionService(settings: settings),
+            transcriber: TranscriptionRouter(settings: settings),
             output: output,
             captures: captures,
             contextTracker: contextTracker,
@@ -94,12 +102,28 @@ final class AppCoordinator {
     }
 
     private func handleGlobalInput(type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) {
+        switch pushToTalk.register(type: type, keyCode: keyCode, flags: flags) {
+        case .pressed:
+            doubleShiftRecognizer.reset()
+            activeVoiceDestination = VoiceCaptureDestination.resolve(from: flags)
+            liveSession.pressPushToTalk()
+            handleVoiceKeyDown()
+            return
+        case .released:
+            doubleShiftRecognizer.reset()
+            handleVoiceKeyUp()
+            return
+        case nil:
+            break
+        }
+
         if type == .keyDown {
             if keyCode == 53 {
                 cancelCurrentCapture()
                 return
             }
-            if keyCode == 49, flags.contains(.maskAlternate) {
+            if keyCode == 49, !pushToTalk.isHoldingSpace,
+               flags.intersection([.maskCommand, .maskAlternate, .maskControl, .maskShift]) == .maskAlternate {
                 let now = ProcessInfo.processInfo.systemUptime
                 guard now - lastShelfToggleTime > 0.30 else { return }
                 lastShelfToggleTime = now
@@ -124,51 +148,40 @@ final class AppCoordinator {
             return
         }
 
-        let pushToTalk = PushToTalkHotkey.rightCommand
-        guard keyCode == pushToTalk.keyCode else { return }
-        isRightCommandPhysicallyDown.toggle()
-        if isRightCommandPhysicallyDown {
-            activeVoiceDestination = VoiceCaptureDestination.resolve(from: flags)
-            liveSession.pressPushToTalk()
-            handleVoiceKeyDown()
-        } else {
-            handleVoiceKeyUp()
-        }
     }
 
     private func warmUpTranscriptionService(reason: String) {
-        guard settings.modelDownloadsApproved else { return }
+        guard settings.modelDownloadsApproved, !captureState.isBusy,
+              !transcriber.isSelectedModelLoaded else { return }
+        captureState = .loadingModel
+        if reason == "hotkey" { indicator.show(state: .processing) }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let blocksCapture = !self.transcriber.isSelectedModelLoaded
-            let shouldShowFailure = reason != "app start" && reason != "onboarding download"
-            if blocksCapture { self.captureState = .loadingModel }
             do {
                 try await self.transcriber.loadModelIfNeeded()
             } catch {
                 Self.logger.error("Transcription model preparation failed")
                 NotificationCenter.default.post(name: .voicedModelStatusChanged, object: self.settings.transcriptionModel)
-                if blocksCapture, shouldShowFailure {
+                if reason != "app start" && reason != "onboarding download" {
                     self.indicator.show(state: .error("Model load failed"))
+                    try? await Task.sleep(for: .milliseconds(650))
                 }
             }
-            if blocksCapture {
-                self.captureState = .idle
-                try? await Task.sleep(for: .milliseconds(650))
-                self.indicator.hide()
-            }
+            self.captureState = .idle
+            self.indicator.hide()
         }
     }
 
     private func handleModelProgress(_ progress: ModelLoadProgress) {
         NotificationCenter.default.post(name: .voicedModelProgressChanged, object: progress)
-        guard progress.model == settings.transcriptionModel else { return }
-        if progress.phase == "Loaded", captureState.isShowingModelProgress {
-            captureState = .idle
-        }
     }
 
     private func handleVoiceKeyDown() {
+        if captureState.isShowingModelProgress {
+            indicator.show(state: .processing)
+            liveSession.reset()
+            return
+        }
         guard settings.hasSeenIntroOnboarding, !captureState.isBusy else {
             liveSession.reset()
             return
@@ -189,98 +202,150 @@ final class AppCoordinator {
         }
 
         activeVoiceContext = contextTracker.rememberFrontmostExternalApplication()
+        let application = contextTracker.runningApplication(for: activeVoiceContext)
+        insertionAnchor = DictationInsertionAnchor(application: application)
+        directSession = nil
+        if settings.dictationMode == .direct, activeVoiceDestination == .focusedEditor,
+           let target = AccessibilityTextTarget(application: application) {
+            directSession = DirectDictationSession(target: target)
+        }
+        shouldCleanUp = settings.cleanUpAfterDictation
+        latestLiveText = ""
+        let id = UUID()
+        captureID = id
         liveSession.beginRecording()
         soundCues.playActivation()
         captureState = .recording
-        indicator.show(state: .recording(level: 0.5))
+        let status = activeVoiceDestination == .shelf ? "Listening · Save to Inbox"
+            : directSession != nil ? "Listening · Direct" : "Listening · Preview"
+        transcriptPanel.show(status: status) { [weak self] in self?.cancelCurrentCapture() }
 
-        transcriptionTask?.cancel()
-        transcriptionTask = Task { @MainActor [weak self] in
+        let task = Task { @MainActor [weak self] in
             guard let self else { return }
-            do {
-                try await self.transcriber.startLiveTranscription { _ in
-                } onAudioLevel: { [weak self] level in
-                    self?.indicator.updateAudioLevel(level)
+            try Task.checkCancellation()
+            try await self.transcriber.startLiveTranscription { [weak self] state in
+                guard let self, self.captureID == id, self.captureState.isRecording else { return }
+                self.latestLiveText = state.combinedText
+                self.transcriptPanel.update(state)
+                if !state.combinedText.isEmpty, let direct = self.directSession,
+                   !direct.update(state.combinedText) {
+                    self.transcriptPanel.setStatus("Preview · Field changed")
                 }
-                guard !self.liveSession.shouldCancel else { throw CancellationError() }
-            } catch is CancellationError {
-            } catch {
-                Self.logger.error("Recording start failed")
-                self.captureState = .showingError
-                self.indicator.show(state: .error("Recording failed"))
-                try? await Task.sleep(for: .seconds(1))
-                self.indicator.hide()
-                self.captureState = .idle
-                self.transcriptionTask = nil
-                self.liveSession.reset()
+            } onAudioLevel: { [weak self] level in
+                guard let self, self.captureID == id, self.captureState.isRecording else { return }
+                self.transcriptPanel.updateLevel(level)
             }
+        }
+        recordingStartTask = task
+        Task { @MainActor [weak self] in
+            guard case .failure = await task.result, let self,
+                  self.captureID == id, self.captureState.isRecording else { return }
+            self.captureState = .showingError
+            await self.transcriber.cancelLiveTranscription()
+            self.transcriptPanel.hide()
+            self.showTemporaryIndicator(.error("Recording failed"))
+            self.captureState = .idle
+            self.recordingStartTask = nil
+            self.liveSession.reset()
         }
     }
 
     private func handleVoiceKeyUp() {
-        guard captureState.isRecording else {
-            liveSession.reset()
-            return
-        }
+        guard captureState.isRecording else { return }
         soundCues.playDeactivation()
         _ = liveSession.releasePushToTalk()
         captureState = .transcribing
-        indicator.show(state: .transcribing)
-
+        transcriptPanel.setStatus("Finishing transcription…")
+        let id = captureID
+        let startTask = recordingStartTask
         let sourceContext = activeVoiceContext
         let destination = activeVoiceDestination
+        let direct = directSession
+        let anchor = insertionAnchor
+        let cleanup = shouldCleanUp
         activeVoiceContext = nil
         activeVoiceDestination = .focusedEditor
-        transcriptionTask?.cancel()
         transcriptionTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            var feedbackDuration: UInt64 = 1_000_000_000
+            var retainPanel = false
             defer {
-                self.captureState = .idle
-                self.transcriptionTask = nil
-                self.liveSession.resetCancellation()
+                if self.captureID == id {
+                    self.captureState = .idle
+                    self.transcriptionTask = nil
+                    self.recordingStartTask = nil
+                    self.directSession = nil
+                    self.liveSession.reset()
+                    if !retainPanel { self.transcriptPanel.hide() }
+                }
             }
             do {
-                let text = await self.transcriber.stopLiveTranscription()
+                // A quick key release must wait for microphone setup before stopping it.
+                try await startTask?.value
+                let rawText = try await self.transcriber.stopLiveTranscription()
                 try Task.checkCancellation()
-                guard !self.liveSession.shouldCancel else { throw CancellationError() }
-                guard let item = self.captures.add(
-                    text: text,
-                    source: .voice,
-                    sourceApplication: sourceContext?.captureSource
-                ) else {
+                guard self.captureID == id else { return }
+                guard let item = self.captures.add(text: rawText, source: .voice,
+                                                   sourceApplication: sourceContext?.captureSource) else {
+                    _ = direct?.cancel()
                     self.showTemporaryIndicator(.error("No speech detected"))
                     return
                 }
-                switch destination {
-                case .shelf:
-                    self.indicator.show(state: .success("Saved to Inbox"))
-                case .focusedEditor:
-                    let result = await self.output.insert(
-                        item.text,
-                        into: self.contextTracker.runningApplication(for: sourceContext)
-                    )
-                    if result == .inserted {
-                        self.captures.move(id: item.id, to: .done)
-                        self.indicator.show(state: .success("Inserted"))
-                    } else {
-                        feedbackDuration = 2_000_000_000
-                        let message = result == .accessibilityRequired
-                            ? "Saved · Access needed"
-                            : "Saved · Insert failed"
-                        self.indicator.show(state: .error(message))
+                var finalText = item.text
+                if cleanup, self.processor.availability.isAvailable {
+                    self.transcriptPanel.setStatus("Cleaning up on this Mac…")
+                    do {
+                        let cleaned = try await self.processor.process(item.text, profile: .cleanTranscript)
+                        try Task.checkCancellation()
+                        if !cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            finalText = cleaned
+                            self.captures.applyRefinement(id: item.id, text: cleaned)
+                        }
+                    } catch is CancellationError { throw CancellationError() }
+                    catch { /* The raw capture is already saved and remains the output. */ }
+                }
+                try Task.checkCancellation()
+                guard self.captureID == id else { return }
+                if destination == .shelf {
+                    self.showTemporaryIndicator(.success("Saved to Inbox"))
+                    return
+                }
+                let inserted: Bool
+                if let direct {
+                    inserted = direct.update(finalText)
+                } else if anchor?.isUnchanged == true {
+                    inserted = await self.output.insert(finalText,
+                        into: self.contextTracker.runningApplication(for: sourceContext),
+                        guardBeforePaste: { anchor?.isUnchanged == true }) == .inserted
+                } else {
+                    inserted = false
+                }
+                if inserted {
+                    self.captures.move(id: item.id, to: .done)
+                    self.showTemporaryIndicator(.success("Inserted"))
+                } else {
+                    // Never paste a second transcript after losing ownership of a direct draft.
+                    retainPanel = true
+                    self.transcriptPanel.retain(text: finalText, status: "Saved · Copy when ready") {
+                        _ = self.output.copyToClipboard(finalText)
                     }
                 }
             } catch is CancellationError {
-                _ = await self.transcriber.stopLiveTranscription()
-                self.indicator.show(state: .error("Cancelled"))
+                _ = direct?.cancel()
+                self.showTemporaryIndicator(.error("Cancelled"))
             } catch {
                 Self.logger.error("Transcription failed")
-                _ = await self.transcriber.stopLiveTranscription()
-                self.indicator.show(state: .error("Transcription failed"))
+                _ = try? await self.transcriber.stopLiveTranscription()
+                _ = direct?.cancel()
+                if let partial = self.captures.add(text: self.latestLiveText, source: .voice,
+                                                   sourceApplication: sourceContext?.captureSource) {
+                    retainPanel = true
+                    self.transcriptPanel.retain(text: partial.text, status: "Transcription failed · Partial saved") {
+                        _ = self.output.copyToClipboard(partial.text)
+                    }
+                } else {
+                    self.showTemporaryIndicator(.error("Transcription failed"))
+                }
             }
-            try? await Task.sleep(nanoseconds: feedbackDuration)
-            self.indicator.hide()
         }
     }
 
@@ -324,19 +389,30 @@ final class AppCoordinator {
 
     private func cancelCurrentCapture() {
         guard captureState.isRecording || transcriptionTask != nil else { return }
+        if let transcriptionTask {
+            // The finalization task owns stopping and cancellation while finishing.
+            transcriptionTask.cancel()
+            transcriptPanel.setStatus("Cancelling…")
+            return
+        }
         _ = liveSession.cancelRecording()
-        transcriptionTask?.cancel()
-        transcriptionTask = nil
-        activeVoiceContext = nil
         captureState = .transcribing
-        indicator.show(state: .error("Cancelled"))
-        Task { @MainActor [weak self] in
+        transcriptPanel.setStatus("Cancelling…")
+        let startTask = recordingStartTask
+        let direct = directSession
+        transcriptionTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            _ = await self.transcriber.stopLiveTranscription()
+            _ = try? await startTask?.value
+            await self.transcriber.cancelLiveTranscription()
+            _ = direct?.cancel()
+            self.transcriptPanel.hide()
+            self.directSession = nil
+            self.activeVoiceContext = nil
+            self.recordingStartTask = nil
+            self.transcriptionTask = nil
             self.captureState = .idle
-            self.liveSession.resetCancellation()
-            try? await Task.sleep(for: .milliseconds(450))
-            self.indicator.hide()
+            self.liveSession.reset()
+            self.showTemporaryIndicator(.error("Cancelled"))
         }
     }
 }
@@ -346,6 +422,6 @@ enum VoiceCaptureDestination: Equatable {
     case focusedEditor
 
     static func resolve(from flags: CGEventFlags) -> VoiceCaptureDestination {
-        flags.contains(.maskShift) ? .shelf : .focusedEditor
+        flags.contains(.maskAlternate) ? .shelf : .focusedEditor
     }
 }
