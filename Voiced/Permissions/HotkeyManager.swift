@@ -13,6 +13,7 @@ final class HotkeyManager {
     private var handler: KeyHandler?
     private var globalMonitor: Any?
     private var localMonitor: Any?
+    private var permissionRetryTask: Task<Void, Never>?
     private nonisolated let shortcutFilter = PushToTalkEventFilter()
 
     private(set) var isUsingEventTap = false
@@ -62,11 +63,29 @@ final class HotkeyManager {
             Self.logger.info("Global input event tap enabled")
         } else {
             installNSEventFallback()
-            Self.logger.warning("Global input event tap unavailable; NSEvent fallback installed")
+            Self.logger.warning("Global input event tap unavailable; accessibility=\(AXIsProcessTrusted()), inputMonitoring=\(CGPreflightListenEventAccess())")
+            // Setup can grant access after launch. NSEvent's global monitor cannot
+            // consume shortcuts, so replace the fallback as soon as access is ready.
+            permissionRetryTask = Task { @MainActor [weak self] in
+                while !Task.isCancelled {
+                    do { try await Task.sleep(for: .seconds(2)) }
+                    catch { return }
+                    guard self != nil else { return }
+                    self?.retryEventTapIfAuthorized()
+                }
+            }
         }
     }
 
+    private func retryEventTapIfAuthorized() {
+        guard !isUsingEventTap, let handler,
+              AXIsProcessTrusted(), CGPreflightListenEventAccess() else { return }
+        startListening(handler: handler)
+    }
+
     func stopListening() {
+        permissionRetryTask?.cancel()
+        permissionRetryTask = nil
         if let runLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         }

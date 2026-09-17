@@ -4,8 +4,8 @@ Voiced is a directly distributed, local-first macOS utility. It is intentionally
 
 ## Privileges
 
-- Microphone: records only while Command + Shift + Space or Command + Option + Shift + Space is held.
-- Input Monitoring: listens for Command + Shift + Space, Command + Option + Shift + Space, double Shift, Option-Space, and Escape through a CGEvent tap. The dictation Space key events are consumed so the shortcut does not also reach the focused app; other events pass through unchanged. An `NSEvent` monitor is the fallback when the tap cannot be created.
+- Microphone: records only while Control + Shift + Space or Control + Option + Shift + Space is held.
+- Input Monitoring: listens for Control + Shift + Space, Control + Option + Shift + Space, double Shift, Option-Space, and Escape through a CGEvent tap. The dictation Space key events are consumed so the shortcut does not also reach the focused app; other events pass through unchanged. An `NSEvent` monitor is the fallback when the tap cannot be created. While using the fallback, Voiced checks existing Accessibility and Input Monitoring grants every two seconds and retries the tap when both are available. It does not request or change permissions during these checks.
 - Accessibility: reads selection, focused field, value and caret bounds for user-triggered capture/insertion. Preview uses Command-V once. Experimental Direct mode uses writable text/value attributes and checks focus, complete expected text and selection before every update; it stops writing on any mismatch.
 
 Voiced exposes the permission state and recovery actions in onboarding, the shelf, Settings, and the menu bar. It does not reset TCC databases or change privacy settings.

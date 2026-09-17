@@ -156,13 +156,13 @@ struct SettingsView: View {
                 GridRow {
                     Text("Dictate and insert")
                         .foregroundStyle(.secondary)
-                    Text("Command + Shift + Space")
+                    Text("Control + Shift + Space")
                 }
 
                 GridRow {
                     Text("Save capture")
                         .foregroundStyle(.secondary)
-                    Text("Command + Option + Shift + Space")
+                    Text("Control + Option + Shift + Space")
                 }
 
                 GridRow {

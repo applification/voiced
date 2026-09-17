@@ -104,8 +104,8 @@ struct CaptureShelfView: View {
             }
 
             Section("Shortcuts") {
-                ShortcutHintRow(title: "Insert voice", keys: "⌘⇧Space", detail: "Command + Shift + Space", symbol: "arrow.turn.down.left")
-                ShortcutHintRow(title: "Save voice", keys: "⌘⌥⇧Space", detail: "Command + Option + Shift + Space", symbol: "waveform")
+                ShortcutHintRow(title: "Insert voice", keys: "⌃⇧Space", detail: "Control + Shift + Space", symbol: "arrow.turn.down.left")
+                ShortcutHintRow(title: "Save voice", keys: "⌃⌥⇧Space", detail: "Control + Option + Shift + Space", symbol: "waveform")
                 ShortcutHintRow(title: "Save selection", keys: "⇧ ⇧", detail: "Double Shift", symbol: "selection.pin.in.out")
                 ShortcutHintRow(title: "Toggle shelf", keys: "⌥ Space", detail: "Option + Space", symbol: "rectangle.rightthird.inset.filled")
             }

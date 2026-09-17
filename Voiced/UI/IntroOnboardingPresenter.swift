@@ -180,7 +180,7 @@ private struct IntroOnboardingView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(mode.heading)
                     .font(.title3.weight(.semibold))
-                Text("Hold ⌘⇧Space to dictate and insert. Add Option to save the voice capture to Inbox.")
+                Text("Hold ⌃⇧Space to dictate and insert. Add Option to save the voice capture to Inbox.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -218,7 +218,7 @@ private struct IntroOnboardingView: View {
             title: "Capture permissions",
             status: accessibilityAuthorized && inputMonitoringAuthorized ? "Ready" : "Needed",
             statusColor: accessibilityAuthorized && inputMonitoringAuthorized ? .green : .secondary,
-            detail: "Accessibility reads selections and inserts captures. Input Monitoring listens for Command + Shift + Space, Command + Option + Shift + Space, double Shift, and Option-Space."
+            detail: "Accessibility reads selections and inserts captures. Input Monitoring listens for Control + Shift + Space, Control + Option + Shift + Space, double Shift, and Option-Space."
         ) {
             HStack(spacing: 8) {
                 if !accessibilityAuthorized {

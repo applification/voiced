@@ -8,7 +8,7 @@ Voiced is a local capture layer for macOS: speak it, select it, or type it, then
 
 ## Capture
 
-- Hold **Command + Shift + Space** to see a live transcript beside the caret (or mouse pointer). Release to finish and insert into the same field. Successful insertion moves the capture to Done.
+- Hold **Control + Shift + Space** to see a live transcript beside the caret (or mouse pointer). Release to finish and insert into the same field. Successful insertion moves the capture to Done.
 - Add **Option** to that shortcut to save to Inbox instead. Escape cancels.
 - Press Shift twice to capture the current selection.
 - Press Option-Space to open or close the shelf.

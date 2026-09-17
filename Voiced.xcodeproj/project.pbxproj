@@ -393,7 +393,6 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					46DE5F9C753D9FDD51832DE9 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					BFCBB48333D1D715F3A7E9F9 = {
@@ -618,6 +617,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Config/Voiced.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = GY6Q9L4423;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -696,6 +696,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Config/Voiced.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = GY6Q9L4423;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

@@ -8,7 +8,7 @@ struct PushToTalkHotkey {
     }
 
     static let keyCode: CGKeyCode = 49
-    static let requiredModifiers: CGEventFlags = [.maskCommand, .maskShift]
+    static let requiredModifiers: CGEventFlags = [.maskControl, .maskShift]
 
     private(set) var isHoldingSpace = false
     private var isActive = false
@@ -16,7 +16,7 @@ struct PushToTalkHotkey {
     static func matches(keyCode: CGKeyCode, flags: CGEventFlags) -> Bool {
         keyCode == Self.keyCode
             && flags.contains(requiredModifiers)
-            && !flags.contains(.maskControl)
+            && !flags.contains(.maskCommand)
     }
 
     mutating func register(type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) -> Transition? {

@@ -3,23 +3,23 @@ import XCTest
 @testable import Voiced
 
 final class VoiceCaptureDestinationTests: XCTestCase {
-    func testCommandShiftSpaceDefaultsToFocusedEditorInsertion() {
+    func testControlShiftSpaceDefaultsToFocusedEditorInsertion() {
         XCTAssertEqual(
-            VoiceCaptureDestination.resolve(from: [.maskCommand, .maskShift]),
+            VoiceCaptureDestination.resolve(from: [.maskControl, .maskShift]),
             .focusedEditor
         )
     }
 
     func testAddingOptionSelectsShelfCapture() {
         XCTAssertEqual(
-            VoiceCaptureDestination.resolve(from: [.maskCommand, .maskShift, .maskAlternate]),
+            VoiceCaptureDestination.resolve(from: [.maskControl, .maskShift, .maskAlternate]),
             .shelf
         )
     }
 }
 
 final class PushToTalkHotkeyTests: XCTestCase {
-    private let modifiers: CGEventFlags = [.maskCommand, .maskShift]
+    private let modifiers: CGEventFlags = [.maskControl, .maskShift]
 
     func testHoldStartsOnceAndSpaceReleaseStops() {
         var shortcut = PushToTalkHotkey()
@@ -30,7 +30,7 @@ final class PushToTalkHotkeyTests: XCTestCase {
     }
 
     func testReleasingEitherModifierStopsWithoutRestartingOnRepeat() {
-        for remaining: CGEventFlags in [.maskCommand, .maskShift] {
+        for remaining: CGEventFlags in [.maskControl, .maskShift] {
             var shortcut = PushToTalkHotkey()
             _ = shortcut.register(type: .keyDown, keyCode: 49, flags: modifiers)
             XCTAssertEqual(shortcut.register(type: .flagsChanged, keyCode: 56, flags: remaining), .released)
@@ -45,9 +45,19 @@ final class PushToTalkHotkeyTests: XCTestCase {
         XCTAssertNil(shortcut.register(type: .flagsChanged, keyCode: 54, flags: .maskCommand))
         XCTAssertNil(shortcut.register(type: .flagsChanged, keyCode: 54, flags: modifiers))
         XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 49, flags: .maskCommand))
+        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 49, flags: .maskControl))
         XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 49, flags: .maskAlternate))
         XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 49, flags: [.maskCommand, .maskShift, .maskControl]))
         XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 0, flags: modifiers))
+    }
+
+    func testSiriShortcutPassesThroughWithoutRecording() {
+        var shortcut = PushToTalkHotkey()
+        let filter = PushToTalkEventFilter()
+        let siriModifiers: CGEventFlags = [.maskCommand, .maskShift]
+        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 49, flags: siriModifiers))
+        XCTAssertFalse(filter.shouldConsume(type: .keyDown, keyCode: 49, flags: siriModifiers))
+        XCTAssertFalse(filter.shouldConsume(type: .keyUp, keyCode: 49, flags: siriModifiers))
     }
 
     func testOptionVariantAndCapsLockStillAllowRecording() {
@@ -67,7 +77,7 @@ final class PushToTalkHotkeyTests: XCTestCase {
     func testFilterConsumesShortcutAndReleaseAfterModifiersLift() {
         let filter = PushToTalkEventFilter()
         XCTAssertTrue(filter.shouldConsume(type: .keyDown, keyCode: 49, flags: modifiers))
-        XCTAssertFalse(filter.shouldConsume(type: .flagsChanged, keyCode: 56, flags: .maskCommand))
+        XCTAssertFalse(filter.shouldConsume(type: .flagsChanged, keyCode: 56, flags: .maskControl))
         XCTAssertTrue(filter.shouldConsume(type: .keyDown, keyCode: 49, flags: []))
         XCTAssertTrue(filter.shouldConsume(type: .keyUp, keyCode: 49, flags: []))
         XCTAssertFalse(filter.shouldConsume(type: .keyDown, keyCode: 49, flags: []))
