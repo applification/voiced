@@ -107,6 +107,13 @@ final class CaptureStore {
         persist()
     }
 
+    func applyRefinement(id: UUID, text: String) {
+        guard let index = items.firstIndex(where: { $0.id == id }),
+              !Self.normalized(text).isEmpty else { return }
+        if items[index].originalText == nil { items[index].originalText = items[index].text }
+        updateText(id: id, text: text)
+    }
+
     func move(id: UUID, to status: CaptureStatus) {
         guard let index = items.firstIndex(where: { $0.id == id }),
               items[index].status != status else { return }

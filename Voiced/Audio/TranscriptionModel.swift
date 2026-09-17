@@ -3,6 +3,7 @@ import SwiftUI
 import WhisperKit
 
 enum TranscriptionModel: String, CaseIterable, Identifiable, Sendable {
+    case parakeetV2 = "parakeet-v2-english"
     case tiny
     case base
     case small
@@ -12,15 +13,17 @@ enum TranscriptionModel: String, CaseIterable, Identifiable, Sendable {
 
     var label: String {
         switch self {
+        case .parakeetV2: "Parakeet v2 English"
         case .tiny: "Tiny"
         case .base: "Base"
         case .small: "Small"
-        case .largeAccuracy: "Large v3"
+        case .largeAccuracy: "Large v3 Turbo"
         }
     }
 
     var detail: String {
         switch self {
+        case .parakeetV2: "English · Apple Silicon"
         case .tiny: "Fastest"
         case .base: "Fast"
         case .small: "Balanced"
@@ -30,6 +33,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable, Sendable {
 
     var onboardingSubtitle: String {
         switch self {
+        case .parakeetV2: "Recommended for English"
         case .tiny: "Quick first run"
         case .base: "Still light, clearer"
         case .small: "Better everyday accuracy"
@@ -39,6 +43,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable, Sendable {
 
     var onboardingDetail: String {
         switch self {
+        case .parakeetV2: "Local speech + vocabulary"
         case .tiny: "Fastest first run"
         case .base: "Fast and clearer"
         case .small: "Balanced accuracy"
@@ -52,6 +57,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable, Sendable {
 
     var symbolName: String {
         switch self {
+        case .parakeetV2: "waveform"
         case .tiny: "hare.fill"
         case .base: "bolt.fill"
         case .small: "scale.3d"
@@ -61,6 +67,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable, Sendable {
 
     var tintColor: Color {
         switch self {
+        case .parakeetV2: .mint
         case .tiny: .green
         case .base: .blue
         case .small: .indigo
@@ -74,6 +81,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable, Sendable {
 
     var whisperKitVariant: String {
         switch self {
+        case .parakeetV2: rawValue
         case .tiny: "tiny.en"
         case .base: "base.en"
         case .small: "small.en"
@@ -87,6 +95,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable, Sendable {
 
     var expectedDownloadBytes: UInt64 {
         switch self {
+        case .parakeetV2: 550 * 1_024 * 1_024
         case .tiny: 73 * 1_024 * 1_024
         case .base: 143 * 1_024 * 1_024
         case .small: 479 * 1_024 * 1_024
@@ -96,7 +105,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable, Sendable {
 
     var modelComputeOptions: ModelComputeOptions {
         switch self {
-        case .tiny:
+        case .tiny, .parakeetV2:
             ModelComputeOptions()
         case .base, .small, .largeAccuracy:
             ModelComputeOptions(

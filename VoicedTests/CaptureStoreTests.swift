@@ -69,6 +69,17 @@ final class CaptureStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testRefinementPreservesOriginalAcrossRelaunchAndRepeatedCleanup() throws {
+        let store = CaptureStore(fileURL: fileURL)
+        let item = try XCTUnwrap(store.add(text: "um raw words", source: .voice))
+        store.applyRefinement(id: item.id, text: "Raw words.")
+        store.applyRefinement(id: item.id, text: "Raw words!")
+        let restored = CaptureStore(fileURL: fileURL)
+        XCTAssertEqual(restored.items.first?.text, "Raw words!")
+        XCTAssertEqual(restored.items.first?.originalText, "um raw words")
+    }
+
+    @MainActor
     func testLegacyNextStatusMigratesToInbox() throws {
         let data = Data("""
         {

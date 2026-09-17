@@ -13,6 +13,7 @@ final class HotkeyManager {
     private var handler: KeyHandler?
     private var globalMonitor: Any?
     private var localMonitor: Any?
+    private nonisolated let shortcutFilter = PushToTalkEventFilter()
 
     private(set) var isUsingEventTap = false
 
@@ -22,22 +23,28 @@ final class HotkeyManager {
 
         let mask = (CGEventMask(1) << CGEventMask(CGEventType.flagsChanged.rawValue))
             | (CGEventMask(1) << CGEventMask(CGEventType.keyDown.rawValue))
+            | (CGEventMask(1) << CGEventMask(CGEventType.keyUp.rawValue))
 
         func makeTap(_ location: CGEventTapLocation) -> CFMachPort? {
             CGEvent.tapCreate(
                 tap: location,
                 place: .headInsertEventTap,
-                options: .listenOnly,
+                options: .defaultTap,
                 eventsOfInterest: mask,
                 callback: { _, type, event, refcon in
                     guard let refcon else { return Unmanaged.passUnretained(event) }
                     let manager = Unmanaged<HotkeyManager>.fromOpaque(refcon).takeUnretainedValue()
                     let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
                     let flags = event.flags
+                    let consumed = manager.shortcutFilter.shouldConsume(type: type, keyCode: keyCode, flags: flags)
                     Task { @MainActor in
+                        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                            if let tap = manager.eventTap { CGEvent.tapEnable(tap: tap, enable: true) }
+                            return
+                        }
                         manager.handleEvent(type: type, keyCode: keyCode, flags: flags)
                     }
-                    return Unmanaged.passUnretained(event)
+                    return consumed ? nil : Unmanaged.passUnretained(event)
                 },
                 userInfo: Unmanaged.passUnretained(self).toOpaque()
             )
@@ -75,26 +82,38 @@ final class HotkeyManager {
         globalMonitor = nil
         localMonitor = nil
         handler = nil
+        shortcutFilter.reset()
     }
 
     private func handleEvent(type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) {
-        guard type == .flagsChanged || type == .keyDown else { return }
+        guard type == .flagsChanged || type == .keyDown || type == .keyUp else { return }
         handler?(type, keyCode, flags)
     }
 
     private func installNSEventFallback() {
-        let mask: NSEvent.EventTypeMask = [.flagsChanged, .keyDown]
+        let mask: NSEvent.EventTypeMask = [.flagsChanged, .keyDown, .keyUp]
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
+            _ = self?.shortcutFilter.shouldConsume(
+                type: Self.cgType(from: event.type),
+                keyCode: CGKeyCode(event.keyCode),
+                flags: Self.cgFlags(from: event.modifierFlags)
+            )
             Task { @MainActor in self?.handle(event) }
         }
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
+            let type = Self.cgType(from: event.type)
+            let consumed = self?.shortcutFilter.shouldConsume(
+                type: type,
+                keyCode: CGKeyCode(event.keyCode),
+                flags: Self.cgFlags(from: event.modifierFlags)
+            ) ?? false
             Task { @MainActor in self?.handle(event) }
-            return event
+            return consumed ? nil : event
         }
     }
 
     private func handle(_ event: NSEvent) {
-        let type: CGEventType = event.type == .flagsChanged ? .flagsChanged : .keyDown
+        let type = Self.cgType(from: event.type)
         handleEvent(
             type: type,
             keyCode: CGKeyCode(event.keyCode),
@@ -102,7 +121,15 @@ final class HotkeyManager {
         )
     }
 
-    private static func cgFlags(from flags: NSEvent.ModifierFlags) -> CGEventFlags {
+    private nonisolated static func cgType(from type: NSEvent.EventType) -> CGEventType {
+        switch type {
+        case .flagsChanged: .flagsChanged
+        case .keyUp: .keyUp
+        default: .keyDown
+        }
+    }
+
+    private nonisolated static func cgFlags(from flags: NSEvent.ModifierFlags) -> CGEventFlags {
         var result: CGEventFlags = []
         if flags.contains(.command) { result.insert(.maskCommand) }
         if flags.contains(.option) { result.insert(.maskAlternate) }

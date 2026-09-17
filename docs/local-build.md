@@ -10,6 +10,10 @@ Voiced is a directly distributed macOS app. Use a stable signed bundle path whil
 
 The script regenerates `Voiced.xcodeproj`, builds Debug by default, copies the app to `dist/Voiced.app`, signs it with the first available Apple Development identity, verifies the signature, registers the stable path, and launches it.
 
+If macOS still has Command Line Tools selected, the script automatically uses `/Applications/Xcode.app`. It respects an explicit `DEVELOPER_DIR` and does not change the system-wide selection.
+
+The script disables Xcode's separate debug dylib for the staged app. This lets local ad-hoc signing work with hardened runtime when no Apple Development identity is available; ordinary Xcode builds keep their usual preview settings.
+
 Choose a signing identity or build configuration explicitly:
 
 ```sh
@@ -29,6 +33,7 @@ Do not reset TCC as part of normal testing. If the system has stale grants, rese
 
 ```sh
 xcodegen generate
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 xcodebuild \
   -project Voiced.xcodeproj \
   -scheme Voiced \

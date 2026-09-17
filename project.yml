@@ -14,6 +14,9 @@ configs:
   Debug: debug
   Release: release
 packages:
+  FluidAudio:
+    url: https://github.com/FluidInference/FluidAudio.git
+    exactVersion: 0.15.7
   ArgmaxOSS:
     url: https://github.com/argmaxinc/argmax-oss-swift.git
     from: 1.1.0
@@ -25,6 +28,8 @@ targets:
       - path: Voiced
       - path: Config/Assets.xcassets
     dependencies:
+      - package: FluidAudio
+        product: FluidAudio
       - package: ArgmaxOSS
         product: WhisperKit
     settings:

@@ -1,4 +1,5 @@
 import Foundation
+import FluidAudio
 
 struct ModelStatus: Equatable, Sendable {
     let existsOnDisk: Bool
@@ -70,7 +71,8 @@ struct ModelStore: Sendable {
     }
 
     var localModelURL: URL {
-        localRepoURL
+        if model == .parakeetV2 { return AsrModels.defaultCacheDirectory(for: .v2) }
+        return localRepoURL
             .appendingPathComponent(model.cacheFolderName, isDirectory: true)
     }
 
@@ -83,7 +85,12 @@ struct ModelStore: Sendable {
     }
 
     var hasRequiredModelFiles: Bool {
-        containsModel(named: "MelSpectrogram")
+        if model == .parakeetV2 {
+            return AsrModels.modelsExist(at: localModelURL, version: .v2)
+                && CtcModels.modelsExist(at: CtcModels.defaultCacheDirectory())
+                && FileManager.default.fileExists(atPath: CtcModels.defaultCacheDirectory().appendingPathComponent("tokenizer.json").path)
+        }
+        return containsModel(named: "MelSpectrogram")
             && containsModel(named: "AudioEncoder")
             && containsModel(named: "TextDecoder")
     }
@@ -112,7 +119,8 @@ struct ModelStore: Sendable {
     func statusSnapshot() -> ModelStatus {
         let exists = FileManager.default.fileExists(atPath: localModelURL.path)
         let downloaded = hasRequiredModelFiles
-        let bytes = downloaded ? directorySize(at: localModelURL) : 0
+        let bytes = downloaded ? directorySize(at: localModelURL)
+            + (model == .parakeetV2 ? directorySize(at: CtcModels.defaultCacheDirectory()) : 0) : 0
         return ModelStatus(existsOnDisk: exists, isDownloaded: downloaded, downloadedBytes: bytes)
     }
 

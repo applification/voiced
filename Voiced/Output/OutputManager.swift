@@ -28,8 +28,10 @@ final class OutputManager {
 
     func insert(
         _ text: String,
-        into targetApplication: NSRunningApplication?
+        into targetApplication: NSRunningApplication?,
+        guardBeforePaste: (@MainActor () -> Bool)? = nil
     ) async -> OutputResult {
+        guard !Task.isCancelled, guardBeforePaste?() != false else { return .failed }
         guard AXIsProcessTrusted() else { return .accessibilityRequired }
 
         let normalizedText = TranscriptOutputFormatter.normalizedText(text)
@@ -43,12 +45,16 @@ final class OutputManager {
             try? await Task.sleep(for: .milliseconds(180))
         }
 
-        guard Self.postCommandV() else {
+        guard !Task.isCancelled, guardBeforePaste?() != false,
+              targetApplication == nil || NSWorkspace.shared.frontmostApplication?.processIdentifier == targetApplication?.processIdentifier,
+              Self.postCommandV() else {
             _ = transaction.restoreIfUnchanged(on: pasteboard)
             return .failed
         }
 
-        try? await Task.sleep(for: .milliseconds(420))
+        // Once the paste is posted, cancellation must not restore the old clipboard
+        // before the destination has had time to consume the new contents.
+        await Task.detached { try? await Task.sleep(for: .milliseconds(420)) }.value
         let restored = transaction.restoreIfUnchanged(on: pasteboard)
         Self.logger.info("Automatic insertion completed; clipboardRestored=\(restored, privacy: .public)")
         return .inserted

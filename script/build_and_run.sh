@@ -25,12 +25,24 @@ detect_signing_identity() {
 }
 
 build_app() {
+  # Keep an explicit toolchain choice; use the standard Xcode install when only
+  # Command Line Tools are selected system-wide (common after an OS upgrade).
+  if [[ -z "${DEVELOPER_DIR:-}" ]]; then
+    local selected_developer_dir
+    selected_developer_dir="$(xcode-select -p 2>/dev/null || true)"
+    if [[ ! -x "$selected_developer_dir/usr/bin/xcodebuild" &&
+          -x /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild ]]; then
+      export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+    fi
+  fi
+
   xcodegen generate --spec "$ROOT_DIR/project.yml"
   xcodebuild \
     -project "$ROOT_DIR/Voiced.xcodeproj" \
     -scheme "$APP_NAME" \
     -configuration "$CONFIGURATION" \
     -derivedDataPath "$BUILD_DIR" \
+    ENABLE_DEBUG_DYLIB=NO \
     build
 }
 

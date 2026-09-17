@@ -21,13 +21,25 @@ protocol AppTranscribing: AnyObject {
         onUpdate: @escaping @MainActor (LiveTranscriptState) -> Void,
         onAudioLevel: @escaping @MainActor (Double) -> Void
     ) async throws
-    func stopLiveTranscription() async -> String
+    func stopLiveTranscription() async throws -> String
+    func cancelLiveTranscription() async
+}
+
+extension AppTranscribing {
+    func cancelLiveTranscription() async { _ = try? await stopLiveTranscription() }
 }
 
 @MainActor
 protocol OutputPerforming: AnyObject {
     @discardableResult func copyToClipboard(_ text: String) -> OutputResult
-    func insert(_ text: String, into targetApplication: NSRunningApplication?) async -> OutputResult
+    func insert(_ text: String, into targetApplication: NSRunningApplication?,
+                guardBeforePaste: (@MainActor () -> Bool)?) async -> OutputResult
+}
+
+extension OutputPerforming {
+    func insert(_ text: String, into application: NSRunningApplication?) async -> OutputResult {
+        await insert(text, into: application, guardBeforePaste: nil)
+    }
 }
 
 @MainActor

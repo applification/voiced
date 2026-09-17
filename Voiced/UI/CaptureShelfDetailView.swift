@@ -65,6 +65,10 @@ struct CaptureShelfDetailView: View {
             header
             editorOrPreview
             secondaryActions
+            if let original = item.originalText, original != item.text {
+                Button("Restore original transcript") { onUpdate(item.id, original) }
+                    .font(.caption)
+            }
             feedback
             Spacer(minLength: 0)
             outputActions

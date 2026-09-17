@@ -61,8 +61,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSWindowDelegate {
             symbolName: "rectangle.rightthird.inset.filled"
         ))
         menu.addItem(.separator())
-        menu.addItem(infoItem(title: "Right Command: dictate and insert", symbolName: "arrow.turn.down.left"))
-        menu.addItem(infoItem(title: "Shift + Right Command: save voice capture", symbolName: "waveform"))
+        menu.addItem(infoItem(title: "Command + Shift + Space: dictate and insert", symbolName: "arrow.turn.down.left"))
+        menu.addItem(infoItem(title: "Command + Option + Shift + Space: save voice capture", symbolName: "waveform"))
         menu.addItem(infoItem(title: "Double Shift to capture selection", symbolName: "selection.pin.in.out"))
         menu.addItem(.separator())
 
