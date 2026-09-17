@@ -102,9 +102,7 @@ final class ParakeetTranscriptionService: AppTranscribing {
             await cancelLiveTranscription()
             throw TranscriptionError.noResult
         }
-        node.installTap(onBus: 0, bufferSize: 4096, format: format) { buffer, _ in
-            if let owned = OwnedAudioBuffer(copying: buffer) { continuation.yield(owned) }
-        }
+        Self.installTap(on: node, format: format, continuation: continuation)
         self.engine = engine
         do {
             try engine.start()
@@ -113,6 +111,19 @@ final class ParakeetTranscriptionService: AppTranscribing {
             throw error
         }
         onUpdate(LiveTranscriptState(committedText: "", provisionalText: "", isRecording: true))
+    }
+
+    // CoreAudio invokes the tap block on its own realtime thread. Installing it from a
+    // nonisolated function keeps the closure from inheriting @MainActor isolation, which
+    // would otherwise trap the process when the runtime detects the executor mismatch.
+    nonisolated private static func installTap(
+        on node: AVAudioInputNode,
+        format: AVAudioFormat,
+        continuation: AsyncStream<OwnedAudioBuffer>.Continuation
+    ) {
+        node.installTap(onBus: 0, bufferSize: 4096, format: format) { buffer, _ in
+            if let owned = OwnedAudioBuffer(copying: buffer) { continuation.yield(owned) }
+        }
     }
 
     func stopLiveTranscription() async throws -> String {
