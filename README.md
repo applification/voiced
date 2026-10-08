@@ -8,9 +8,9 @@ Voiced is a local capture layer for macOS: speak it, select it, or type it, then
 
 ## Capture
 
-- Hold **Control + Shift + Space** to see a live transcript beside the caret (or mouse pointer). Release to finish and insert into the same field. Successful insertion moves the capture to Done.
-- Add **Option** to that shortcut to save to Inbox instead. Escape cancels.
-- Press Shift twice to capture the current selection.
+- Hold **Control + Option + Z** to see a live transcript beside the caret (or mouse pointer). Release to finish and insert into the same field. Successful insertion moves the capture to Done.
+- Add **Shift** to that shortcut to save to Inbox instead. Escape cancels.
+- Tap Shift twice quickly, without typing between taps, to capture the current selection. An empty selection silently does nothing.
 - Press Option-Space to open or close the shelf.
 - Type directly into the shelf to add a capture.
 - Edit, search, preview transcript refinements, export reminders, copy, drag, move, or remove captures in the shelf detail pane. Shelf refinements can be reviewed before applying. Optional automatic cleanup preserves an original transcript that can be restored.

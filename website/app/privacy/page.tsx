@@ -90,7 +90,7 @@ export default function PrivacyPage() {
 
         <Section title="Accessibility and Input Monitoring">
           <p>
-            Input Monitoring lets Voiced listen for Right Command, Shift + Right Command, double Shift,
+            Input Monitoring lets Voiced listen for Control + Option + Z, Control + Option + Shift + Z, double Shift,
             Option-Space, and Escape. Accessibility lets Voiced read the selected
             text exposed by the focused application and insert a capture after a
             user action. Voiced does not use these permissions to collect
