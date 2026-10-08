@@ -117,12 +117,22 @@ final class AppCoordinator {
             break
         }
 
+        if doubleShiftRecognizer.register(
+            type: type,
+            keyCode: keyCode,
+            flags: flags,
+            timestamp: ProcessInfo.processInfo.systemUptime
+        ) {
+            captureSelectedText()
+            return
+        }
+
         if type == .keyDown {
             if keyCode == 53 {
                 cancelCurrentCapture()
                 return
             }
-            if keyCode == 49, !pushToTalk.isHoldingSpace,
+            if keyCode == 49, !pushToTalk.isHoldingKey,
                flags.intersection([.maskCommand, .maskAlternate, .maskControl, .maskShift]) == .maskAlternate {
                 let now = ProcessInfo.processInfo.systemUptime
                 guard now - lastShelfToggleTime > 0.30 else { return }
@@ -132,22 +142,6 @@ final class AppCoordinator {
             }
             return
         }
-
-        guard type == .flagsChanged else { return }
-        let now = ProcessInfo.processInfo.systemUptime
-        let hasOtherModifiers = flags.contains(.maskCommand)
-            || flags.contains(.maskAlternate)
-            || flags.contains(.maskControl)
-        if doubleShiftRecognizer.register(
-            keyCode: keyCode,
-            isPressed: flags.contains(.maskShift),
-            hasOtherModifiers: hasOtherModifiers,
-            timestamp: now
-        ) {
-            captureSelectedText()
-            return
-        }
-
     }
 
     private func warmUpTranscriptionService(reason: String) {
@@ -365,14 +359,14 @@ final class AppCoordinator {
                     source: .selection,
                     sourceApplication: result.sourceApplication
                 ) != nil else {
-                    self.showTemporaryIndicator(.error("No text selected"))
                     return
                 }
                 self.showTemporaryIndicator(.success("Selection captured"))
             } catch SelectedTextCaptureError.accessibilityRequired {
                 self.showTemporaryIndicator(.error("Accessibility needed"), duration: 1_500_000_000)
             } catch SelectedTextCaptureError.noSelection {
-                self.showTemporaryIndicator(.error("No text selected"))
+                // An empty selection is an ordinary no-op for a modifier gesture.
+                return
             } catch {
                 self.showTemporaryIndicator(.error("Selection capture failed"))
             }
@@ -422,6 +416,6 @@ enum VoiceCaptureDestination: Equatable {
     case focusedEditor
 
     static func resolve(from flags: CGEventFlags) -> VoiceCaptureDestination {
-        flags.contains(.maskAlternate) ? .shelf : .focusedEditor
+        flags.contains(.maskShift) ? .shelf : .focusedEditor
     }
 }

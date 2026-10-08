@@ -17,6 +17,7 @@
 		176066DF2DEAE688EAE04E85 /* ApplicationContextTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0943E01CCEB4EC70E22D776F /* ApplicationContextTracker.swift */; };
 		18F9191DB3B2274A9F03BF90 /* IndicatorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CDC1DEB94A862FBD8B4176 /* IndicatorViews.swift */; };
 		1DC894F3E46F300DF0E8EA61 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFA387A03AF9C8840D824040 /* SettingsView.swift */; };
+		20DBD29396E49539F993C103 /* SelectionGestureIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89B00483B99D4D4159A55CBB /* SelectionGestureIntegrationTests.swift */; };
 		26E5D3FD640EA1AC6702F1BC /* DoubleShiftGestureRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D18A12437201385F05922C8 /* DoubleShiftGestureRecognizer.swift */; };
 		2EA31FFCCB4233DEABF19A5E /* LiveDictationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE31C86FCAD144B10AE0F55E /* LiveDictationSession.swift */; };
 		32A29600A4F44CDA30E85354 /* ReminderExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B1D731885DA384AE1BA36F /* ReminderExportService.swift */; };
@@ -72,6 +73,7 @@
 		E7E4DC9DBB5AFDE410055958 /* TranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71CD0C2ABDE2A1A0D7510C80 /* TranscriptionService.swift */; };
 		E81EAE8038B63A2C03EE5AC1 /* AppCoordinatorLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AE923A0E8BCA98872BE2CD /* AppCoordinatorLive.swift */; };
 		ED065FBE9A7DF84F882A65EC /* CaptureShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1CA4825CAC2F7232202BC3E /* CaptureShelfView.swift */; };
+		F3643AC45E922D2F5CACF73F /* SelectedTextCaptureServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FA8982885E5B9F5C125AE23 /* SelectedTextCaptureServiceTests.swift */; };
 		FA3E85725C77F29D5420A45D /* DirectDictationSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06585F29884970B07B4FF2AD /* DirectDictationSessionTests.swift */; };
 		FB48B2FAD7D66A8039A73245 /* MicrophonePermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 126FF9A5CA629BEF382E583A /* MicrophonePermissionManager.swift */; };
 		FE43892FEA85247B79F0CDDE /* CaptureRelativeTimeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D179E95EBB9E6791C8A4BD /* CaptureRelativeTimeText.swift */; };
@@ -118,6 +120,7 @@
 		6B923A6671650D69CAD9A20D /* VocabularySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularySettingsView.swift; sourceTree = "<group>"; };
 		6D7AD448C90A10E568928B60 /* NotchGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchGeometry.swift; sourceTree = "<group>"; };
 		6D80989AFC19D8186C39DC33 /* LiveTranscriptState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscriptState.swift; sourceTree = "<group>"; };
+		6FA8982885E5B9F5C125AE23 /* SelectedTextCaptureServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectedTextCaptureServiceTests.swift; sourceTree = "<group>"; };
 		71CD0C2ABDE2A1A0D7510C80 /* TranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionService.swift; sourceTree = "<group>"; };
 		72D179E95EBB9E6791C8A4BD /* CaptureRelativeTimeText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureRelativeTimeText.swift; sourceTree = "<group>"; };
 		733DD5D0CCC70F72107EEB40 /* PersonalVocabularyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalVocabularyTests.swift; sourceTree = "<group>"; };
@@ -125,6 +128,7 @@
 		79511C79F40A845E360752FE /* TranscriptOutputFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptOutputFormatter.swift; sourceTree = "<group>"; };
 		7AE28435042EA5C3E3EDADEA /* ModelLoadProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadProgress.swift; sourceTree = "<group>"; };
 		7C5B4F49379264F3CF41CB61 /* CaptureRelativeTimeLabelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureRelativeTimeLabelTests.swift; sourceTree = "<group>"; };
+		89B00483B99D4D4159A55CBB /* SelectionGestureIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionGestureIntegrationTests.swift; sourceTree = "<group>"; };
 		9831842C76DBBF67F7B19B0D /* StatusMenuController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMenuController.swift; sourceTree = "<group>"; };
 		9972ADCF2078365AE57E8CB5 /* IntroOnboardingPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntroOnboardingPresenter.swift; sourceTree = "<group>"; };
 		9CF2FE36886981B6240FEA03 /* OutputManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputManager.swift; sourceTree = "<group>"; };
@@ -192,6 +196,8 @@
 				7392BD992A8656B7B7620A59 /* IndicatorStateTests.swift */,
 				41140E8F08580E6C7D69EC88 /* LiveTranscriptionFinalizerTests.swift */,
 				733DD5D0CCC70F72107EEB40 /* PersonalVocabularyTests.swift */,
+				6FA8982885E5B9F5C125AE23 /* SelectedTextCaptureServiceTests.swift */,
+				89B00483B99D4D4159A55CBB /* SelectionGestureIntegrationTests.swift */,
 				420F81A39069BCBB96365473 /* TranscriptionModelTests.swift */,
 				FC2DACC893BFBC7DD37251E3 /* VoiceCaptureDestinationTests.swift */,
 			);
@@ -450,6 +456,8 @@
 				832E01AA59DD0862A1C23A09 /* IndicatorStateTests.swift in Sources */,
 				8732D4618A513DE4F1A5FE92 /* LiveTranscriptionFinalizerTests.swift in Sources */,
 				AF06C9F2D0C73B6A84F35E0B /* PersonalVocabularyTests.swift in Sources */,
+				F3643AC45E922D2F5CACF73F /* SelectedTextCaptureServiceTests.swift in Sources */,
+				20DBD29396E49539F993C103 /* SelectionGestureIntegrationTests.swift in Sources */,
 				60789156A48DDC333701EAD5 /* TranscriptionModelTests.swift in Sources */,
 				E2B8CE2B62BB9D8D5FB91BE5 /* VoiceCaptureDestinationTests.swift in Sources */,
 			);

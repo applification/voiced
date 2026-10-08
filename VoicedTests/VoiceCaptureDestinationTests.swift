@@ -3,40 +3,40 @@ import XCTest
 @testable import Voiced
 
 final class VoiceCaptureDestinationTests: XCTestCase {
-    func testControlShiftSpaceDefaultsToFocusedEditorInsertion() {
+    func testControlOptionZDefaultsToFocusedEditorInsertion() {
         XCTAssertEqual(
-            VoiceCaptureDestination.resolve(from: [.maskControl, .maskShift]),
+            VoiceCaptureDestination.resolve(from: [.maskControl, .maskAlternate]),
             .focusedEditor
         )
     }
 
-    func testAddingOptionSelectsShelfCapture() {
+    func testAddingShiftSelectsShelfCapture() {
         XCTAssertEqual(
-            VoiceCaptureDestination.resolve(from: [.maskControl, .maskShift, .maskAlternate]),
+            VoiceCaptureDestination.resolve(from: [.maskControl, .maskAlternate, .maskShift]),
             .shelf
         )
     }
 }
 
 final class PushToTalkHotkeyTests: XCTestCase {
-    private let modifiers: CGEventFlags = [.maskControl, .maskShift]
+    private let modifiers: CGEventFlags = [.maskControl, .maskAlternate]
 
-    func testHoldStartsOnceAndSpaceReleaseStops() {
+    func testHoldStartsOnceAndZReleaseStops() {
         var shortcut = PushToTalkHotkey()
-        XCTAssertEqual(shortcut.register(type: .keyDown, keyCode: 49, flags: modifiers), .pressed)
-        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 49, flags: modifiers))
-        XCTAssertEqual(shortcut.register(type: .keyUp, keyCode: 49, flags: modifiers), .released)
-        XCTAssertNil(shortcut.register(type: .keyUp, keyCode: 49, flags: []))
+        XCTAssertEqual(shortcut.register(type: .keyDown, keyCode: 6, flags: modifiers), .pressed)
+        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 6, flags: modifiers))
+        XCTAssertEqual(shortcut.register(type: .keyUp, keyCode: 6, flags: modifiers), .released)
+        XCTAssertNil(shortcut.register(type: .keyUp, keyCode: 6, flags: []))
     }
 
     func testReleasingEitherModifierStopsWithoutRestartingOnRepeat() {
-        for remaining: CGEventFlags in [.maskControl, .maskShift] {
+        for remaining: CGEventFlags in [.maskControl, .maskAlternate] {
             var shortcut = PushToTalkHotkey()
-            _ = shortcut.register(type: .keyDown, keyCode: 49, flags: modifiers)
-            XCTAssertEqual(shortcut.register(type: .flagsChanged, keyCode: 56, flags: remaining), .released)
-            XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 49, flags: modifiers))
-            XCTAssertNil(shortcut.register(type: .keyUp, keyCode: 49, flags: []))
-            XCTAssertEqual(shortcut.register(type: .keyDown, keyCode: 49, flags: modifiers), .pressed)
+            _ = shortcut.register(type: .keyDown, keyCode: 6, flags: modifiers)
+            XCTAssertEqual(shortcut.register(type: .flagsChanged, keyCode: 58, flags: remaining), .released)
+            XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 6, flags: modifiers))
+            XCTAssertNil(shortcut.register(type: .keyUp, keyCode: 6, flags: []))
+            XCTAssertEqual(shortcut.register(type: .keyDown, keyCode: 6, flags: modifiers), .pressed)
         }
     }
 
@@ -44,10 +44,11 @@ final class PushToTalkHotkeyTests: XCTestCase {
         var shortcut = PushToTalkHotkey()
         XCTAssertNil(shortcut.register(type: .flagsChanged, keyCode: 54, flags: .maskCommand))
         XCTAssertNil(shortcut.register(type: .flagsChanged, keyCode: 54, flags: modifiers))
-        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 49, flags: .maskCommand))
-        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 49, flags: .maskControl))
-        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 49, flags: .maskAlternate))
-        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 49, flags: [.maskCommand, .maskShift, .maskControl]))
+        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 6, flags: .maskCommand))
+        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 6, flags: []))
+        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 6, flags: .maskControl))
+        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 6, flags: .maskAlternate))
+        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 6, flags: [.maskCommand, .maskShift, .maskControl]))
         XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 0, flags: modifiers))
     }
 
@@ -60,33 +61,51 @@ final class PushToTalkHotkeyTests: XCTestCase {
         XCTAssertFalse(filter.shouldConsume(type: .keyUp, keyCode: 49, flags: siriModifiers))
     }
 
-    func testOptionVariantAndCapsLockStillAllowRecording() {
-        for additional: CGEventFlags in [.maskAlternate, .maskAlphaShift] {
+    func testSystemAndPreviousSpaceShortcutsPassThrough() {
+        for flags: CGEventFlags in [.maskControl, [.maskControl, .maskShift], [.maskControl, .maskAlternate, .maskShift]] {
             var shortcut = PushToTalkHotkey()
-            XCTAssertEqual(shortcut.register(type: .keyDown, keyCode: 49, flags: modifiers.union(additional)), .pressed)
+            let filter = PushToTalkEventFilter()
+            XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 49, flags: flags))
+            XCTAssertFalse(filter.shouldConsume(type: .keyDown, keyCode: 49, flags: flags))
+            XCTAssertFalse(filter.shouldConsume(type: .keyUp, keyCode: 49, flags: flags))
+        }
+    }
+
+    func testOptionZStillTypesOmegaWithoutRecording() {
+        var shortcut = PushToTalkHotkey()
+        let filter = PushToTalkEventFilter()
+        XCTAssertNil(shortcut.register(type: .keyDown, keyCode: 6, flags: .maskAlternate))
+        XCTAssertFalse(filter.shouldConsume(type: .keyDown, keyCode: 6, flags: .maskAlternate))
+        XCTAssertFalse(filter.shouldConsume(type: .keyUp, keyCode: 6, flags: .maskAlternate))
+    }
+
+    func testShiftVariantAndCapsLockStillAllowRecording() {
+        for additional: CGEventFlags in [.maskShift, .maskAlphaShift] {
+            var shortcut = PushToTalkHotkey()
+            XCTAssertEqual(shortcut.register(type: .keyDown, keyCode: 6, flags: modifiers.union(additional)), .pressed)
         }
     }
 
     func testUnrelatedKeyReleaseDoesNotStopRecording() {
         var shortcut = PushToTalkHotkey()
-        _ = shortcut.register(type: .keyDown, keyCode: 49, flags: modifiers)
+        _ = shortcut.register(type: .keyDown, keyCode: 6, flags: modifiers)
         XCTAssertNil(shortcut.register(type: .keyUp, keyCode: 0, flags: modifiers))
-        XCTAssertEqual(shortcut.register(type: .keyUp, keyCode: 49, flags: []), .released)
+        XCTAssertEqual(shortcut.register(type: .keyUp, keyCode: 6, flags: []), .released)
     }
 
     func testFilterConsumesShortcutAndReleaseAfterModifiersLift() {
         let filter = PushToTalkEventFilter()
-        XCTAssertTrue(filter.shouldConsume(type: .keyDown, keyCode: 49, flags: modifiers))
-        XCTAssertFalse(filter.shouldConsume(type: .flagsChanged, keyCode: 56, flags: .maskControl))
-        XCTAssertTrue(filter.shouldConsume(type: .keyDown, keyCode: 49, flags: []))
-        XCTAssertTrue(filter.shouldConsume(type: .keyUp, keyCode: 49, flags: []))
-        XCTAssertFalse(filter.shouldConsume(type: .keyDown, keyCode: 49, flags: []))
+        XCTAssertTrue(filter.shouldConsume(type: .keyDown, keyCode: 6, flags: modifiers))
+        XCTAssertFalse(filter.shouldConsume(type: .flagsChanged, keyCode: 58, flags: []))
+        XCTAssertTrue(filter.shouldConsume(type: .keyDown, keyCode: 6, flags: []))
+        XCTAssertTrue(filter.shouldConsume(type: .keyUp, keyCode: 6, flags: []))
+        XCTAssertFalse(filter.shouldConsume(type: .keyDown, keyCode: 6, flags: []))
     }
 
     func testFilterPassesThroughOrdinaryTypingAndShelfShortcut() {
         let filter = PushToTalkEventFilter()
-        XCTAssertFalse(filter.shouldConsume(type: .keyDown, keyCode: 49, flags: []))
-        XCTAssertFalse(filter.shouldConsume(type: .keyUp, keyCode: 49, flags: []))
+        XCTAssertFalse(filter.shouldConsume(type: .keyDown, keyCode: 6, flags: []))
+        XCTAssertFalse(filter.shouldConsume(type: .keyUp, keyCode: 6, flags: []))
         XCTAssertFalse(filter.shouldConsume(type: .keyDown, keyCode: 49, flags: .maskAlternate))
         XCTAssertFalse(filter.shouldConsume(type: .keyDown, keyCode: 0, flags: modifiers))
     }

@@ -4,8 +4,8 @@ The public website for Voiced, a private macOS dictation and capture utility.
 
 The site reflects the current app workflow:
 
-- Right Command dictates into the previously focused editor.
-- Shift + Right Command saves a voice capture to Inbox.
+- Control + Option + Z dictates into the previously focused editor.
+- Control + Option + Shift + Z saves a voice capture to Inbox.
 - Double Shift saves selected text.
 - Option-Space opens the persistent Inbox and Done shelf.
 - Captures can be edited, searched, refined with preview and undo, copied, dragged, moved, or removed.

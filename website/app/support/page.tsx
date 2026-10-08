@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 const supportTopics = [
   {
     title: "Voice shortcuts",
-    text: "Hold Right Command to dictate into the previously focused editor. Hold Shift + Right Command to save a voice capture quietly to Inbox. Release either gesture to finish recording, or press Escape to cancel.",
+    text: "Hold Control + Option + Z to dictate into the previously focused editor. Hold Control + Option + Shift + Z to save a voice capture quietly to Inbox. Release either gesture to finish recording, or press Escape to cancel.",
   },
   {
     title: "Microphone permission",
@@ -21,7 +21,7 @@ const supportTopics = [
   },
   {
     title: "Capture permissions",
-    text: "Accessibility lets Voiced read an explicit selection and insert a capture. Input Monitoring listens for Right Command, Shift + Right Command, double Shift, and Option-Space. The shelf and Settings provide recovery buttons.",
+    text: "Accessibility lets Voiced read an explicit selection and insert a capture. Input Monitoring listens for Control + Option + Z, Control + Option + Shift + Z, double Shift, and Option-Space. The shelf and Settings provide recovery buttons.",
   },
   {
     title: "Model downloads",

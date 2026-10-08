@@ -39,12 +39,12 @@ function ApplificationMark({ className }: { className?: string }) {
 
 const shortcuts = [
   {
-    keys: ["Right ⌘"],
+    keys: ["⌃", "⌥", "Z"],
     title: "Dictate and insert",
     text: "Release to place the transcript in the editor you were using.",
   },
   {
-    keys: ["⇧", "Right ⌘"],
+    keys: ["⌃", "⌥", "⇧", "Z"],
     title: "Save voice to Inbox",
     text: "Keep the capture for later without opening the shelf.",
   },
@@ -190,7 +190,7 @@ function Hero() {
               Capture the thought. Keep your place.
             </h1>
             <p className="mt-7 max-w-2xl text-pretty text-lg leading-8 text-[#d2ddd5] sm:text-xl">
-              Hold Right Command to dictate into the app you are already using.
+              Hold Control + Option + Z to dictate into the app you are already using.
               Add Shift to save a voice capture to your local shelf instead.
               Selected text and typed notes live there too.
             </p>

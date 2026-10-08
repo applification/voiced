@@ -42,7 +42,7 @@ This plan assumes local-only operation remains the core product promise. Cloud s
 
 | Capability | Sotto advertises | Voiced today | Recommended action |
 |---|---|---|---|
-| System-wide dictation | Hold or toggle, configurable shortcuts. [Workflow](https://sotto.to/blog/how-to-dictate-into-any-mac-app/) | Fixed Right Command hold gesture; Shift variant saves to Inbox; clipboard restoration. | Add configurable hold/toggle modes; validate delivery across target apps. |
+| System-wide dictation | Hold or toggle, configurable shortcuts. [Workflow](https://sotto.to/blog/how-to-dictate-into-any-mac-app/) | Fixed Control + Option + Z hold shortcut; Shift variant saves to Inbox; clipboard restoration. | Add configurable hold/toggle modes; validate delivery across target apps. |
 | Local recognition | Whisper and Parakeet v2/v3. [Models](https://sotto.to/blog/whisper-vs-parakeet/) | WhisperKit: Tiny, Base, Small and a compressed Turbo variant labelled Large v3. | Improve the default before expanding the model catalogue; benchmark Parakeet. |
 | Language selection | 90+ languages, detection and language shortcuts. [Product](https://sotto.to/) | Decoder explicitly requests English; smaller models are English-only. | Add locale and auto-detection settings, checked against model capabilities. |
 | Personal vocabulary | Editable recognition hints. [Import guide](https://sotto.to/blog/transcribe-audio-to-text-offline-mac/) | Six hard-coded terms are already passed as prompt tokens. | Expose a persistent user dictionary and test its effect. |

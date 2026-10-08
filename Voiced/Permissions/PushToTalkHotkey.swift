@@ -7,10 +7,10 @@ struct PushToTalkHotkey {
         case released
     }
 
-    static let keyCode: CGKeyCode = 49
-    static let requiredModifiers: CGEventFlags = [.maskControl, .maskShift]
+    static let keyCode: CGKeyCode = 6
+    static let requiredModifiers: CGEventFlags = [.maskControl, .maskAlternate]
 
-    private(set) var isHoldingSpace = false
+    private(set) var isHoldingKey = false
     private var isActive = false
 
     static func matches(keyCode: CGKeyCode, flags: CGEventFlags) -> Bool {
@@ -21,7 +21,7 @@ struct PushToTalkHotkey {
 
     mutating func register(type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) -> Transition? {
         if type == .keyUp, keyCode == Self.keyCode {
-            isHoldingSpace = false
+            isHoldingKey = false
             guard isActive else { return nil }
             isActive = false
             return .released
@@ -33,9 +33,9 @@ struct PushToTalkHotkey {
         }
 
         guard type == .keyDown,
-              !isHoldingSpace,
+              !isHoldingKey,
               Self.matches(keyCode: keyCode, flags: flags) else { return nil }
-        isHoldingSpace = true
+        isHoldingKey = true
         isActive = true
         return .pressed
     }
@@ -50,11 +50,11 @@ final class PushToTalkEventFilter: @unchecked Sendable {
     func shouldConsume(type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        let wasHoldingSpace = shortcut.isHoldingSpace
+        let wasHoldingKey = shortcut.isHoldingKey
         _ = shortcut.register(type: type, keyCode: keyCode, flags: flags)
         return keyCode == PushToTalkHotkey.keyCode
             && (type == .keyDown || type == .keyUp)
-            && (wasHoldingSpace || shortcut.isHoldingSpace)
+            && (wasHoldingKey || shortcut.isHoldingKey)
     }
 
     func reset() {
